@@ -216,14 +216,22 @@ describe.each(ENGINE_PACKAGES)('publish surface — %s', (name) => {
 		}
 	});
 
-	it('publishes targets that exist on disk', () => {
-		// Catches a typo in a hand-edited override and a renamed entry point. Depends on `dist` being
-		// built, which the repo's own gates already require.
+	it('publishes targets that a build of existing sources produces', () => {
+		// Catches a typo in a hand-edited override and a renamed entry point. Read against SOURCES, not
+		// `dist`: every package builds `src/` into `dist/` one-to-one (`rootDir` / `outDir` in its
+		// tsconfig.build.json), so `./dist/a/b.js` and `./dist/a/b.d.ts` exist after a build exactly when
+		// `src/a/b.ts` (or `.tsx`) does. That keeps this test independent of build order — CI runs it
+		// before `pnpm build`, and so does a fresh clone. `scripts/pack-engine-tarballs.sh` checks the
+		// built half.
 		for (const value of Object.values(manifest.publishConfig?.exports ?? {})) {
 			for (const target of targetsOf(value)) {
-				const absolute = resolve(REPO_ROOT, `packages/${name}`, target);
+				const sourceStem = target.replace(/^\.\/dist\//u, './src/').replace(/(?:\.d\.ts|\.js)$/u, '');
+				const candidates = target.startsWith('./dist/')
+					? [`${sourceStem}.ts`, `${sourceStem}.tsx`]
+					: [target];
+				const hasSource = candidates.some((candidate) => existsSync(resolve(REPO_ROOT, `packages/${name}`, candidate)));
 
-				expect(existsSync(absolute), `${name}: published target missing — ${target}`).toBe(true);
+				expect(hasSource, `${name}: published target ${target} has no source (looked for ${candidates.join(', ')})`).toBe(true);
 			}
 		}
 	});

@@ -76,6 +76,7 @@
     "msw": "^2.0.0"
   },
   "devDependencies": {
+    "@filter-enginez/core": "workspace:^",
     "@filter-enginez/eslint": "workspace:^"
   }
 }

@@ -372,13 +372,13 @@ importers:
 
   packages/mock-data:
     dependencies:
-      '@filter-enginez/core':
-        specifier: workspace:^
-        version: link:../core
       msw:
         specifier: ^2.0.0
         version: 2.15.0(@types/node@24.19.1)(typescript@6.0.3)
     devDependencies:
+      '@filter-enginez/core':
+        specifier: workspace:^
+        version: link:../core
       '@filter-enginez/eslint':
         specifier: workspace:^
         version: link:../eslint

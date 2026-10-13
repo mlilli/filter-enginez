@@ -59,6 +59,38 @@ describe('dataset filter-configs', () => {
 		expect(node?.id).toBe('Nowhere');
 		expect(node && 'children' in node).toBe(false);
 	});
+
+	it('ends a branch at the last non-empty level, whichever level that is', () => {
+		// Hand-built rather than read from a corpus, so every level's "no children" branch is reached
+		// on every machine: the synthetic generator never emits a regionless province, and the real
+		// corpus (which does) exists only where it has been imported.
+		const tree = buildOriginTree([
+			{ origin: { country: 'Spain', province: 'Galicia', region: '', subregion: '' }},
+			{ origin: { country: 'France', province: 'Bordeaux', region: 'Graves', subregion: '' }},
+			{ origin: { country: 'France', province: 'Bordeaux', region: 'Left Bank', subregion: 'Pauillac' }},
+		]);
+
+		expect(tree).toStrictEqual({
+			children: [
+				{
+					children: [
+						{
+							children: [
+								{ id: 'France|Bordeaux|Graves', label: 'Graves' },
+								{ children: [{ id: 'France|Bordeaux|Left Bank|Pauillac', label: 'Pauillac' }], id: 'France|Bordeaux|Left Bank', label: 'Left Bank' },
+							],
+							id: 'France|Bordeaux',
+							label: 'Bordeaux',
+						},
+					],
+					id: 'France',
+					label: 'France',
+				},
+				{ children: [{ id: 'Spain|Galicia', label: 'Galicia' }], id: 'Spain', label: 'Spain' },
+			],
+			id: 'origin',
+		});
+	});
 });
 
 describe('handler wiring', () => {

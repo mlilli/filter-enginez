@@ -13,6 +13,11 @@
  * exceptions to remember. `scripts/pack-engine-tarballs.sh` checks the other half: that the PACKED
  * manifests carry caret ranges.
  *
+ * A sibling named only in `peerDependencies` is also declared in `devDependencies`. Turborepo orders
+ * `^build` by `dependencies`, `devDependencies` and `optionalDependencies`, not peers, so a peer-only
+ * sibling is not built before the dependent's `typecheck` — which then fails on a fresh clone, where no
+ * `dist` exists yet, while passing on any machine that has built once.
+ *
  * @packageDocumentation
  */
 
@@ -52,6 +57,18 @@ describe('internal dependency ranges', () => {
 	it('finds the internal dependencies, so the check below is not vacuous', () => {
 		expect(MANIFESTS.length).toBeGreaterThanOrEqual(15);
 		expect(DECLARATIONS.length).toBeGreaterThanOrEqual(30);
+	});
+
+	it('also declares every @filter-enginez/* peer dependency as a devDependency', () => {
+		const peerOnly = MANIFESTS.flatMap((path) => {
+			const manifest = JSON.parse(readFileSync(resolve(REPO_ROOT, path), 'utf8')) as Manifest;
+
+			return Object.keys(manifest.peerDependencies ?? {})
+				.filter((name) => name.startsWith('@filter-enginez/') && manifest.devDependencies?.[name] === undefined)
+				.map((name) => `${path}: ${name}`);
+		});
+
+		expect(peerOnly, `add these to devDependencies so turbo builds them first:\n${peerOnly.join('\n')}`).toEqual([]);
 	});
 
 	it('declares every @filter-enginez/* dependency as workspace:^', () => {
