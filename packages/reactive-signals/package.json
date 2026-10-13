@@ -15,7 +15,7 @@
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",
-  "homepage": "https://filter-enginez.com",
+  "homepage": "https://filterenginez.com",
   "repository": {
     "directory": "packages/reactive-signals",
     "type": "git",

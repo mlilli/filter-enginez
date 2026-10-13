@@ -15,7 +15,7 @@ Report privately instead:
 
 - **GitHub Security Advisories** — the "Report a vulnerability" button under this repository's **Security** tab, or
   directly at <https://github.com/mlilli/filter-enginez/security/advisories/new>. This is the preferred channel.
-- **Email** — [security@filter-enginez.com](mailto:security@filter-enginez.com), or the author address in
+- **Email** — [security@filterenginez.com](mailto:security@filterenginez.com), or the author address in
   [`README.md`](./README.md) if that alias does not answer.
 
 Please include the affected package and version (or commit), the runtime (browser, Node, Web Worker, edge), a minimal

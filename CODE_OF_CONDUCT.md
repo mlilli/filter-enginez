@@ -55,7 +55,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 - **GitHub** — open a private report on the repository (Security → Report a vulnerability also reaches the maintainer
   privately and is acceptable for conduct reports if no other private channel is available to you).
-- **Email** — <conduct@filter-enginez.com>, or failing that the maintainer address in [`README.md`](./README.md).
+- **Email** — <conduct@filterenginez.com>, or failing that the maintainer address in [`README.md`](./README.md).
 
 All complaints will be reviewed and investigated promptly and fairly.
 

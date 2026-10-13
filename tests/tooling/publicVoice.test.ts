@@ -14,6 +14,7 @@
  *   name stays allowed — it is the copyright holder in `LICENSE.md` / `NOTICE.md` and the
  *   author credit in `README.md`, which are attributions, not narrative;
  * - the names of the AI vendor, its assistant, and its desktop agent product;
+ * - the site's domain spelled with the hyphen the npm scope and repositories use (the domain has none);
  * - launch-countdown wording: a countdown to the first npm release or to the repositories going
  *   public. Both have happened by the time anyone reads them, so such wording is stale on arrival. A
  *   procedure that recurs — publishing a brand-new package, say — is written as a procedure instead.
@@ -40,6 +41,8 @@ const FORBIDDEN: readonly { readonly label: string; readonly pattern: RegExp }[]
 	{ label: 'AI vendor', pattern: new RegExp(['anth', 'ropic'].join(''), 'iu') },
 	{ label: 'AI assistant', pattern: new RegExp(`\\b${['cla', 'ude'].join('')}\\b`, 'iu') },
 	{ label: 'AI desktop agent', pattern: new RegExp(['co', 'work'].join(''), 'iu') },
+	// The site is filterenginez.com — no hyphen, unlike the npm scope and the repository names.
+	{ label: 'wrong domain', pattern: new RegExp(`filter-enginez\\.${['c', 'om'].join('')}`, 'iu') },
 	// Launch-countdown wording. Each phrase is split in two so this file does not match itself.
 	...[
 		['not yet pub', 'lished'],

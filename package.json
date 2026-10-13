@@ -5,7 +5,7 @@
   "description": "Filter EngineZ — generic, isomorphic, framework-agnostic TypeScript data filter engine. Workspace root of the 13 published packages.",
   "author": "Michael Lilli",
   "license": "Apache-2.0",
-  "homepage": "https://filter-enginez.com",
+  "homepage": "https://filterenginez.com",
   "keywords": [
     "data filtering",
     "filter engine",

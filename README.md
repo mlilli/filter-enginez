@@ -8,7 +8,7 @@
 | **Author**  | Michael Lilli                                                                         |
 | **npm**     | [`@filter-enginez`](https://www.npmjs.com/org/filter-enginez) — 13 packages           |
 | **License** | Apache-2.0 — see [`LICENSE.md`](./LICENSE.md) and [`NOTICE.md`](./NOTICE.md)          |
-| **Home**    | [filter-enginez.com](https://filter-enginez.com)                                      |
+| **Home**    | [filterenginez.com](https://filterenginez.com)                                        |
 | **Demos**   | [`mlilli/filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples) |
 
 ## What it is

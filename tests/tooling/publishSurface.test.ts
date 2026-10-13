@@ -255,7 +255,7 @@ describe.each(ENGINE_PACKAGES)('publish surface — %s', (name) => {
 		// both are compatibility CLAIMS, and asserting one without measuring it is exactly the failure
 		// these guards exist to stop. Left open rather than guessed.
 		expect(manifest.author).toBe('Michael Lilli');
-		expect(manifest.homepage).toBe('https://filter-enginez.com');
+		expect(manifest.homepage).toBe('https://filterenginez.com');
 		expect(manifest.keywords?.length ?? 0).toBeGreaterThan(2);
 	});
 });
