@@ -1,0 +1,66 @@
+{
+  "$schema": "https://v2-11-7.turborepo.dev/schema.json",
+  "globalDependencies": ["**/.env.*local", "tsconfig.base.json"],
+  "globalPassThroughEnv": ["VITE_WINE_TIER"],
+  "tasks": {
+    "bench": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "bench:write": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build", "@filter-enginez/eslint#build"]
+    },
+    "lint:fix": {
+      "cache": false,
+      "dependsOn": ["^build", "@filter-enginez/eslint#build"]
+    },
+    "prettier:fix": {
+      "cache": false
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^build"]
+    },
+    "test:changed": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "test:coverage": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:min": {
+      "cache": true,
+      "dependsOn": ["^build"]
+    },
+    "test:watch": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "eslint:fix": {
+      "cache": false,
+      "dependsOn": ["^build", "@filter-enginez/eslint#build"]
+    }
+  },
+  "ui": "tui"
+}

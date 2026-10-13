@@ -1,0 +1,49 @@
+// TypeScript SOLUTION file: owns no files; wires the project-reference graph for
+// `tsc --build` and editors. References each composite package's `tsconfig.build.json`
+// (the emit configs). Day-to-day typecheck runs each package's own `tsc --noEmit`
+// (= `turbo run typecheck`) against its `tsconfig.json`, which includes tests.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/core/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/reactive-signals/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/angular-rxjs/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/reactive-rxjs/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/react-signals/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/react-rxjs/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/svelte-signals/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/vue-signals/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/redux-bridge/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/url-state-router/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/worker-bridge/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/eslint/tsconfig.build.json"
+    },
+    {
+      "path": "./packages/mock-data/tsconfig.build.json"
+    }
+  ]
+}

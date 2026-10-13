@@ -1,0 +1,28 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Filter EngineZ — Core API",
+  "entryPoints": [
+    "packages/core/src/index.ts",
+    "packages/core/src/keyboard/browser/index.ts",
+    "packages/core/src/similarity/index.ts",
+    "packages/core/src/storage/browser/index.ts",
+    "packages/core/src/suggestions/index.ts"
+  ],
+  "entryPointStrategy": "resolve",
+  "tsconfig": "packages/core/tsconfig.json",
+  "out": "docs/api",
+  "readme": "none",
+  "githubPages": false,
+  "hideGenerator": false,
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "sort": ["source-order"],
+  "navigationLinks": {
+    "Docs": "/docs",
+    "GitHub": "https://github.com/mlilli/filter-enginez"
+  },
+  "customFooterHtml": "Generated from the core TSDoc — the single source of truth. See the curated overview at /docs/api."
+}

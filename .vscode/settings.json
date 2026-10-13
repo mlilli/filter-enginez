@@ -1,0 +1,222 @@
+{
+  // ----------------
+  // Editor
+  "diffEditor.ignoreTrimWhitespace": false,
+  "editor.codeActionsOnSave": {
+    "source.addMissingImports.ts": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+  "editor.detectIndentation": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
+  "editor.insertSpaces": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.minimap.enabled": true,
+  "editor.multiCursorModifier": "ctrlCmd",
+  "editor.parameterHints.enabled": true,
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": true,
+    "strings": true
+  },
+  "editor.renderWhitespace": "boundary",
+  "editor.smoothScrolling": true,
+  "editor.snippetSuggestions": "top",
+  "editor.suggest.localityBonus": true,
+  "editor.suggestSelection": "first",
+  "editor.tabCompletion": "on",
+  "editor.tabSize": 2,
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "files.exclude": {
+    "**/.classpath": true,
+    "**/.project": true,
+    "**/.settings": true,
+    "**/.factorypath": true,
+    "**/node_modules": true,
+    "node_modules/**": true
+  },
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": false,
+  // Generated trees. Excluded from the WATCHER (not just the tree view) because every path the
+  // watcher reports is streamed into the Git extension's single long-lived
+  // `git check-ignore -v -z --stdin` process. A large burst — turbo rewriting its cache, a coverage
+  // run, or `pnpm docs:api` unlinking and recreating all 178 files under `public/api` — can outrun
+  // that child; when it exits, the extension's next write hits a closed descriptor and surfaces as
+  // "Git: Spawn EBADF". All of these are gitignored, so none is a file anyone edits by hand.
+  "files.watcherExclude": {
+    "node_modules/**": true,
+    "**/node_modules/**": true,
+    "**/.turbo/**": true,
+    "**/coverage/**": true,
+    "**/dist/**": true,
+    "packages/examples-docs/public/api/**": true
+  },
+  "problems.autoReveal": true,
+  "problems.showCurrentInStatus": true,
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "search.exclude": {
+    "**/node_modules": true,
+    "node_modules/**": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/dist": true,
+    "packages/examples-docs/public/api": true
+  },
+  "terminal.integrated.profiles.osx": {
+    "zsh (login)": {
+      "path": "/bin/zsh",
+      "args": ["-l"]
+    }
+  },
+  // ----------------
+  // Features
+  // ----------------
+  // Language Specific
+  // HTML
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  // JavaScript
+  "[javascript]": {
+    "editor.formatOnSave": true
+  },
+  "[javascriptreact]": {
+    "editor.formatOnSave": true
+  },
+  // JSON
+  "[json][jsonc]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.quickSuggestions": {
+      "strings": true
+    },
+    "editor.suggest.insertMode": "replace"
+  },
+  "json.schemaDownload.trustedDomains": {
+    "https://schemastore.azurewebsites.net/": true,
+    "https://raw.githubusercontent.com/microsoft/vscode/": true,
+    "https://raw.githubusercontent.com/devcontainers/spec/": true,
+    "https://www.schemastore.org/": true,
+    "https://json.schemastore.org/": true,
+    "https://json-schema.org/": true,
+    "https://developer.microsoft.com/json-schemas/": true,
+    "https://turbo.build": true,
+    "https://v2-9-14.turborepo.dev": true
+  },
+  "json.validate.enable": true,
+  // Markdown
+  "[markdown]": {
+    "editor.acceptSuggestionOnEnter": "off",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.markdownlint": "explicit"
+    },
+    "editor.formatOnSave": true,
+    "editor.renderWhitespace": "all",
+    "editor.wordWrap": "on"
+  },
+  // Typescript
+  "[typescript][typescriptreact]": {
+    "editor.formatOnSave": true
+  },
+  // Javasctipt / Typescript
+  // "js/ts.experimental.expandableHover": true,
+  "js/ts.format.enabled": true,
+  "js/ts.format.indentSwitchCase": true,
+  "js/ts.format.insertSpaceAfterConstructor": false,
+  "js/ts.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces": false,
+  "js/ts.format.semicolons": "insert",
+  "js/ts.implementationsCodeLens.showOnInterfaceMethods": true,
+  "js/ts.inlayHints.functionLikeReturnTypes.enabled": false,
+  "js/ts.preferences.organizeImports": {
+    "typeOrder": "first",
+    "caseSensitivity": "caseInsensitive"
+  },
+  "js/ts.preferences.quoteStyle": "single",
+  "js/ts.suggest.includeCompletionsForImportStatements": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  // "js/ts.tsserver.enableTracing": true,
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": true,
+  "js/ts.tsserver.log": "verbose",
+  "js/ts.tsserver.watchOptions": "vscode",
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+
+  // ----------------
+  // Extensions
+  // ESlint
+  "eslint.debug": false,
+  "eslint.enable": true,
+  "eslint.format.enable": true,
+  "eslint.ignoreUntitled": true,
+  "eslint.lintTask.enable": true,
+  // "eslint.options": {},
+  // "eslint.nodePath": "./node_modules",
+  // "eslint.nodePath": "${env:HOME}/.nvm/versions/node/v24.14.0/bin/node",
+  "eslint.probe": [
+    "html",
+    "javascript",
+    "javascriptreact",
+    "json",
+    "jsonc",
+    "markdown",
+    "markdownlint",
+    "svelte",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.trace.server": "messages",
+  "eslint.workingDirectories": [{ "directory": ".", "changeProcessCWD": true }],
+  // Git
+  "git.autofetch": "all",
+  "git.autorefresh": false,
+  "git.autoRepositoryDetection": true,
+  // "git.enabled": false,
+  "git.enableSmartCommit": false,
+  // Markdown
+  "markdownlint.config": {
+    "MD024": {
+      "siblings_only": true
+    },
+    "no-trailing-spaces": true,
+    "single-trailing-newline": false
+  },
+  // node-module-intellisense
+  "node-module-intellisense.autoStripExtensions": [".js", ".jsx", ".ts", ".d.ts", ".tsx"],
+  // Prettier — handles JSON, YAML, CSS, Markdown only (JS/TS formatted by ESLint @stylistic)
+  "prettier.configPath": "./.prettierrc.json",
+  "prettier.enable": true,
+  "prettier.requireConfig": true,
+  "prettier.useEditorConfig": true,
+  "prettier.withNodeModules": false,
+  // SCSS
+  "scss.format.enable": false,
+  // Tailwind
+  // Disable the built-in CSS validator — it doesn't understand
+  // Tailwind v4 at-rules (@theme, @plugin, @custom-variant) and
+  // produces false positives. The Tailwind CSS IntelliSense
+  // extension handles validation instead.
+  "css.validate": false,
+  "tailwindCSS.lint.invalidConfigPath": "ignore",
+  // TODO Tree
+  "todo-tree.general.tags": ["BUG", "EXPERIMENT", "FIXME", "HACK", "NOTE", "TODO", "@TODO", "XXX", "[ ]", "[x]"],
+  "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
+  "todo-tree.tree.buttons.scanMode": true,
+  "todo-tree.tree.showCountsInTree": true,
+  // Typescript Comments
+  "comment-ts.todoComments": true,
+  "comment-ts.replaceComments": true,
+  "comment-ts.includeDescriptionTag": true,
+  "comment-ts.includeAuthorTag": false,
+  "comment-ts.parseNames": true,
+  // YAML
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  }
+}

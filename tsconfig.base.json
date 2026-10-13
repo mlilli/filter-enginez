@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    /* ── Type-only module mappings ───────────────────────────────────────
+     * `rbush` v4 ships no declarations, and `@types/rbush` covers v3 with
+     * incompatible signatures, so `packages/core/src/types/rbush.d.ts` declares the
+     * surface this repo touches. Under `moduleResolution: nodenext` an ambient
+     * `declare module 'rbush'` does NOT apply to a bare specifier that resolves to a
+     * real package on disk, so the shim has to be wired in as a `paths` entry.
+     *
+     * It lives HERE rather than in `packages/core/tsconfig.json` because
+     * `@filter-enginez/core`'s `exports` map points at SOURCE. Any program
+     * that imports core — including `tests/tooling`, which imports package sources
+     * directly — pulls `SpatialIndex.ts` into its own compilation and needs the
+     * mapping too. A `paths` entry does not travel through an import; it belongs to
+     * the program that does the compiling.
+     *
+     * **A package declaring its own `paths` loses this**, because `extends` replaces
+     * the whole object rather than merging it. `examples-angular` does, and works
+     * only because nothing it compiles reaches `SpatialIndex`. `examples-sveltekit`
+     * also does (SvelteKit generates the config) and carries its own ambient shim,
+     * which works there because its program resolves through the bundler. Both would
+     * fail loudly rather than silently, which is the acceptable half of this trade.
+     *
+     * Paths without `baseUrl` resolve relative to the config file DECLARING them, so
+     * this is relative to the repo root — verified, not assumed.
+     */
+    "paths": {
+      "rbush": ["./packages/core/src/types/rbush.d.ts"]
+    },
+    /* ── Language & Environment ─────────────────────────────────────────
+     * Strict ESNext target — all apps and packages inherit these defaults.
+     * Apps override `target`, `lib`, `module`, and emit settings as needed.
+     */
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* ── Module Interop ────────────────────────────────────────────────
+     * ESM-first with interop for CJS dependencies.
+     */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ── Strict Type Checking ──────────────────────────────────────────
+     * All strict flags enabled. No shortcuts, no implicit anys.
+     * This is the project quality bar — inherited by every workspace.
+     */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": false,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+
+    /* ── Emit Defaults ─────────────────────────────────────────────────
+     * noEmit by default — apps that need emit (e.g., API) override this.
+     */
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    /* No JS source maps: the published tarballs ship `dist` without `.map` files, and a
+     * `//# sourceMappingURL=` comment pointing at a missing map makes every consumer's dev
+     * server (SvelteKit SSR, for one) warn on each module it loads. `pack-engine-tarballs.sh`
+     * fails if one reaches a tarball. */
+    "sourceMap": false,
+    "noEmit": true,
+
+    /* ── Performance ───────────────────────────────────────────────────
+     * Skip type checking .d.ts files from node_modules.
+     */
+    "skipLibCheck": true
+  }
+}

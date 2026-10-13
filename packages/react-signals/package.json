@@ -1,0 +1,72 @@
+{
+  "name": "@filter-enginez/react-signals",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — React hooks over @filter-enginez/reactive-signals. Browser-only.",
+  "keywords": [
+    "filter",
+    "react",
+    "signals",
+    "hooks",
+    "faceted-search"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/react-signals",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./keyboard": "./src/keyboard/index.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./keyboard": {
+        "types": "./dist/keyboard/index.d.ts",
+        "default": "./dist/keyboard/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@filter-enginez/core": "workspace:^",
+    "@filter-enginez/reactive-signals": "workspace:^",
+    "@preact/signals-react": "^3.10.1"
+  },
+  "devDependencies": {
+    "@filter-enginez/eslint": "workspace:^",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "react-dom": "^19.2.8"
+  }
+}

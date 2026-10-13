@@ -1,0 +1,210 @@
+packages:
+  - "packages/*"
+  - "benchmarks"
+
+# ─── Dependency install-script approvals ───────────────────────────────────────
+# pnpm blocks dependency lifecycle scripts by default (a package's `postinstall` is arbitrary code
+# running with your shell's privileges — the standard supply-chain foothold). pnpm 10 warned about
+# ignored builds; pnpm 11 made an unreviewed one a hard `ERR_PNPM_IGNORED_BUILDS` error, so every
+# dependency in the lockfile that ships an install script must be listed here, approved (`true`) or
+# denied (`false`). This lockfile has exactly two.
+allowBuilds:
+  # Its install script validates the platform binary, which ships as an optional prebuilt dep
+  # (`@esbuild/linux-x64` and so on), and repairs it when that dep did not resolve. `size-limit`
+  # bundles every budgeted entry with esbuild and `tsx` runs the benchmarks on it; Vite, under
+  # Vitest, depends on it too.
+  esbuild: true
+  # msw's postinstall copies `mockServiceWorker.js` into the directories named by the installing
+  # project's `msw.workerDirectory` field. Nothing in this repo declares one — `mock-data` ships the
+  # handlers, and its tests run them through `msw/node`'s `setupServer` — so here the script reads
+  # the root `package.json` and exits. It stays approved because it is harmless here and load-bearing
+  # in the examples repository, whose apps serve the handlers through the browser worker.
+  msw: true
+
+# ─── Supply-chain policy exceptions ────────────────────────────────────────────
+# 🟢 **pnpm 12 REPORTS an unrecognized setting in this file instead of ignoring it.** Under pnpm 11 and
+# earlier, misspelling `minimumReleaseAge` or `minimumReleaseAgeExclude` silently dropped the policy — a
+# supply-chain guard that evaporated with no output. The build-script settings pnpm 12 removed
+# (`onlyBuiltDependencies`, `onlyBuiltDependenciesFile`, `neverBuiltDependencies`,
+# `ignoredBuiltDependencies`, `ignoreDepScripts`) are all expressed through the `allowBuilds` map above.
+#
+# ⚠ This file is in `.prettierignore`. Prettier rewrites single-quoted YAML scalars to double quotes,
+# which turns an unrelated comment edit into a whole-file diff in the file that carries the
+# supply-chain policy — and `tests/tooling/overrideUpperBounds.test.ts` reads the single-quoted
+# override ranges. The quoting below is deliberate; leave it alone.
+#
+# pnpm 11 defaults `minimumReleaseAge` to 1440 (24h): a newly-published version can't be installed
+# until it has aged a day, on the theory that malicious releases are usually yanked within the hour.
+# The check runs twice — once during resolution, and again as a verification pass over every entry of
+# an already-written lockfile.
+#
+# Nothing in this lockfile needs an exemption, so there is no `minimumReleaseAgeExclude` list.
+# When one is needed, pin it to the ONE version, not the package, so a later release gets the full
+# 24h soak like everything else, and delete the entry once the lockfile moves past it.
+
+# ─── Security remediation — force patched transitive versions ──────────────────────────────────────
+# Every advisory `pnpm audit` reports against this tree is in DEV TOOLING — none touch the runtime deps
+# of the shipped library packages (core / reactive-* / bindings). These pin the patched floor for
+# transitive-only dependencies; a direct dependency is bumped in its own package.json instead.
+#
+# **react-router is NOT overridden.** Its RSC-mode CSRF advisory is patched only in 8.3.0, a MAJOR
+# bump, so `url-state-router` depends on `react-router@^8.3.0` directly, which also requires
+# react/react-dom >=19.2.7. The direct dependency IS the fix; a transitive pin capped to 7.x would
+# hold the tree on the vulnerable line.
+#
+# **react / react-dom are pinned to ONE workspace-wide copy.** react-router 8 needs react >=19.2.7, but
+# the React binding packages (react-signals, react-rxjs) declare the honest wider `^19.0.0` peer — so
+# without these overrides pnpm can keep an older second React copy alongside the newer one, and a
+# component rendered by one react-dom whose hooks resolve the other React gets `null` from
+# `useContext`/`useId` (every React component test crashes at mount). These overrides dedupe every
+# react/react-dom in the install to a single 19.x copy WITHOUT narrowing the bindings' real peer range.
+# `^19.2.7` == `>=19.2.7 <20`, so it satisfies react-router 8 and stays capped below the next major
+# (per the cap rule below).
+#
+# **Every replacement carries an UPPER major bound.** A pnpm override replacement is a range, and pnpm
+# resolves it to the HIGHEST available match — so an open-ended `>=x` silently floats to a new major
+# (a bare `react-router: '>=7.18.0'` resolves to 8.x). Widen a cap only alongside the matching
+# direct-dep major bump.
+#
+# **Every override must match something in the lockfile.** A pin that matches nothing is worse than
+# useless: it is a standing claim that a risk was weighed, and it keeps looking true long after the
+# risk is gone. If a package returns through some future chain, its advisory returns with it through
+# `pnpm audit`, which is the instrument that is supposed to notice — not a stale line here. That is
+# why `fast-uri` (reached only through the Angular CLI, which the examples repository uses) and a
+# `brace-expansion@^1.0.0` selector (the only `brace-expansion` here is 5.x) are not overridden.
+#
+# 🟢 Each cap is the NEXT major above the installed version, and each floor is the resolved version,
+# so the bounds are lockfile-neutral BY CONSTRUCTION: the tree satisfies every one. The advisory floors
+# are recorded here rather than in the ranges, because a floor below the installed version only reads
+# as precision — `esbuild >=0.28.1`, `postcss >=8.5.18`, `linkify-it >=5.0.2`, `markdown-it >=14.1.2`.
+# ⚠ `esbuild`'s cap is `<0.29.0`, not `<1.0.0`: in 0.x the MINOR is the breaking boundary, so a `<1`
+# cap on a 0.x package is not a cap at all.
+#
+# 🟢 `tests/tooling/overrideUpperBounds.test.ts` enforces all of this — every override capped, every
+# override present in the lockfile, every resolved copy below its cap — because a rule that lives only
+# in a comment generates wrong entries, and the entries then look like evidence for the rule.
+#
+# ── 🔴 `cookie` — why the cap is `<2.0.0` ─────────────────────────────────────────────────────────────
+#
+# `cookie: '>=0.7.0'` is for CVE-2024-47764 (out-of-bounds characters in cookie name / path / domain),
+# patched in 0.7.0. Unbounded, it floats to 2.x, and cookie 2.x RENAMED THE ENTIRE API:
+#
+#   parse -> parseCookie        serialize -> stringifySetCookie
+#
+# `@sveltejs/kit@2.70.3` declares `cookie: ^0.6.0` and imports `{ parse, serialize }`. Against 2.x
+# those exports do not exist, so SvelteKit's SSR runtime fails to evaluate — `The requested module
+# 'cookie' does not provide an export named 'serialize'` — and every Playwright project behind a
+# SvelteKit dev server is dead before the first test runs.
+#
+# 🔴 AND NO TYPE CHECK CATCHES IT. Kit ships `@types/cookie@0.6.0` as its own dependency, so TypeScript
+# resolves `serialize` from the 0.6 type stubs while Node resolves a module that does not export it.
+# `pnpm typecheck` stays green. cookie 2.x even keeps a TYPE called `SerializeOptions` "for backward
+# compatibility" while having dropped the function — the type survives the rename and the value does
+# not, which is the worst possible combination for catching this early.
+#
+# 🟢 THE CAP IS FORCED RATHER THAN CHOSEN. The two consumers declare incompatible ranges:
+#
+#   @sveltejs/kit@2.70.3  cookie: ^0.6.0   needs `parse` / `serialize`
+#   msw@2.15.0            cookie: ^1.1.1   needs `parseCookie` / `stringifySetCookie`
+#
+# `cookie@1.1.1` is the only line that satisfies BOTH, because 1.x ships the new names AND keeps the
+# old ones as aliases — `export { stringifySetCookie as serialize, parseCookie as parse }`, with a
+# `(name, val, options)` overload matching how kit calls it. 2.x dropped the aliases; `<1.0.0` would
+# resolve 0.7.x and break msw instead. So one cap serves both consumers and installs a single copy.
+#
+# ⚠ In THIS repository `msw` is the only consumer of `cookie`; SvelteKit lives in the examples
+# repository, whose workspace carries the same cap for both. The cap stays here because msw needs
+# `>=1.1.1` and nothing here may float to 2.x.
+#
+# ── `smol-toml` ────────────────────────────────────────────────────────────────────────────────────
+#
+# **`smol-toml`** is overridden for GHSA-r4xh-jqrq-34v2 (quadratic `parse()`). Upstream comes FIRST, as for
+# every advisory here: `markdownlint-cli2@0.23.3` is the LATEST published version and pins `smol-toml: "1.8.0"`
+# EXACTLY (verified 2026-10-07), so there is no bump to reach for — an override is the only remediation that
+# changes the installed tree.
+#
+# 🟢 It is the safest possible override: within-minor (1.8.0 -> 1.9.0), and `smol-toml@1.9.0` also arrives via
+# `cspell-config-lib`, so the version is proven to install here and the pin dedupes two copies to one rather than
+# introducing anything.
+#
+# ⚠ Chosen over simply accepting the advisory even though the vulnerable code is unreachable here — this repo has
+# **no TOML file at all**, so `markdownlint-cli2` never calls `smol-toml.parse()`. That reachability argument is the
+# fragile one: it holds only until someone adds a `.markdownlint.toml`, and it would hold silently wrong from that
+# moment. Removing the vulnerable code from the tree does not depend on nobody doing that later.
+#
+# ⚠ THIS OVERRIDE IS DOING REAL WORK even though no ignore entry mentions it. Deleting it restores
+# markdownlint-cli2's exact `1.8.0` pin and the advisory comes straight back. Retire the override only when
+# markdownlint-cli2 moves past 1.8.0 upstream.
+overrides:
+  react: '^19.2.7'
+  react-dom: '^19.2.7'
+  esbuild: '>=0.28.2 <0.29.0'
+  postcss: '>=8.5.29 <9.0.0'
+  cookie: '>=0.7.0 <2.0.0'
+  linkify-it: '>=6.1.0 <7.0.0'
+  markdown-it: '>=15.0.2 <16.0.0'
+  smol-toml: '>=1.9.0 <2.0.0'
+  'brace-expansion@^5.0.0': '>=5.0.8 <6.0.0'
+
+# ─── Accepted / false-positive advisories (kept out of `pnpm audit` noise) ─────────────────────────
+# `auditConfig.ignoreGhsas` (pnpm 11 reads it from this file, not from package.json's `pnpm` field)
+# suppresses the specific GHSA IDs below from `pnpm audit`. Each is individually justified; a NEW
+# advisory on any of these packages still surfaces. Reviewed 2026-10-07. See SECURITY.md → "Accepted
+# advisories".
+#
+# 🟢 **pnpm 12's audit matches advisories against RESOLVED versions, not declared ranges.** An override
+# that removes the vulnerable version from the lockfile also removes the advisory from the report —
+# measured: adding the `smol-toml` override removed 1.8.0 from the lockfile, and `pnpm audit` went from
+# 5 suppressions to 4 (1 high, 2 moderate, 1 low), exactly accounting for its disappearance. The
+# control was `postcss-selector-parser`, measured in a tree that resolved BOTH 6.0.10 (via
+# @tailwindcss/typography's exact pin) and 7.1.6: it still matched, because the vulnerable copy was
+# genuinely present.
+#
+# So **an override that fully patches the tree needs no ignore at all.** An ignore is for exactly two
+# situations — no fix exists, or the vulnerable version survives in the tree on some path an override
+# cannot reach. **An ignore that matches nothing is worse than useless**: it is a standing claim that a
+# risk was weighed, and it keeps looking true long after the risk is gone.
+#
+#   - GHSA-vfj7-8cjw-p6xm (braces, high) — ACCEPTED BECAUSE THERE IS NO FIX. Stack-exhaustion DoS via
+#     deeply-nested brace patterns. Verified 2026-10-04: `braces@3.0.3` is the LATEST published version
+#     and `micromatch@4.0.8` is likewise latest and still declares `braces: ^3.0.3`, so the advisory's
+#     "Patched versions: None" is accurate — there is nothing to upgrade to, and an override cannot
+#     invent a patched release. Every path is dev or release tooling, through `micromatch` (`@changesets/cli`,
+#     `lint-staged`, `markdownlint-cli2`), none reachable from a shipped library package. The attack
+#     needs a hostile glob PATTERN, and every glob in this repo comes from a committed config file
+#     rather than from input. Re-review when braces publishes a fix or micromatch drops it.
+#
+#   - GHSA-hp3w-g68c-fv3c (sprintf-js, moderate) — ACCEPTED BECAUSE THERE IS NO FIX. "Patched versions: None", and
+#     verified: the resolved copy is `sprintf-js@1.0.3`, reached only through
+#     `@changesets/cli > … > read-yaml-file > js-yaml > argparse`. ⚠ This is changesets' js-yaml chain, not
+#     markdownlint's, and `argparse@1.x` is what pins the ancient `sprintf-js`. Release tooling only, run by hand, on
+#     yaml files from this repo. The DoS needs an attacker-supplied FORMAT STRING, and nothing here passes untrusted
+#     input to a formatter. Re-review when changesets updates `read-yaml-file`, or when `sprintf-js` ships a patch.
+#   - GHSA-238p-pmpm-9mq7 (katex, low) — ACCEPTED: the vulnerable code is never executed. Reached via
+#     `markdownlint-cli2 > markdownlint > micromark-extension-math > katex`, and **`.markdownlint-cli2.yaml` enables no
+#     math extension**, so KaTeX never renders anything. Patched only in `>=0.18.2` against a resolved `0.16.47` — in
+#     0.x semver a minor bump is a breaking one, so an override would force a breaking change on a transitive dep to fix
+#     a path that does not run. Lowest severity of the three. Re-review when markdownlint drops the math extension or a
+#     0.16.x patch appears.
+#
+#   Not suppressed here, and why:
+#
+#   - GHSA-rj75-hqrm-r3gf (postcss-selector-parser) — its only path is `@tailwindcss/typography` in an example app,
+#     so the examples repository (https://github.com/mlilli/filter-enginez-examples) carries the acceptance for as
+#     long as the path exists there. This lockfile resolves no `postcss-selector-parser`, so an entry here would
+#     suppress NOTHING.
+#
+#   - GHSA-mh99-v99m-4gvg (brace-expansion) and GHSA-r4xh-jqrq-34v2 (smol-toml) — the `overrides` above remove every
+#     vulnerable copy (brace-expansion resolves to 5.x past `5.0.6`; smol-toml to `1.9.0` only), so pnpm's
+#     resolved-version audit has nothing to report and an ignore would suppress NOTHING. The overrides are the
+#     remediation; see the `smol-toml` note above before touching that one.
+#
+#   - GHSA-52cp-r559-cp3m + GHSA-h67p-54hq-rp68 (js-yaml) and GHSA-7w5x-hrqm-74c2 (smol-toml) — fixed upstream.
+#     **markdownlint-cli2 0.23.3 depends on js-yaml 5.4.1**, outside the vulnerable `>=4.0.0 <4.3.2` range entirely,
+#     and on smol-toml 1.8.0, which clears GHSA-7w5x-hrqm-74c2. One devDependency bump covers all three — which is
+#     why upstream comes before `overrides`.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
+    - GHSA-hp3w-g68c-fv3c
+    - GHSA-238p-pmpm-9mq7

@@ -1,0 +1,84 @@
+{
+  "name": "@filter-enginez/core",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — the engine: rules, composition, devtools, internal store, action log, four named CS algorithms (Roaring Bitmaps, R-tree, Bayesian co-occurrence, MinHash + LSH). Isomorphic.",
+  "keywords": [
+    "filter",
+    "faceted-search",
+    "roaring-bitmap",
+    "r-tree",
+    "minhash",
+    "isomorphic"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/core",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./keyboard/browser": "./src/keyboard/browser/index.ts",
+    "./similarity": "./src/similarity/index.ts",
+    "./storage/browser": "./src/storage/browser/index.ts",
+    "./suggestions": "./src/suggestions/index.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./keyboard/browser": {
+        "types": "./dist/keyboard/browser/index.d.ts",
+        "default": "./dist/keyboard/browser/index.js"
+      },
+      "./similarity": {
+        "types": "./dist/similarity/index.d.ts",
+        "default": "./dist/similarity/index.js"
+      },
+      "./storage/browser": {
+        "types": "./dist/storage/browser/index.d.ts",
+        "default": "./dist/storage/browser/index.js"
+      },
+      "./suggestions": {
+        "types": "./dist/suggestions/index.d.ts",
+        "default": "./dist/suggestions/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "test:coverage": "vitest --watch=false --passWithNoTests --coverage",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "dependencies": {
+    "@preact/signals-core": "^1.14.2",
+    "fuse.js": "7.4.2",
+    "microdiff": "^1.5.0",
+    "rbush": "^4.0.1",
+    "roaring-wasm": "^1.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@filter-enginez/eslint": "workspace:^"
+  }
+}

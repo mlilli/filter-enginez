@@ -1,0 +1,24 @@
+// Composite BUILD config: emits declarations to `dist`, EXCLUDES tests. Referenced by
+// the root solution and by other packages' build graphs; driven by `tsc --build`.
+// Inherits package-specific compilerOptions from `./tsconfig.json` (DRY).
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/test-support/**", "**/*.test.ts", "**/*.spec.ts"],
+  "references": [
+    {
+      "path": "../core/tsconfig.build.json"
+    },
+    {
+      "path": "../reactive-rxjs/tsconfig.build.json"
+    }
+  ]
+}

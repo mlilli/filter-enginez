@@ -1,0 +1,81 @@
+{
+  "name": "@filter-enginez/mock-data",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — three mock datasets (real estate, wine, books) at ~10k stratified records each, plus MSW handlers. Isomorphic.",
+  "keywords": [
+    "filter",
+    "mock-data",
+    "fixtures",
+    "msw",
+    "test-data"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/mock-data",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./real-estate": "./src/real-estate/index.ts",
+    "./wine": "./src/wine/index.ts",
+    "./books": "./src/books/index.ts",
+    "./handlers": "./src/handlers.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./real-estate": {
+        "types": "./dist/real-estate/index.d.ts",
+        "default": "./dist/real-estate/index.js"
+      },
+      "./wine": {
+        "types": "./dist/wine/index.d.ts",
+        "default": "./dist/wine/index.js"
+      },
+      "./books": {
+        "types": "./dist/books/index.d.ts",
+        "default": "./dist/books/index.js"
+      },
+      "./handlers": {
+        "types": "./dist/handlers.d.ts",
+        "default": "./dist/handlers.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "regen": "node scripts/regen.mjs",
+    "regen:full": "node scripts/regen.mjs --full",
+    "regen:wine:real": "node scripts/import-kaggle-wine.mjs",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "peerDependencies": {
+    "@filter-enginez/core": "workspace:^",
+    "msw": "^2.0.0"
+  },
+  "devDependencies": {
+    "@filter-enginez/eslint": "workspace:^"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  // Filter EngineZ — recommended VS Code extensions.
+  //
+  // Curated to match the stack: a pnpm + Turborepo monorepo of TypeScript
+  // packages, linted by ESLint (@stylistic), formatted by Prettier for JSON,
+  // YAML and Markdown, spell-checked by cspell, and documented with TSDoc.
+  "recommendations": [
+    // Editor essentials
+    "abumalick.vscode-nvm",
+    "editorconfig.editorconfig",
+    "eamodio.gitlens",
+    "oderwat.indent-rainbow",
+    // Linting + formatting
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "streetsidesoftware.code-spell-checker",
+    "davidanson.vscode-markdownlint",
+    // TypeScript — language tooling
+    "leizongmin.node-module-intellisense",
+    "mariusalchimavicius.json-to-ts",
+    "steoates.autoimport",
+    "salbert.comment-ts",
+    "psulek-solo.typedoc-live-preview",
+    // GitHub workflow integration
+    "codezombiech.gitignore",
+    "github.vscode-github-actions",
+    "github.vscode-pull-request-github",
+    // Productivity / nice-to-have
+    "gruntfuggly.todo-tree",
+    "jmkrivocapich.drawfolderstructure",
+    "mikestead.dotenv",
+    "redhat.vscode-yaml",
+    "tyriar.sort-lines"
+  ]
+}

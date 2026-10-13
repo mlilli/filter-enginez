@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Continuous Integration — the CI-blocking gates for the 13 published engine packages:
+# typecheck, lint (ESLint + markdown), formatting, spelling, unit tests with 100%
+# coverage, a full production build, and the bundle-size budgets.
+#
+# One job. There is no e2e job here: the Playwright suite lives with the example
+# apps it drives, in filter-enginez-examples, and runs locally there.
+#
+# Toolchain is pinned by the repo, not this file: `corepack` activates the exact pnpm
+# from package.json's `packageManager` field, and Node comes from `.nvmrc`. That means
+# bumping either pin needs no edit here.
+# ─────────────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Gates (typecheck · lint · spell · test · build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack (pins pnpm from package.json packageManager)
+        run: corepack enable
+
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (ESLint)
+        run: pnpm lint
+
+      - name: Lint (Markdown)
+        run: pnpm lint:markdown
+
+      # Arrived 2026-10-04, and the delay is the finding rather than an oversight. `prettier:check`
+      # existed as a script for months and no workflow or hook called it, so nobody ran it — because
+      # `.prettierignore` did not exclude the local `.pnpm-store`, which made the output 928 files of
+      # which 902 were package manifests. A gate whose output cannot be read is not a gate, and ~23
+      # tracked files of real drift accumulated behind it, `CONTRIBUTING.md` and `SECURITY.md`
+      # included. The ignore file now excludes the store, build and transient run artifacts,
+      # `pnpm-workspace.yaml` (Prettier fights its author over YAML quoting), the mock-data JSON and the
+      # verbatim license and history files, so the run reports only files somebody can act on.
+      #
+      # Note it is NOT redundant with the pre-commit hook: lint-staged runs `prettier --write` on
+      # STAGED files only, so a file changed by a rebase, a merge, or `git commit --no-verify` is
+      # never seen. This is the whole-tree check.
+      - name: Formatting (Prettier)
+        run: pnpm prettier:check
+
+      - name: Spelling (cspell, en-US)
+        run: pnpm cspell
+
+      - name: Unit tests + coverage (100% policy)
+        run: pnpm test:coverage
+
+      - name: Build all packages
+        run: pnpm build
+
+      # MUST follow the build: size-limit measures `dist/`, not `src/`, so on a clean checkout
+      # this step is meaningless (or fails outright) if it runs first. All 13 entries are real
+      # measurements — see architecture.md §22.4 — and every figure is gzipped and MARGINAL, with
+      # the engine, the framework and third-party deps `ignore`d per entry. Without that
+      # convention `react-signals` would be measuring React.
+      #
+      # Turned on 2026-08-02, after the `suggestions/` extraction took `core` from 99.5% to 95.1%
+      # of its 15 kB budget. The gate was decided a day earlier and deliberately held back: at
+      # 0.5% headroom it would have fired on the next honest feature rather than on a regression.
+      # `reactive-rxjs` at 90% of 3 kB is the next entry that will trip, and it carries nothing
+      # unusual — RxJS operator plumbing is simply less compressible than the signals equivalent.
+      #
+      # When it does fire, the question is which of two things happened: a genuine regression, or
+      # a feature that justifies re-basing the budget on evidence. `.size-limit.json` is the
+      # source of truth for the budgets; §22.4's table is a dated snapshot of it.
+      - name: Bundle-size budgets (size-limit)
+        run: pnpm size

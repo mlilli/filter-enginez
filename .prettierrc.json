@@ -1,0 +1,32 @@
+{
+  "htmlWhitespaceSensitivity": "ignore",
+  "overrides": [
+    {
+      "files": ["*.json"],
+      "options": {
+        "singleQuote": false,
+        "useTabs": false
+      }
+    },
+    {
+      "files": ["*.yml", "*.yaml"],
+      "options": {
+        "singleQuote": false
+      }
+    },
+    {
+      "files": ["*.md", "*.mdx"],
+      "options": {
+        "embeddedLanguageFormatting": "auto",
+        "parser": "markdown",
+        "proseWrap": "always",
+        "useTabs": false
+      }
+    }
+  ],
+  "printWidth": 120,
+  "proseWrap": "preserve",
+  "singleQuote": true,
+  "tabWidth": 2,
+  "useTabs": true
+}

@@ -1,0 +1,24 @@
+// noEmit config for editors / `pnpm typecheck` / typed-lint; INCLUDES tests.
+// The sibling `tsconfig.build.json` is the composite build config.
+//
+// Angular note: modern Angular (standalone, v16+) needs no `experimentalDecorators` — the AOT
+// compiler supplies its own transform — so this inherits the strict base unchanged. `InjectionToken`
+// and `inject()` are plain values/functions, not decorators, which is part of why this package stays
+// framework-thin.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    {
+      "path": "../core/tsconfig.build.json"
+    },
+    {
+      "path": "../reactive-rxjs/tsconfig.build.json"
+    }
+  ]
+}

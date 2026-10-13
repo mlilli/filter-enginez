@@ -1,0 +1,140 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependabot version updates.
+#
+# Two ecosystems: `npm` (which is how pnpm is configured — see the caveat below)
+# and `github-actions`.
+#
+# ── 🔴 READ THIS BEFORE TRUSTING IT: THE FAILURE MODE HERE IS SILENCE ────────
+#
+# GitHub's reference lists pnpm support as **v7 through v10**. This repo is on
+# pnpm 12 (`packageManager` in package.json), and pnpm 12 writes a lockfile with
+# a LEADING ENV DOCUMENT — `pnpm-lock.yaml` is a multi-document YAML stream,
+# which is why `tests/tooling` has to read it with `loadAll` rather than `load`.
+# A parser written for single-document v9 lockfiles may simply not read it.
+#
+# ⚠ When Dependabot cannot update a lockfile it does not open a PR. It does not
+# open a broken PR either — so a configuration that does not work looks exactly
+# like a week with no outdated dependencies. **Verify this file by observation,
+# not by assumption:** check the repository's Dependabot runs (Insights →
+# Dependency graph → Dependabot) for errors, and confirm that npm PRs actually
+# appear — after any change to this file or to the pnpm major. The `github-actions` ecosystem has no such doubt, so if
+# action PRs arrive and npm PRs never do, the pnpm version is the reason.
+#
+# ── ⚠ COOLDOWN MUST NOT UNDERCUT pnpm's minimumReleaseAge ────────────────────
+#
+# `pnpm-workspace.yaml` relies on pnpm's `minimumReleaseAge` (default 1440
+# minutes = 24h): a version younger than that cannot be installed, on the theory
+# that malicious releases are usually yanked within the hour.
+#
+# Dependabot has its own, separate delay — `cooldown` — defaulting to 3 days
+# since 2026-07. The two do not know about each other, and the interaction has a
+# sharp edge: if Dependabot proposes a release that pnpm's quarantine still
+# refuses, the `pnpm install` inside Dependabot's lockfile step FAILS, and the PR
+# never opens. Same silence as above, different cause.
+#
+# So `cooldown.default-days: 3` is set EXPLICITLY rather than inherited. It is
+# already comfortably above the 24h quarantine; writing it down is what makes the
+# ordering visible, so that raising `minimumReleaseAge` past 3 days becomes an
+# obvious edit here rather than a mystery about missing PRs.
+#
+# ⚠ SECURITY updates bypass cooldown on Dependabot's side but NOT pnpm's. A
+# young security release can therefore still be refused by the quarantine. The
+# escape hatch is `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`: add the
+# exact version, pinned to the one version rather than the package, and delete it
+# once the lockfile moves past it.
+#
+# ── ⚠ AND A MAJOR BUMP WILL FIGHT THE OVERRIDE CAPS, BY DESIGN ───────────────
+#
+# `pnpm-workspace.yaml`'s `overrides` all carry an upper major bound, because an
+# open-ended override silently floats past a major (`cookie@2.x` renamed its API,
+# which SvelteKit's runtime cannot load, and no type check notices). A Dependabot PR that
+# crosses one of those caps will fail `tests/tooling/overrideUpperBounds.test.ts`
+# in CI — which is the guard working, not a false positive. Merging such a PR
+# means widening the cap in that file deliberately, in the same commit.
+# ─────────────────────────────────────────────────────────────────────────────
+version: 2
+
+updates:
+  # ── pnpm workspace (configured as `npm`; pnpm is detected from pnpm-lock.yaml) ──
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      # Monday, so a week's PRs land at the start of a week rather than into one.
+      day: monday
+    # 🟢 Deliberately low. This is a 13-package workspace with several hundred
+    # transitive dependencies; an unbounded limit turns a weekly run into a review queue
+    # nobody empties, and a review queue nobody empties is how a malicious
+    # release gets rubber-stamped. Grouping below does the real noise reduction.
+    open-pull-requests-limit: 5
+    cooldown:
+      # See the header: must stay >= pnpm's `minimumReleaseAge` (24h).
+      default-days: 3
+    commit-message:
+      # Matches the repo's Conventional Commits history (`chore(deps): …`).
+      prefix: chore
+      include: scope
+    groups:
+      # One PR for the whole dev toolchain. These move together, they are not in
+      # any shipped path, and reviewing them one at a time is pure overhead.
+      dev-toolchain:
+        patterns:
+          - "@types/*"
+          - "@typescript-eslint/*"
+          - "@vitest/*"
+          - eslint
+          - eslint-*
+          - markdownlint*
+          - prettier
+          - cspell*
+          - typescript
+          - vitest
+          - turbo
+        update-types:
+          - minor
+          - patch
+      # Framework peers, grouped per family: a React bump that lands without its
+      # `react-dom` twin risks the duplicate-copy hazard (hooks resolving one
+      # React while render uses another → `null` context).
+      react:
+        patterns:
+          - react
+          - react-dom
+          - react-router
+      # ⚠ Majors are NOT grouped, for any ecosystem. A grouped major PR hides
+      # which dependency broke the build behind four others, and majors here are
+      # exactly the thing the override caps exist to make deliberate.
+      build-tooling:
+        patterns:
+          - vite
+          - "@vitejs/*"
+          - rollup
+          - "@rollup/*"
+          - esbuild
+          - sass
+          - sass-embedded
+        update-types:
+          - minor
+          - patch
+
+  # ── GitHub Actions used by the workflows ──
+  # 🟢 No pnpm involvement, so this half is not subject to the doubt in the
+  # header — it is the control that tells you whether Dependabot runs here at all.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

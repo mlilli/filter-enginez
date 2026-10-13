@@ -1,0 +1,54 @@
+# EditorConfig — cross-editor consistency for the Filter EngineZ workspace.
+# https://editorconfig.org
+#
+# Mirrors the conventions encoded in tsconfig.json + .prettierrc.json:
+#   - Tabs in TypeScript / JavaScript per .prettierrc.json `useTabs: true`,
+#     enforced on .ts/.js/.mjs/.cjs/.tsx/.jsx by ESLint @stylistic.
+#   - Spaces in JSON / YAML / Markdown (Prettier rewrites these on save).
+#   - LF line endings (Unix), UTF-8 charset, final newline, trim trailing
+#     whitespace EXCEPT in Markdown (the two-space "hard break" convention
+#     would silently break otherwise).
+#
+# Editors that respect EditorConfig (VS Code with editorconfig.editorconfig
+# extension, JetBrains IDEs, Sublime, Vim, Emacs, etc.) read this on file
+# open and apply the rules without per-editor config.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 2
+indent_style = tab
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# JSON / JSONC — Prettier writes spaces. npm rewrites package.json on every
+# `npm install` using 2-space indent; match that to avoid noisy diffs.
+[*.{json,jsonc}]
+indent_style = space
+insert_final_newline = ignore
+
+# YAML — config files (cspell.config.yaml, .github/workflows/*.yml).
+# Spaces required by the format itself.
+[*.{yml,yaml}]
+indent_size = 2
+indent_style = space
+
+# Markdown — preserve trailing whitespace (the two-space "hard break"
+# convention; auto-trimming silently breaks line breaks).
+[*.md]
+indent_style = space
+trim_trailing_whitespace = false
+
+# CSS / SCSS — tabs, matching the TypeScript sources.
+[*.{css,scss}]
+indent_style = tab
+
+# Bash scripts — tabs, matching the scripts/*.sh files.
+[*.sh]
+indent_style = tab
+
+# TOML — tabs, matching the default above.
+[*.toml]
+indent_style = tab

@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Release — version PR, then publish the 13 engine packages to npm.
+#
+# ⚠ ENGINE REPO ONLY. The examples repo publishes nothing and must not carry this
+# file; its `packagesStayPrivate.test.ts` holds every package there to
+# `private: true`. Here, `.changeset/config.json` has an empty `ignore` list, so
+# every package under `packages/` is published — `publishSurface.test.ts` fails
+# if that set and its roster of 13 ever disagree.
+#
+# ── How it runs ──────────────────────────────────────────────────────────────
+#
+# Standard Changesets two-phase flow:
+#   1. A push to `main` with pending changesets → this opens/updates a
+#      "Version Packages" PR that applies the version bumps and changelogs.
+#   2. Merging that PR → this runs again, finds no pending changesets, and
+#      publishes instead.
+#
+# So a release is a PR merge, not a tag push. Nothing publishes without that
+# merge, which is the review step.
+#
+# ── 🔴 AUTHENTICATION: OIDC TRUSTED PUBLISHING ──────────────────────────────
+#
+# Publishing authenticates with npm trusted publishing (OIDC): the job's
+# `id-token: write` permission lets `pnpm publish` exchange a short-lived GitHub
+# identity token for a publish credential. No long-lived npm secret is stored.
+#
+# A trusted publisher is configured per PACKAGE on npmjs.com, and npm cannot
+# attach one to a package that has never been published (npm/cli#8544). So a
+# brand-new package publishes its first version with a token, once:
+#
+#   1. Create a granular write token on npmjs.com, scoped as narrowly as npm
+#      allows for a package that does not exist yet (the `@filter-enginez`
+#      scope) and with the shortest expiry offered, and store it as the
+#      `NPM_TOKEN` repository secret. The "Bootstrap npm token" step below
+#      writes it to `~/.npmrc` only while that secret exists.
+#   2. Release as usual (merge the "Version Packages" PR).
+#   3. On npmjs.com, add a trusted publisher to the new package: owner,
+#      repository, and the workflow filename `release.yml`. ⚠ All three fields
+#      are case-sensitive and exact, and the filename needs its extension.
+#   4. Delete the `NPM_TOKEN` secret and revoke the token. With the secret gone
+#      the bootstrap step is skipped and every package publishes through OIDC.
+#
+# ⚠ Never add `registry-url` to the setup-node step. It writes an `.npmrc` with
+# a token placeholder, and `pnpm publish` under OIDC then fails with a 404.
+#
+# OIDC needs npm CLI >= 11.5.1, and this repo publishes through `pnpm publish`
+# (via Changesets), so pnpm performs the exchange itself. The pinned pnpm
+# (`packageManager` in package.json) is past every version where that support
+# was reported broken (pnpm/pnpm#11513). When bumping pnpm across a major,
+# confirm the next release's publish step before relying on it.
+#
+# ── Provenance ───────────────────────────────────────────────────────────────
+#
+# `NPM_CONFIG_PROVENANCE: true` is set deliberately rather than left to default.
+# Provenance is a verifiable link from the published tarball to the exact workflow
+# run that built it. Setting it explicitly makes a release FAIL rather than
+# quietly ship without an attestation.
+#
+# ⚠ It requires both the repository and the package to be public. On a private
+# repository (a fork made private, say) no attestation is generated — so if
+# provenance is absent, check the repository's visibility first.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two releases must never interleave: the second would publish against the
+# first's half-applied version bumps. `cancel-in-progress: false` because
+# cancelling a run that has already published some of the 13 is worse than
+# queueing.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Version PR or publish
+    runs-on: ubuntu-latest
+    # ⚠ GitHub-hosted runners only. npm trusted publishing does not support
+    # self-hosted runners, so moving this job to one would break OIDC publishing.
+    permissions:
+      # Changesets pushes the version-bump branch and creates the PR.
+      contents: write
+      pull-requests: write
+      # OIDC trusted publishing and the provenance attestation.
+      id-token: write
+    env:
+      # Present only while a brand-new package is being bootstrapped (see the
+      # header); empty otherwise, which skips the bootstrap step.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        # Full history: Changesets reads it to assemble changelogs.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enable Corepack (pins pnpm from package.json packageManager)
+        run: corepack enable
+
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          # No `registry-url` here — see the header.
+
+      # Only while the `NPM_TOKEN` secret exists — the first publish of a new
+      # package. Every other release publishes through OIDC.
+      - name: Bootstrap npm token
+        if: env.NPM_TOKEN != ''
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$HOME/.npmrc"
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # MUST precede publish: `files` ships `dist/**`, so publishing without a
+      # build produces thirteen tarballs containing a NOTICE and nothing else.
+      # `scripts/pack-engine-tarballs.sh` checks the packed tarballs for exactly
+      # that, because the failure is invisible until a consumer installs one.
+      - name: Build the publishable packages
+        run: pnpm build
+
+      # The gate CI already runs on every push, repeated so nothing publishes
+      # from a commit that would fail it.
+      - name: Verify before publishing
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test:coverage
+
+      - name: Create version PR, or publish
+        uses: changesets/action@v1
+        with:
+          # `pnpm release` = sync-licenses.mjs && changeset publish. The license
+          # sync is load-bearing: the per-package LICENSE/NOTICE copies are
+          # gitignored, so a fresh CI clone has none until it runs.
+          publish: pnpm release
+          version: pnpm changeset version
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

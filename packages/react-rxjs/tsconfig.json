@@ -1,0 +1,22 @@
+// Package config for IDEs, `tsc --noEmit` typecheck, and ESLint's typed-lint
+// projectService. NON-composite + noEmit, and it INCLUDES test files so they are
+// type-checked and resolved to a real program (not the capped default project).
+// Declaration emit to `dist` is the job of `tsconfig.build.json` (which excludes tests).
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    {
+      "path": "../core/tsconfig.build.json"
+    },
+    {
+      "path": "../reactive-rxjs/tsconfig.build.json"
+    }
+  ]
+}

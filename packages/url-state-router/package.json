@@ -1,0 +1,71 @@
+{
+  "name": "@filter-enginez/url-state-router",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — react-router URL serialization for filter state. Push for route nav, replace for filter state. Browser-only.",
+  "keywords": [
+    "filter",
+    "url-state",
+    "querystring",
+    "shareable-links"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/url-state-router",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./serializers": "./src/serializers.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./serializers": {
+        "types": "./dist/serializers.d.ts",
+        "default": "./dist/serializers.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "peerDependencies": {
+    "react": ">=19.2.7",
+    "react-router": "^8.3.0"
+  },
+  "dependencies": {
+    "@filter-enginez/core": "workspace:^",
+    "lz-string": "^1.5.0"
+  },
+  "devDependencies": {
+    "@filter-enginez/eslint": "workspace:^",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "react-dom": "^19.2.8"
+  }
+}

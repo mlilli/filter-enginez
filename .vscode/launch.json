@@ -1,0 +1,20 @@
+{
+  // Filter EngineZ — VS Code debug configurations.
+  // See https://go.microsoft.com/fwlink/?LinkId=733558 for the documentation.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Run the open test file under Vitest with the debugger attached. Set a
+      // breakpoint in the test or in the source it imports, then start this.
+      "name": "Debug current test file",
+      "type": "node",
+      "request": "launch",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}"],
+      "smartStep": true,
+      "console": "integratedTerminal"
+    }
+  ]
+}

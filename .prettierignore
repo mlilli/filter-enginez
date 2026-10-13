@@ -1,0 +1,70 @@
+# JS/TS files are formatted by ESLint (@stylistic) — not Prettier.
+# Prettier handles JSON, YAML, CSS, and Markdown only.
+# (All JS/TS/JSX/TSX variants are listed so the per-package `prettier --write .`
+#  — which scopes via this ignore file, not an extension glob — stays off them.)
+*.cjs
+*.cts
+*.js
+*.jsx
+*.mjs
+*.mts
+*.ts
+*.tsx
+
+# Component SFCs, for exactly the same reason — Prettier claims `.vue` out of the box. The
+# two genuinely disagree: Prettier writes `{ required: [...values] }` where
+# `@stylistic/object-curly-spacing` (as configured here) wants `{ required: [...values]}`, so
+# `pnpm prettier:fix` and `pnpm lint` would undo each other forever on any Vue file.
+# `.svelte` is listed pre-emptively: Prettier claims it only once `prettier-plugin-svelte` is
+# installed, which is a dependency away from the same conflict.
+*.svelte
+*.vue
+
+# Lockfiles — managed by package manager, never reformat
+package-lock.json
+pnpm-lock.yaml
+
+# The workspace manifest — hand-authored, and Prettier fights the author over it.
+#
+# Prettier rewrites single-quoted YAML scalars to double quotes, so every `overrides:` entry would
+# churn the moment anyone touches this file for an unrelated reason: a few lines of comment would
+# arrive as a whole-block diff in the file that carries the repo's supply-chain policy, and reviewing
+# a policy change would mean reading past a screen of quote flips.
+#
+# Single and double quotes are equivalent in YAML for every value here (no escapes, no leading
+# sigils), so there is nothing to gain and a reviewable diff to lose. The quoting also matters to
+# `tests/tooling/overrideUpperBounds.test.ts`, which reads the single-quoted override ranges.
+pnpm-workspace.yaml
+
+# The local pnpm content-addressable store.
+#
+# 🔴 `pnpm prettier:check` globs `**/*.{...,json,...}`, and the store holds ~900 package manifests.
+# Without this entry the check reports hundreds of files nobody owns, and real drift in tracked
+# sources disappears into that noise. A gate whose output cannot be read is not a gate.
+.pnpm-store/
+
+# Transient run artifacts.
+tmp/
+test-results/
+
+# Build output (generated — never format)
+**/dist/
+**/coverage/
+**/.turbo/
+
+# Mock data
+packages/mock-data/src/**/*.json
+packages/mock-data/dist/**/*.json
+
+# Verbatim license texts — legal instruments that must match their canonical upstream form
+# byte for byte. Never reformat these.
+#
+# 🔴 `LICENSE.md` is the verbatim Apache-2.0 text. Prettier would reflow it on the next commit that
+# touched it, silently, so it must stay listed here (`tests/tooling/licenseDeclarations.test.ts`
+# asserts that it is, alongside the matching `.markdownlint-cli2.yaml` ignore).
+LICENSE.md
+
+# Notice copies generated into each package by `scripts/sync-licenses.mjs` (gitignored). The sync strips
+# relative links, which rewraps lines, so they are not Prettier-formatted output. (The license copies are
+# already covered by the `LICENSE.md` entry above, which matches at any depth.)
+packages/*/NOTICE.md

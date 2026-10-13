@@ -1,0 +1,65 @@
+{
+  "name": "@filter-enginez/angular-rxjs",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — Angular DI bindings over @filter-enginez/reactive-rxjs. Deliberately thin: Angular consumes Observables natively, so this is dependency-injection plumbing, not a reactivity bridge. Browser-only.",
+  "keywords": [
+    "filter",
+    "angular",
+    "rxjs",
+    "signals",
+    "faceted-search"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/angular-rxjs",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "peerDependencies": {
+    "@angular/core": "^22.0.0",
+    "rxjs": "^7.8.1"
+  },
+  "dependencies": {
+    "@filter-enginez/core": "workspace:^",
+    "@filter-enginez/reactive-rxjs": "workspace:^"
+  },
+  "devDependencies": {
+    "@angular/common": "^22.0.7",
+    "@angular/core": "^22.0.7",
+    "@filter-enginez/eslint": "workspace:^",
+    "rxjs": "^7.8.2"
+  }
+}

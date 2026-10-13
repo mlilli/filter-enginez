@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-push hook — runs on every `git push` before refs leave the local repo. It
+# type-checks the whole workspace and runs the full suite under coverage.
+#
+# TWO gates:
+#
+#   1. `pnpm typecheck` — three commands (see `pre-commit`). Catches what the
+#      per-file lint-staged pass structurally cannot: cross-file type errors, and
+#      type-only refactors that touched no runtime code.
+#
+#   2. `pnpm test:coverage` — the full suite under V8 instrumentation, enforcing
+#      the 100% coverage policy.
+#
+#      🔴 This is the ONLY gate that can see the coverage thresholds, and they
+#      are GLOBAL aggregates with no `perFile`. So a module newly in scope at 94%
+#      does not fail its own file — it drops the whole repo under 100 and reddens
+#      this hook, naming nothing. When that happens the fix is to put the module
+#      on the exclusion list in `vitest.coverage.config.ts` WITH ITS MEASURED
+#      NUMBER as the reason, never to fall back to a blanket glob.
+#
+#      Some constrained environments cannot run `--coverage` at all, so a green
+#      uninstrumented suite is necessary and not sufficient. This hook is where
+#      that gap closes.
+#
+# Bypass (emergency only, never for routine pushes):
+#   git push --no-verify
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -e
+
+pnpm typecheck
+pnpm test:coverage

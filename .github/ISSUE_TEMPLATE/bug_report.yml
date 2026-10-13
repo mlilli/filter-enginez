@@ -1,0 +1,88 @@
+# A bug report that can actually be acted on. Every required field below exists
+# because a report without it needs a round trip before anyone can act on it:
+# which package, which runtime, and whether acceleration was awaited.
+name: Bug report
+description: Something behaves differently from what the docs or types promise.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two things before you start:
+
+        - **For anything security-sensitive, stop and use the private process in
+          [`SECURITY.md`](../blob/main/SECURITY.md)** instead of a public issue.
+        - This is a solo-maintained project, so there is no response-time
+          guarantee. A minimal reproduction is the single biggest thing that
+          moves a report forward.
+
+  - type: input
+    id: package
+    attributes:
+      label: Package and version
+      description: The `@filter-enginez/*` package and the version you installed.
+      placeholder: "@filter-enginez/core 0.0.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Where it runs
+      description: >-
+        Pick the environment the failure happens in. This matters more than it looks: the
+        same import can work in a bundler and throw in plain Node, and an SSR runtime can
+        differ from both, so a failure can depend entirely on how the package is loaded.
+      options:
+        - Browser (bundled — Vite, webpack, Rollup, …)
+        - Node (plain ESM import)
+        - Node (CommonJS require)
+        - SSR runtime (SvelteKit, Next, Nuxt, Astro, …)
+        - Web Worker
+        - Edge / serverless runtime
+        - Other or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The smallest code that shows the problem — ideally a link to a repository or
+        sandbox, otherwise an inline snippet. Please include how the engine was
+        constructed and which rules were registered.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+      description: What you expected, what happened instead, and the full error if there is one.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acceleration
+    attributes:
+      label: Acceleration
+      description: >-
+        🔴 Worth checking before filing, because it is the most common cause of "the
+        engine is slow" and of results that differ between runs: the bitmap path is
+        **off** until `initializeBitmapAcceleration()` has been awaited, and nothing
+        warns you. It is a silent ~40× difference, not an error.
+      options:
+        - label: I am not using bitmap acceleration, or I awaited `initializeBitmapAcceleration()` before building the engine.
+        - label: This report is about a performance difference, and I have read `docs/guides/acceleration_tuning.md`.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: >-
+        Dataset size, whether a worker is involved, whether the rule is custom, and
+        anything you have already ruled out.
+    validations:
+      required: false

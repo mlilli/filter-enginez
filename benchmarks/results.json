@@ -1,0 +1,383 @@
+{
+  "generatedAt": "2026-07-08T08:33:02.699Z",
+  "reports": [
+    {
+      "outcomes": [
+        {
+          "cellLabel": "bitmap:on",
+          "meanMs": 0.02164428026925261,
+          "rmePct": 7.508590846560037,
+          "samples": 46202
+        },
+        {
+          "cellLabel": "bitmap:off",
+          "meanMs": 0.8620761310344881,
+          "rmePct": 0.39995536613527394,
+          "samples": 1160
+        }
+      ],
+      "scenarioId": "filter-intersection",
+      "scenarioTitle": "Filter intersection",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "bitmap:on",
+          "meanMs": 0.40350724122630127,
+          "rmePct": 5.039715677584606,
+          "samples": 2479
+        },
+        {
+          "cellLabel": "bitmap:off",
+          "meanMs": 11.196769844444418,
+          "rmePct": 0.8100602106118291,
+          "samples": 90
+        }
+      ],
+      "scenarioId": "filter-intersection",
+      "scenarioTitle": "Filter intersection",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
+          "meanMs": 0.0867458685808477,
+          "rmePct": 5.810675325615476,
+          "samples": 11528
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
+          "meanMs": 10.487780374999904,
+          "rmePct": 0.4042638089784477,
+          "samples": 96
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
+          "meanMs": 0.08269502861160075,
+          "rmePct": 0.9434060794275528,
+          "samples": 12093
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
+          "meanMs": 10.317280989690754,
+          "rmePct": 0.5116239992668313,
+          "samples": 97
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
+          "meanMs": 0.08276392154265336,
+          "rmePct": 1.138434183999105,
+          "samples": 12083
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
+          "meanMs": 27.821701812500038,
+          "rmePct": 0.4751951644710582,
+          "samples": 64
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
+          "meanMs": 0.08279762957442449,
+          "rmePct": 1.243357371977916,
+          "samples": 12078
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
+          "meanMs": 28.93206443750001,
+          "rmePct": 2.3129610601111747,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "simulate-per-option",
+      "scenarioTitle": "Simulate per option",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
+          "meanMs": 0.08424966849202124,
+          "rmePct": 2.165948213601988,
+          "samples": 11870
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
+          "meanMs": 204.87267643750008,
+          "rmePct": 1.4076670516203604,
+          "samples": 64
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
+          "meanMs": 0.0830762269480314,
+          "rmePct": 0.9688142833889783,
+          "samples": 12038
+        },
+        {
+          "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
+          "meanMs": 194.33615243749924,
+          "rmePct": 1.4908191317581299,
+          "samples": 64
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
+          "meanMs": 0.08408131024049333,
+          "rmePct": 2.2872103749208454,
+          "samples": 11894
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
+          "meanMs": 478.5243300312492,
+          "rmePct": 0.4002938911311086,
+          "samples": 64
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
+          "meanMs": 0.0844682622687909,
+          "rmePct": 0.9829947649464568,
+          "samples": 11839
+        },
+        {
+          "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
+          "meanMs": 482.64366598437516,
+          "rmePct": 0.5231251229354756,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "simulate-per-option",
+      "scenarioTitle": "Simulate per option",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 0.006686346304743389,
+          "rmePct": 0.2685259190644528,
+          "samples": 149559
+        }
+      ],
+      "scenarioId": "similarity-find",
+      "scenarioTitle": "Similarity find",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 0.05882177054288816,
+          "rmePct": 0.5563173957312147,
+          "samples": 17001
+        }
+      ],
+      "scenarioId": "similarity-find",
+      "scenarioTitle": "Similarity find",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 0.002000063395900076,
+          "rmePct": 0.781744664567576,
+          "samples": 499985
+        }
+      ],
+      "scenarioId": "bayesian-suggest",
+      "scenarioTitle": "Bayesian suggest",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 0.0020146582884081362,
+          "rmePct": 0.7443226822150321,
+          "samples": 496363
+        }
+      ],
+      "scenarioId": "bayesian-suggest",
+      "scenarioTitle": "Bayesian suggest",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "rtree:auto",
+          "meanMs": 0.007362916188788993,
+          "rmePct": 3.6870812895598704,
+          "samples": 135817
+        },
+        {
+          "cellLabel": "rtree:off",
+          "meanMs": 1.218600267966163,
+          "rmePct": 1.2864866398843011,
+          "samples": 821
+        }
+      ],
+      "scenarioId": "geo-radius-query",
+      "scenarioTitle": "Geo radius query",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "rtree:auto",
+          "meanMs": 0.0898738979959008,
+          "rmePct": 0.5596215474442287,
+          "samples": 11127
+        },
+        {
+          "cellLabel": "rtree:off",
+          "meanMs": 19.4098229531246,
+          "rmePct": 1.583691518219162,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "geo-radius-query",
+      "scenarioTitle": "Geo radius query",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 0.011206640514181184,
+          "rmePct": 14.004333370196647,
+          "samples": 89233
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 3.8959361361875358,
+          "rmePct": 1.230355548261518,
+          "samples": 257
+        }
+      ],
+      "scenarioId": "text-search-query",
+      "scenarioTitle": "Text search (allWords)",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 0.1661298619603941,
+          "rmePct": 9.65202471593956,
+          "samples": 6020
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 50.87109953125036,
+          "rmePct": 2.106341297919835,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "text-search-query",
+      "scenarioTitle": "Text search (allWords)",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 3.5455599399306137,
+          "rmePct": 1.8117608087067665,
+          "samples": 283
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 11.423764170455383,
+          "rmePct": 1.0135154362922036,
+          "samples": 88
+        }
+      ],
+      "scenarioId": "fuzzy-search-strict",
+      "scenarioTitle": "Fuzzy search (t=0.2, candidate)",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 47.19874545312359,
+          "rmePct": 1.199551002002412,
+          "samples": 64
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 144.3637305000003,
+          "rmePct": 0.31824193441303245,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "fuzzy-search-strict",
+      "scenarioTitle": "Fuzzy search (t=0.2, candidate)",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 15.965166734375089,
+          "rmePct": 0.7232546051457528,
+          "samples": 64
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 15.909085328125,
+          "rmePct": 0.7343277074621067,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "fuzzy-search-loose",
+      "scenarioTitle": "Fuzzy search (t=0.4, bypass)",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "textIndex:auto",
+          "meanMs": 204.74820245312551,
+          "rmePct": 0.3686358657492627,
+          "samples": 64
+        },
+        {
+          "cellLabel": "textIndex:off",
+          "meanMs": 204.39938670312353,
+          "rmePct": 0.31446597089239997,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "fuzzy-search-loose",
+      "scenarioTitle": "Fuzzy search (t=0.4, bypass)",
+      "tierName": "130k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 8.679708715518462,
+          "rmePct": 1.5150162982513256,
+          "samples": 116
+        }
+      ],
+      "scenarioId": "replay-action-log",
+      "scenarioTitle": "Replay action log",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 8.431668016806187,
+          "rmePct": 0.7329307721268083,
+          "samples": 119
+        }
+      ],
+      "scenarioId": "replay-action-log",
+      "scenarioTitle": "Replay action log",
+      "tierName": "130k"
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+# =============================================================================
+# Filter EngineZ — .gitignore
+# =============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Node / pnpm
+# ─────────────────────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Build artifacts (per-package)
+# ─────────────────────────────────────────────────────────────────────────────
+dist/
+build/
+out/
+.turbo/
+*.tsbuildinfo
+packages/*/dist/
+packages/*/build/
+packages/*/out/
+packages/*/.turbo/
+packages/*/*.tsbuildinfo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test artifacts
+# ─────────────────────────────────────────────────────────────────────────────
+coverage/
+packages/*/coverage/
+.nyc_output/
+.vitest/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Env / secrets
+# ─────────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IDE / editor
+# ─────────────────────────────────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Keep workspace-shared VS Code config; ignore personal overrides
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.vscode/settings.local.json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# macOS / Windows / Linux OS cruft
+# ─────────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Local development certs (mkcert)
+# ─────────────────────────────────────────────────────────────────────────────
+.local-certs/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mock data — full datasets (large, generated on-demand)
+# ─────────────────────────────────────────────────────────────────────────────
+# No dataset file is committed: the default tiers (~10k each) are generated at load time by
+# seeded generators. The full tiers (~130k wine, ~50k real estate, ~100k books) are generated
+# locally via `pnpm regen:mock-data --full` (~65 MB+ per dataset) and stay local.
+packages/mock-data/src/*/data-full.json
+packages/mock-data/src/**/*.json
+packages/mock-data/dist/**/*.json
+packages/mock-data/.cache/
+
+# Real-data wine corpus — ALL of it is local and gitignored: the 10k stratified
+# `data-real-default.json` (~9 MB), the full 130k `data-real-full.json` (~116 MB), its NDJSON
+# streaming variant (same size), and the raw Kaggle CSV cache (~50 MB), all written by
+# `pnpm regen:wine:real --accept-data-license`. 🔴 It must never be committed or distributed: the
+# Kaggle "Wine Reviews" dataset is CC BY-NC-SA 4.0 (non-commercial, share-alike) and carries
+# WineEnthusiast's review text, while this project is Apache-2.0. `corpusLoaders.ts` falls back to
+# generated wines when the files are absent, which is the state of every clone, package and build.
+packages/mock-data/src/wine/data-real-full.json
+packages/mock-data/dist/wine/data-real-full.json
+packages/mock-data/src/wine/data-real-full.ndjson
+packages/mock-data/dist/wine/data-real-full.ndjson
+packages/mock-data/scripts/_cache/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Benchmark results (auto-generated)
+# ─────────────────────────────────────────────────────────────────────────────
+benchmarks/results/
+# Note: benchmarks/RESULTS.md (the curated/committed report) is NOT ignored.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Local notes (never committed)
+# ─────────────────────────────────────────────────────────────────────────────
+docs/wine-app.md
+docs/wine-app-*.md
+docs/private/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Misc
+# ─────────────────────────────────────────────────────────────────────────────
+*.log
+.history/
+.cache/
+tmp/
+temp/
+
+# Throwaway scratch directory (spikes, one-off measurements) — never committed
+_to_delete/
+
+# TypeDoc-generated API reference (built by `pnpm docs:api` into the standalone
+# docs site's static dir + served at /api/). A build artifact, never committed —
+# the core TSDoc is the single source of truth.
+docs/api/
+# ⚠ The docs site that serves it lives in the examples repo, so publishing this reference there is a
+# separate, cross-repo step.
+typedoc.tsbuildinfo
+
+# License + notice copies generated into each publishable package by
+# `scripts/sync-licenses.mjs` at release time. The repo-root files are the single
+# source of truth; committing a copy per package would drift silently.
+packages/*/LICENSE.md
+packages/*/LICENSE-MIT.md
+packages/*/LICENSE-APACHE.md
+packages/*/NOTICE.md
+
+# `pnpm pack` / `npm pack` output. Never committed — a tarball is a build artifact, and a
+# stale one in the tree is worse than none because it looks like evidence.
+#
+# 🔴 THE ROOT PACK IS THE DANGEROUS ONE, and this rule exists because of it. Running `pnpm pack`
+# at the repo root (the obvious first guess) packs the WORKSPACE ROOT, not the engine packages —
+# every doc, script and test in the repo. The root manifest has no `files` allow-list, so
+# `private: true` is the only thing between that tarball and npm. `scripts/pack-engine-tarballs.sh`
+# packs per package instead.
+*.tgz
+*.tar.gz

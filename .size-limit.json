@@ -1,0 +1,92 @@
+[
+  {
+    "name": "core",
+    "path": "packages/core/dist/index.js",
+    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
+    "limit": "17.5 kB",
+    "gzip": true
+  },
+  {
+    "name": "core/storage/browser",
+    "path": "packages/core/dist/storage/browser/index.js",
+    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
+    "limit": "2 kB",
+    "gzip": true
+  },
+  {
+    "name": "core/keyboard/browser",
+    "path": "packages/core/dist/keyboard/browser/index.js",
+    "limit": "1 kB",
+    "gzip": true
+  },
+  {
+    "name": "reactive-signals",
+    "path": "packages/reactive-signals/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/worker-bridge", "@preact/signals-core"],
+    "limit": "3 kB",
+    "gzip": true
+  },
+  {
+    "name": "reactive-rxjs",
+    "path": "packages/reactive-rxjs/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/worker-bridge", "rxjs"],
+    "limit": "3.5 kB",
+    "gzip": true
+  },
+  {
+    "name": "react-signals",
+    "path": "packages/react-signals/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-signals", "@preact/signals-react", "react"],
+    "limit": "4 kB",
+    "gzip": true
+  },
+  {
+    "name": "react-rxjs",
+    "path": "packages/react-rxjs/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-rxjs", "react", "rxjs"],
+    "limit": "4 kB",
+    "gzip": true
+  },
+  {
+    "name": "svelte-signals",
+    "path": "packages/svelte-signals/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-signals", "svelte"],
+    "limit": "3 kB",
+    "gzip": true
+  },
+  {
+    "name": "vue-signals",
+    "path": "packages/vue-signals/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-signals", "vue"],
+    "limit": "3 kB",
+    "gzip": true
+  },
+  {
+    "name": "angular-rxjs",
+    "path": "packages/angular-rxjs/dist/index.js",
+    "ignore": ["@angular/core", "@filter-enginez/core", "@filter-enginez/reactive-rxjs", "rxjs"],
+    "limit": "3 kB",
+    "gzip": true
+  },
+  {
+    "name": "redux-bridge",
+    "path": "packages/redux-bridge/dist/index.js",
+    "ignore": ["@filter-enginez/core", "@reduxjs/toolkit"],
+    "limit": "4 kB",
+    "gzip": true
+  },
+  {
+    "name": "url-state-router",
+    "path": "packages/url-state-router/dist/index.js",
+    "ignore": ["@filter-enginez/core", "lz-string", "react", "react-router"],
+    "limit": "3 kB",
+    "gzip": true
+  },
+  {
+    "name": "worker-bridge",
+    "path": "packages/worker-bridge/dist/index.js",
+    "ignore": ["@filter-enginez/core", "comlink"],
+    "limit": "5 kB",
+    "gzip": true
+  }
+]

@@ -1,0 +1,28 @@
+# 🔴 `blank_issues_enabled: false` is the one real decision in this file, and it
+# is a trade. It forces every report through a template, which is what makes the
+# runtime and acceleration fields above actually get filled in. The cost is that
+# someone with a question that fits neither template has to pick one anyway — so
+# the contact links below exist to give that person somewhere to go rather than a
+# dead end.
+#
+# ⚠ Keep `security` pointing at the private process. A blank-issue form is the
+# easiest way for somebody to publish a vulnerability by accident, and this is
+# the file that decides whether that form exists.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/mlilli/filter-enginez/security/advisories/new
+    about: >-
+      Report privately, never as a public issue. See SECURITY.md for what is in scope
+      and what to expect.
+
+  - name: Code of conduct concern
+    url: https://github.com/mlilli/filter-enginez/blob/main/CODE_OF_CONDUCT.md
+    about: Two private reporting channels are listed there; both reach the maintainer.
+
+  - name: Usage question ("how do I …")
+    url: https://github.com/mlilli/filter-enginez/issues/new?template=bug_report.yml
+    about: >-
+      Open it as a bug report and say it is a question — answers are searchable for the
+      next person, which is why this project prefers issues over private email.

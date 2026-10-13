@@ -1,0 +1,75 @@
+{
+  "name": "@filter-enginez/eslint",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — ESLint plugin (custom rules) + shared flat-config presets (base / react / nodeIsomorphic).",
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "eslint-config",
+    "filter"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/eslint",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    "./plugin": {
+      "types": "./src/plugin/index.ts",
+      "default": "./dist/plugin/index.js"
+    },
+    "./config": "./src/config/index.js"
+  },
+  "files": [
+    "dist/plugin/**/*.js",
+    "dist/plugin/**/*.d.ts",
+    "src/config/**/*.js",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./plugin": {
+        "types": "./dist/plugin/index.d.ts",
+        "default": "./dist/plugin/index.js"
+      },
+      "./config": "./src/config/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.build.json",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --watch=false --passWithNoTests",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0"
+  },
+  "dependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
+    "@eslint-react/eslint-plugin": "^5.23.5",
+    "@eslint/config-helpers": "^0.7.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@typescript-eslint/utils": "^8.59.4",
+    "@vitest/eslint-plugin": "^1.6.17",
+    "eslint-plugin-compat": "^7.0.2",
+    "eslint-plugin-jsx-a11y-x": "^0.2.0",
+    "eslint-plugin-perfectionist": "^5.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "typescript-eslint": "^8.59.4"
+  },
+  "devDependencies": {
+    "@types/estree": "^1.0.9"
+  }
+}

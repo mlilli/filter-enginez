@@ -1,0 +1,974 @@
+version: "0.2"
+language: en,es
+allowCompoundWords: true
+# Ignore GitHub Security Advisory IDs wholesale (e.g. GHSA-mh99-v99m-4gvg) — the random hash
+# segments would otherwise trip the spell checker wherever advisories are cited (SECURITY.md,
+# pnpm-workspace.yaml). `GHSA` / `Ghsas` themselves are in the `words` list below for prose mentions.
+ignoreRegExpList:
+  - "GHSA-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}"
+ignorePaths:
+  - node_modules/**
+  - "**/node_modules/**"
+  - .vscode
+  - .vscode/**
+  - "**/dist/**"
+  - "**/tmp/**"
+  - "**/coverage/**"
+  # Generated Playwright artifacts (gitignored, minified) — never committed, don't spell-check.
+  - "**/playwright-report/**"
+  - "**/test-results/**"
+  - "**/blob-report/**"
+  - "**/tsconfig.tsbuildinfo"
+  - "**/tsconfig.eslint.tsbuildinfo"
+  - "*.min.js"
+  # Vendored / generated files served from an app's public/ — TypeDoc's minified `api/` bundle
+  # (British spellings in third-party minified code) + MSW's `mockServiceWorker.js`.
+  - "**/public/api/**"
+  - "**/public/mockServiceWorker.js"
+  - "**/untitled:*"
+  - "**/junit-test-report-client.xml"
+  - .git/**
+  # Gitignored scratch dir (throwaway benchmarks / spikes) — never committed, don't spell-check.
+  - _to_delete/**
+  - "**/*.svg"
+  - cspell.config.yaml
+  - pnpm-lock.yaml
+  - docs/wine-app.md
+  - docs/wine-app-*.md
+  - docs/private/**
+  - "**/data-full.json"
+  - "**/scripts/_cache/**"
+  - "**/data-real-default.json"
+  - "**/data-real-full.json"
+  # Design-system deliverables — logo-sketch code, UI-kit reference impls, preview pages. Non-prose
+  # artifacts full of sketch identifiers + proper nouns; the design-system README/CSS stay checked.
+  - docs/branding/design-system/logo-sketches/**
+  - docs/branding/design-system/ui_kits/**
+  - docs/branding/design-system/preview/**
+dictionaryDefinitions: []
+dictionaries:
+  - bash
+  - shellscript
+  - docker
+  - git
+  - software-terms
+  - typescript
+  - node
+  - npm
+  - aws
+  - fullstack
+  - k8s
+  - html
+  - css
+  - filetypes
+flagWords:
+  - "analyse: analyze"
+  - "analysed: analyzed"
+  - "analysing: analyzing"
+  - "artefacts: artifacts"
+  - "authorise: authorize"
+  - "authorised: authorized"
+  - "authorises: authorizes"
+  - "authorising: authorizing"
+  - "behaviour: behavior"
+  - "calender: calendar"
+  - "capitalise: capitalize"
+  - "capitalised: capitalized"
+  - "centralise: centralize"
+  - "centralised: centralized"
+  - "centralises: centralizes"
+  - "centralising: centralizing"
+  - "colocates: co-locates"
+  - "colour: color"
+  - "emphasised: emphasized"
+  - "emphasises: emphasizes"
+  - "humanise: humanize"
+  - "humanised: humanized"
+  - "humanises: humanizes"
+  - "kilometer: kilometer"
+  - "localisation: localization"
+  - "localise: localize"
+  - "localised: localized"
+  - "localises: localizes"
+  - "localising: localizing"
+  - "minimise: minimize"
+  - "minimised: minimized"
+  - "minimises: minimizes"
+  - "minimising: minimizing"
+  - "normalise: normalize"
+  - "normalised: normalized"
+  - "normalises: normalizes"
+  - "normalising: normalizing"
+  - "Organise: Organize"
+  - "Organised: Organized"
+  - "Organises: Organizes"
+  - "Organising: Organizing"
+  - "parameterise: parameterize"
+  - "parameterised: parameterized"
+  - "penalised: penalized"
+  - "penalises: penalizes"
+  - "prioritise: prioritize"
+  - "prioritised: prioritized"
+  - "prioritises: prioritizes"
+  - "randomisation: randomization"
+  - "randomise: randomize"
+  - "randomised: randomized"
+  - "randomises: randomizes"
+  - "randomising: randomizing"
+  - "realised: realized"
+  - "recognisable: recognizable"
+  - "recognise: recognize"
+  - "recognised: recognized"
+  - "recognises: recognizes"
+  - "sanitisation: sanitization"
+  - "sanitise: sanitize"
+  - "sanitised: sanitized"
+  - "sanitises: sanitizes"
+  - "sanitising: sanitizing"
+  - "serialisation: serialization"
+  - "serialise: serialize"
+  - "serialised: serialized"
+  - "serialising: serializing"
+  - "stabilisation: stabilization"
+  - "stabilise: stabilize"
+  - "stabilised: stabilized"
+  - "stabilises: stabilizes"
+  - "stabilising: stabilizing"
+  - "summarisation: summarization"
+  - "summarise: summarize"
+  - "summarised: summarized"
+  - "summarises: summarizes"
+  - "summarising: summarizing"
+  - "synchronise: synchronize"
+  - "synchronised: synchronized"
+  - "synchronisation: synchronization"
+  - "synthesise: synthesize"
+  - "synthesised: synthesized"
+  - "virtualisation: virtualization"
+words:
+  # `createWireRehydrator` — the shared worker-wire rehydration factory in `worker-bridge`,
+  # named in three packages. `rehydrate`/`rehydration` are already known; the agent noun is not.
+  - rehydrator
+  # `smol-toml` — the TOML parser markdownlint-cli2 depends on. A package name, so it appears in
+  # SECURITY.md's accepted-advisories table and pnpm-workspace.yaml's audit notes. The allowlist case
+  # exactly: a real library whose name is not a word.
+  - smol
+  # `katex` — the TeX math renderer reached transitively via
+  # `markdownlint-cli2 > markdownlint > micromark-extension-math`. A package name, so it appears in
+  # SECURITY.md's accepted-advisories table and pnpm-workspace.yaml's audit notes. Same allowlist case as
+  # `smol` above: a real library whose name is not a word. (The advisory is accepted rather than fixed
+  # precisely because no math extension is enabled, so this renderer never runs here.)
+  - katex
+  # `glpat` and `xox` — GitLab and Slack access-token PREFIXES, which appear inside the credential
+  # patterns in `scripts/secret-scan.sh` and `tests/tooling/noCommittedSecrets.test.ts`. Vendor-defined
+  # identifiers rather than words, so the allowlist case: the alternative is weakening a
+  # security pattern to satisfy a spell checker, which is the wrong trade.
+  - glpat
+  - xox
+  - aabbcc
+  - ABCDEFGHJKLMNPQRSTUVWXYZ
+  - absolutized
+  - absolutizes
+  - acai
+  - acks
+  - acquihire
+  - Acquihire
+  - Acquihires
+  - acul
+  - ACUL
+  - acura
+  - Acura's
+  - affordances
+  - agentic
+  - Aglianico
+  - Ahrens
+  - airc
+  - aird
+  - airp
+  - AKIA
+  - alavesa
+  - Albariño
+  - Alexa
+  - Amara
+  - Amarone
+  - amazon
+  - Amerca
+  - Andersonville
+  - annot
+  - Anonymization
+  - apify
+  - Aple
+  - apng
+  - appr
+  - Arbly
+  - arhaus
+  - ARNDG
+  - ARPU
+  - asnum
+  - Assembl
+  - asym
+  - Auctane
+  - Avola
+  - Baixas
+  - Barbaresco
+  - Barbera
+  - Barolo
+  - bayesian
+  - berstend
+  - bfcache
+  - Bieschke
+  - bivariant
+  - blockification
+  - booker's
+  - Bram
+  - Brex
+  - Brody
+  - brûlée
+  - Brunello
+  - bucketings
+  - bullmq
+  - Buren
+  - Burnup
+  - BYOK
+  - cachers
+  - Calibri
+  - cand
+  - canonicalizer
+  - Carignan
+  - Carignane
+  - Carmenère
+  - CAROOT
+  - Carricante
+  - Carta
+  - CARTO
+  - Casabl
+  - Cass
+  - Castellini
+  - Cava
+  - cbor
+  - CBOR
+  - CDFM
+  - cdninstagram
+  - CFAA
+  - cfasync
+  - cfemail
+  - Chambi
+  - changeme
+  - Châteauneuf
+  - Chenin
+  - choco
+  - Cinsault
+  - Citi
+  - Classé
+  - Classico
+  - Closo
+  - Coatue
+  - COEP
+  - commoditization
+  - conexión
+  - Consolas
+  - contributionsᵢ
+  - conv
+  - Cortese
+  - Corvina
+  - Côte
+  - craigslist
+  - Craigslist
+  - CRAIGSLIST
+  - Creat
+  - Creational
+  - creds
+  - Creds
+  - crème
+  - Cresta
+  - croy
+  - Crumwell
+  - CUDA
+  - cuser
+  - Cuyo
+  - Dade
+  - Damaris
+  - datr
+  - dbconnections
+  - dbgenerated
+  - ddeeff
+  - debouncer
+  - decouplings
+  - dedup
+  - Dedup
+  - DEDUP
+  - defu
+  - delists
+  - Deprioritized
+  - desaturated
+  - desaturation
+  - desync
+  - desynced
+  - desyncs
+  - Dettmer
+  - Devereaux
+  - devs
+  - Diallo
+  - disclosurer
+  - discriminable
+  - DMARC
+  - DOCG
+  - doesn
+  - Drata
+  - Driscoll
+  - droppables
+  - duplicative
+  - Eames
+  - Easton
+  - Ebates
+  - ebay
+  - EFEC
+  - Efron
+  - elig
+  - Elsey
+  - lmdb
+  - msgpackr
+  - Ngtsc
+  - ngtypecheck
+  - rioja
+  - unlayered
+  - unshifted
+  - Émilion
+  - emph
+  - encontraron
+  - enginez
+  - Englewood
+  - ense
+  - ensembling
+  - esop
+  - ESOP
+  - Español
+  - Estèphe
+  - Etheridge
+  - evidenceᵢ
+  - exclusify
+  - exfiltration
+  - FAANG
+  - facebook
+  - Falanghina
+  - falsiness
+  - Fastly
+  - Fellaz
+  - fgrep
+  - Filippo
+  - filt
+  - filterz
+  - financials
+  - financings
+  - Fitt's
+  - flate
+  - Flos
+  - Fontaine
+  - formatjs
+  - Funko
+  - GAAP
+  - gamy
+  - Garganega
+  - Garnacha
+  - gcompat
+  - genai
+  - Genericity
+  - Gevrey
+  - ggml
+  - GGUF
+  - GHSA
+  - Ghsas
+  - Godin
+  - gopro
+  - GPAI
+  - grafana
+  - Grailed
+  - grammyjs
+  - GRAT
+  - Grenache
+  - greppable
+  - Grigio
+  - Grüner
+  - gstatic
+  - gsub
+  - Guttman
+  - harfbuzz
+  - hasn
+  - hasselblad
+  - healthz
+  - Hermès
+  - Hippeau
+  - hrefs
+  - Hrefs
+  - hsehpbh
+  - HSTS
+  - htmx
+  - Hziz
+  - Ianas
+  - IDGT
+  - IHDR
+  - Illiquidity
+  - imac
+  - impls
+  - Incorp
+  - Indyk
+  - initdb
+  - inlang
+  - inlines
+  - innov
+  - INNOV8
+  - Instatus
+  - interstitials
+  - Interstitials
+  - iphnoe
+  - iproyal
+  - iqckhk
+  - IRLS
+  - isation
+  - isready
+  - ISSR
+  - Iversen
+  - Jaccard
+  - jank
+  - janky
+  - Jeffco
+  - Jefferies
+  - Jerimy
+  - jffknfmabdhfgdjdihmeikdhageofdgm
+  - Kaggle
+  - Kaser
+  - keurig
+  - Khosla
+  - klass
+  - Kleiner
+  - Klobuchar
+  - Krishnan
+  - KSFM
+  - Langhe
+  - Lato
+  - lede
+  - León
+  - Lerer
+  - Lesh
+  - Letgo
+  - levenshtein
+  - lgbtq
+  - libasound
+  - libatk
+  - libc
+  - libgbm
+  - libnspr
+  - libnss
+  - libpango
+  - libx
+  - libxcomposite
+  - libxdamage
+  - libxext
+  - libxfixes
+  - libxfont
+  - libxkbcommon
+  - libxrandr
+  - lilli
+  - Lilli
+  - linkify
+  - logit
+  - Logit
+  - logql
+  - LTCG
+  - Luján
+  - Lummis
+  - Makita
+  - Malbec
+  - Marantz
+  - Marchetti
+  - Marsaglia
+  - Marsanne
+  - marzocco
+  - Mascalese
+  - Mateo
+  - materializer
+  - Meilisearch
+  - memoises
+  - Menlo
+  - merc
+  - mercari
+  - merch
+  - Merriweather
+  - Mersenne
+  - MERSENNE
+  - Meunier
+  - Meursault
+  - mikelilli
+  # The tool that rewrites class identifiers — the whole subject of
+  # `tests/tooling/ruleTypeNamesSurviveMinification.test.ts`. `unminified` is listed separately;
+  # `allowCompoundWords` happens to accept the lowercase singular but not the plural or the
+  # SCREAMING_CASE constant, which is a confusing half-pass rather than a real judgement.
+  - minifier
+  - minifiers
+  - minuto
+  - misalign
+  - miscited
+  - misconfiguring
+  - misrouted
+  - modularly
+  - MOIC
+  - Molteni
+  - Monastrell
+  - Montagne
+  - Montalcino
+  - Motwani
+  - Mourvèdre
+  - mscorefonts
+  - mudler
+  - MWES
+  - mydb
+  - Nacional
+  - napi
+  - navigations
+  - navs
+  - ndjson
+  - Nebbiolo
+  - negotiables
+  - Nejatian's
+  - Nentendo
+  - Nerello
+  - Neue
+  - NIIT
+  - njsproj
+  - NNBSP
+  - nohup
+  - Norvig
+  - noscale
+  - notif
+  - nuits
+  - nums
+  - NVCA
+  - NZDT
+  - NZST
+  - Oakville
+  - OBBBA
+  - odttf
+  - offerup
+  - OLED
+  - ollama
+  - Olufsen
+  - Omds
+  - onesie
+  - OOXML
+  - openai
+  - openpyxl
+  - Opex
+  # A client-side search engine; sits beside Meilisearch above, which is allowed for the
+  # same reason.
+  - Orama
+  - opsz
+  - Optifai
+  - Optifai's
+  - Orbitron
+  - Orrick
+  - pangea
+  - Pankau
+  - Pape
+  - parameterizes
+  - parentheticals
+  - paseto
+  - Pauillac
+  - pdftoppm
+  - Peloton
+  - Pemberton
+  - Penhaligon
+  - permissioned
+  - Permissioned
+  - Pflugerville
+  - pgbouncer
+  - pgvector
+  - PKCE
+  - pnode
+  - Poliform
+  - pooler
+  - Pooler
+  - poppler
+  - postgres
+  - postgresdb
+  - PPOFM
+  - preactjs
+  - prefs
+  - Prefs
+  - presentationml
+  - Primitivo
+  - prio
+  - Priya
+  - Profyt
+  - prosumer
+  - provisionals
+  - Publica
+  - PWDEBUG
+  - PYEOF
+  - Qatalyst
+  - QSBS
+  - Quincey
+  - Qwen
+  - RACI
+  - Rakuten
+  - rasterizing
+  - Ravi
+  - rbush
+  # RxDB's npm package name.
+  - rxdb
+  - reauth
+  - Rebecca
+  - rebranded
+  - recalc
+  - recompiles
+  - recomputations
+  - rediss
+  - Refn
+  - regen
+  - regenerable
+  - reimagining
+  - reissuance
+  - relitigate
+  - rels
+  - Rels
+  - remediations
+  - remoteip
+  - Remy
+  - reposting
+  - reposts
+  - reprioritization
+  - reprioritize
+  - reprioritized
+  - Resel
+  - resvg
+  - Resvg
+  - retag
+  - retarget
+  - retargeted
+  - retuned
+  - retunes
+  - Rhône
+  - Rías
+  - Rioja
+  - ROFR
+  - Rondinella
+  - Rosati
+  - rosé
+  - Rôtie
+  - Roussanne
+  - rtree
+  - saas
+  - sadd
+  - salesy
+  - Sancerre
+  - Sangiovese
+  - Sauv
+  - Sauvignon
+  - scen
+  - Schatz
+  - scontent
+  - Segoe
+  - Sémillon
+  - serializability
+  - Setof
+  - SFUSD
+  - Shopee
+  - Sirah
+  - skeuomorphic
+  - Skokie
+  - slugified
+  - Slugifies
+  - slugifying
+  - smembers
+  - soffice
+  - Somerville
+  - Sonoma
+  - Sonsini
+  - Soren
+  - Sorensen
+  - sourcer
+  - Spamhaus
+  - spammy
+  - specced
+  - Specced
+  - spoofer
+  - spoofings
+  - spreadsheetml
+  - sqft
+  - Squeezy
+  - Statista
+  - STOC
+  - stringifying
+  - strippable
+  - Strippable
+  - Suresh
+  - Sutcliffe
+  - Syrah
+  - Tannat
+  - TBFM
+  - telegram
+  - Tempranillo
+  - Theo
+  - Thoma
+  - tlpulse
+  - Touriga
+  - Trebbiano
+  - Treixadura
+  - triaging
+  - Tsang
+  - Tsang's
+  - tsconfigs
+  - Turborepo
+  - tzdata
+  - unblocker
+  - uncollectible
+  - unconfigured
+  - undelete
+  - unforwarded
+  - unhover
+  - unhydrated
+  - unmetered
+  - unminified
+  - unmocks
+  - Unmodelable
+  - unonboarded
+  - unparseable
+  - Unparseable
+  - UNPARSEABLE
+  - unparseables
+  - Unpoly
+  - unpushed
+  - unreviewed
+  - unrouted
+  - unscalable
+  - unscored
+  - unsharded
+  - unspoofed
+  - unstaging
+  - unstarted
+  - unstub
+  - unsub
+  - Unsubscription
+  - untaken
+  - untar
+  - untarring
+  - unvalidated
+  - unvested
+  - unwatermarked
+  - unwire
+  - upserted
+  - upserts
+  - usida
+  - Valpolicella
+  - Valsorda
+  - Vanta
+  - VCFM
+  - vectorizable
+  # Yahoo's serving engine, a SERVER-side search and filtering engine.
+  - Vespa
+  - Veltliner
+  - Veneto
+  - venmo
+  - Verdejo
+  - Verdot
+  - Vermentino
+  - Viognier
+  - virtiofs
+  - Vitale
+  - Vivino
+  - vslow
+  - Vulkà
+  - Wegman
+  - weightᵢ
+  - wght
+  - wordprocessingml
+  - workerd
+  - wrappable
+  - WSGR
+  - Wynwood
+  - Xiomara
+  - Yeezy
+  - zackthoutt
+  - zelle
+  - Zinkov
+  - ZIRP
+  - zynicide
+ignoreWords:
+  - aabb
+  - Ababy
+  - abcdefghijklmnopqrstuvwxyzabcdef
+  - abled
+  - Activo
+  - Ahrefs
+  - airpods
+  - AKIAIOSFODNN
+  - alex
+  - amazonses
+  - anys
+  - APPROVALREQUEST
+  - AQABAAAAA
+  - arbitrageos
+  - armv
+  - ASUS
+  - Backout
+  - backscroll
+  - Bgkqhk
+  - bgsave
+  - BIOT
+  - Bitap
+  - BRPOP
+  - BRPOPLPUSH
+  - CAGR
+  - Callaway
+  - CCPA
+  - cliui
+  - cloudflareinsights
+  - cnorm
+  - codepaths
+  - convo
+  - Cpath
+  - cpus
+  - Crosslist
+  - Csvg
+  - ctas
+  - Depop
+  - Desconectado
+  - describedby
+  - distros
+  - dorny
+  - dotenvx
+  - dpop
+  - dslr
+  - dtinth
+  - Duloy
+  - EBITDA
+  - ECONNREFUSED
+  - elec
+  - ELIFECYCLE
+  - endobj
+  - EPERM
+  - esto
+  - Fastmail
+  - fbcdn
+  - fdir
+  - Ffactory
+  - fira
+  - Firman
+  - Flippd
+  - FLUSHDB
+  - Flyp
+  - FOUC
+  - frameguard
+  - Gantt
+  - godlpnejkljnhijjeebcjhbfklccnpne
+  - Goldin
+  - Graco
+  - hace
+  - kpis
+  - iana
+  - IMEI
+  - Innov
+  - isexe
+  - jsdom
+  - jsutils
+  - Jönk's
+  - KALLAX
+  - Kijiji
+  - Kimi
+  - Kinsta
+  - KLOC
+  - lastmod
+  - libvips
+  - lightningcss
+  - litesrv
+  - LLEN
+  - LMOVE
+  - lngs
+  - LocationIQ
+  - loginbutton
+  - Logomark
+  - MAILERLITE
+  - makeerror
+  - marketplacefacebook
+  - mgmt
+  - Migadu
+  - MIIB
+  - mlilli
+  - mlsend
+  - msrp
+  - MTTR
+  - musleabihf
+  - muxed
+  - mysecret
+  - navaway
+  - nego
+  - nendobj
+  - neoconfetti
+  - newpass
+  - NNNZ
+  - nokey
+  - nolisten
+  - nomodal
+  - nothumbs
+  - notitle
+  - ntvs
+  - O'Fallon
+  - obug
+  - olduser
+  - onwarn
+  - PERSONALITEM
+  - playstation
+  - POSTGRESDB
+  - preheader
+  - pubout
+  - PWCC
+  - Qptb
+  - qpxc
+  - rhtq
+  - rmcup
+  - securityheaders
+  - siginfo
+  - sntrys
+  - sony
+  - soporte
+  - sourceurl
+  - srcs
+  - stackback
+  - stringly
+  - startxref
+  - stefanzweifel
+  - stddev
+  - stty
+  - Sundby
+  - sverdle
+  - testid
+  - Thred
+  - tinybench
+  - tinyexec
+  - tinyglobby
+  - tinyrainbow
+  - toolu
+  - totp
+  - trgm
+  - TTFB
+  - typename
+  - typenamed
+  - typenames
+  - urlless
+  - Vendoo
+  - verif
+  - visibilitychange
+  - visualcompletion
+  - vitest
+  - webidl
+  - WKHTTP
+  - wordle
+  - WPAD
+  - xauth
+  - xdpyinfo
+  - xdzw
+  - xmqliwb
+  - Ymwac
+  - yourorg
+  - Zbox
+  - zzznomatch
+import: []

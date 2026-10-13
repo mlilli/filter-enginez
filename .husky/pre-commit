@@ -1,0 +1,61 @@
+#!/usr/bin/env sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-commit hook — runs on every `git commit` before the commit lands. It
+# type-checks the whole workspace, formats and lints the staged files, and runs
+# the tests affected by the change.
+#
+# Three gates, fastest first:
+#
+#   1. `pnpm typecheck` — THREE commands, not one: `turbo run typecheck`
+#      (per-package `tsc --noEmit`) plus `-p tsconfig.node.json` and
+#      `-p tests/tooling/tsconfig.json`. Touch a script or a tooling file and
+#      the per-package pass says nothing about it.
+#
+#   2. `pnpm exec lint-staged --no-stash` — staged files only, per
+#      `lint-staged.config.mjs`:
+#        - cspell on the prose + source globs (read-only; mirrors the CI gate
+#          but catches typos before the push)
+#        - `prettier --write --ignore-path ./.prettierignore` on the formats
+#          Prettier owns here — JSON, YAML, CSS, Markdown. NOT JS/TS: those are
+#          formatted by ESLint's @stylistic rules, and the two genuinely
+#          disagree, so `.prettierignore` keeps them apart.
+#        - `eslint --fix --max-warnings=0` on JS/TS
+#        - `markdownlint-cli2 --fix` on Markdown
+#
+#      ⚠ Prettier and markdownlint-cli2 disagree about Markdown formatting, so
+#      for `.md`/`.mdx` the two run as one sequential entry with Prettier LAST
+#      (see `lint-staged.config.mjs`). Running only one of them by hand before
+#      committing is therefore not a sufficient pre-flight — run markdownlint
+#      `--fix` first, then Prettier.
+#
+#   3. `pnpm test:changed` — the fast test tier.
+#
+# Why `--no-stash`:
+#
+#   lint-staged's default wraps tasks in a git-stash dance (stash unstaged →
+#   run tasks → restore) to protect unstaged work-tree changes. In v15.x that
+#   restore can fail subtly when ANY task fails, leaving the index half-staged
+#   with no visible error — the operator sees their commit "didn't happen".
+#   With `--no-stash`, tasks run directly against the working tree: a failing
+#   task leaves its modifications visible and the error on screen.
+#
+#   ⚠ `--no-stash` also implies `--no-hide-partially-staged`: a file with both
+#   staged and unstaged hunks is formatted whole, and if a task rewrites it the
+#   unstaged hunks are staged with it. Stage whole files, or set the rest aside
+#   yourself, before committing.
+#
+# Coverage is NOT run here — it lives on the pre-push hook, where the time cost
+# is better amortized.
+#
+# Bypass (emergency only, never for routine commits):
+#   git commit --no-verify
+#
+#   ⚠ A `--no-verify` commit is the one case CI's whole-tree Prettier and cspell
+#   steps exist to catch, since lint-staged never saw those files.
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -e
+
+pnpm typecheck
+pnpm exec lint-staged --no-stash
+pnpm test:changed

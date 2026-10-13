@@ -1,0 +1,63 @@
+{
+  "name": "@filter-enginez/reactive-signals",
+  "version": "0.0.1",
+  "description": "Filter EngineZ — public signals facade over @filter-enginez/core's subscribe API. Isomorphic.",
+  "keywords": [
+    "filter",
+    "signals",
+    "reactive",
+    "preact-signals"
+  ],
+  "license": "Apache-2.0",
+  "author": "Michael Lilli",
+  "homepage": "https://filter-enginez.com",
+  "repository": {
+    "directory": "packages/reactive-signals",
+    "type": "git",
+    "url": "git+https://github.com/mlilli/filter-enginez.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mlilli/filter-enginez/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "NOTICE.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./worker": {
+        "types": "./dist/worker.d.ts",
+        "default": "./dist/worker.js"
+      }
+    },
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "test": "vitest --watch=false --passWithNoTests",
+    "lint": "eslint --color --no-error-on-unmatched-pattern .",
+    "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",
+    "eslint:fix": "eslint --color --no-error-on-unmatched-pattern --fix --max-warnings=0 .",
+    "prettier:fix": "prettier --write --ignore-path ../../.prettierignore --ignore-unknown ."
+  },
+  "dependencies": {
+    "@filter-enginez/core": "workspace:^",
+    "@filter-enginez/worker-bridge": "workspace:^",
+    "@preact/signals-core": "^1.14.2"
+  },
+  "devDependencies": {
+    "@filter-enginez/eslint": "workspace:^"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  // Filter EngineZ — VS Code task runner.
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  //
+  // We use `type: "shell"` rather than `type: "npm"` because the repo uses
+  // pnpm (pinned via package.json's `packageManager` field). VS Code's
+  // built-in `npm` task type runs `npm run <script>` literally, which would
+  // bypass pnpm and break the lockfile contract. Shell tasks invoke pnpm
+  // directly so the package-manager pin is honored.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Default `Run Task` — Vitest in watch mode across every package.
+      "label": "test:watch",
+      "type": "shell",
+      "command": "pnpm test:watch",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      // Type-check every package and the tooling. No emit — just surfaces
+      // type errors. Run before commit.
+      "label": "typecheck",
+      "type": "shell",
+      "command": "pnpm typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      // ESLint flat config across the whole project. Zero-warning gate.
+      "label": "lint",
+      "type": "shell",
+      "command": "pnpm lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      // en-US spelling drift + unknown-word check across the whole repo.
+      // Reads `cspell.config.yaml` at repo root for flagWords + dictionaries.
+      "label": "CSpell: Check Entire Project",
+      "type": "shell",
+      "command": "pnpm cspell",
+      "problemMatcher": []
+    }
+  ]
+}

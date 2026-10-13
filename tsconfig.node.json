@@ -1,0 +1,28 @@
+{
+  // Root Node-context config for the repo's build/utility scripts. Extends the
+  // shared base for the strict compiler options.
+  //
+  // Two settings here are load-bearing, and each guards against the config going inert:
+  //
+  //   1. No `moduleResolution` override. `"Bundler"` would contradict the base's
+  //      `module: NodeNext` (TS5095 + TS5109), and it is wrong for these files anyway —
+  //      they run in a real Node process, not through a bundler. NodeNext is inherited.
+  //   2. `allowJs` + `checkJs`. Without `allowJs` a `.mjs` file is not a valid input,
+  //      and since `scripts/` holds no TypeScript at all, the config would match ZERO
+  //      files and report TS18003 "No inputs were found" — or, if nothing compiled it,
+  //      report nothing at all. A config that checks nothing cannot report that it is
+  //      broken. `pnpm typecheck` runs `tsc --noEmit -p tsconfig.node.json`, so the
+  //      scripts are genuinely type-checked on every commit.
+  //
+  // NOT `composite`: composite requires emit, and these scripts are run directly by
+  // Node — there is nothing to emit.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.mjs", "scripts/**/*.mts", "scripts/**/*.ts"]
+}

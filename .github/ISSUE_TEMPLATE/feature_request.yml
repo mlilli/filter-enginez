@@ -1,0 +1,70 @@
+# ⚠ Written to the maintainer-gated model `CONTRIBUTING.md` describes, and the
+# "would you be building it" question at the end is deliberate rather than
+# discouraging: this project accepts PRs from collaborators only, so an accepted
+# idea is work for one person. Saying so up front is kinder than silence on a
+# year-old issue.
+name: Feature request
+description: Something the engine should be able to do and cannot.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before writing: this is a **solo-maintained** project and pull requests
+        are accepted from collaborators only — see
+        [`CONTRIBUTING.md`](../blob/main/CONTRIBUTING.md). Ideas are genuinely
+        welcome, but an accepted one becomes one person's work, so a clear
+        problem statement matters more than a proposed API.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What are you trying to do that the library makes hard or impossible? Please
+        describe the problem rather than the solution — the right fix for a
+        well-described problem often looks nothing like the first suggestion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you are doing instead today
+      description: >-
+        The current workaround, even if it is ugly. This is the field that usually
+        decides priority, because it shows what the gap actually costs.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: extensibility
+    attributes:
+      label: Have you checked whether a custom rule covers it?
+      description: >-
+        🟢 The engine is extensible by design: a custom `FilterRule` can implement
+        predicates the built-ins do not, and `docs/guides/extending_rules.md` walks
+        through the contract. A fair number of requests are already possible this way.
+      options:
+        - "Yes — a custom rule cannot express this"
+        - "Yes — a custom rule works, but this belongs in the library"
+        - "No — I have not read the extending-rules guide yet"
+        - "Not applicable (this is not about filtering behavior)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: A sketch of the API, if you have one
+      description: Optional. Rough is fine — it is read as a description of intent, not a proposal to merge.
+      render: typescript
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you be building it?
+      options:
+        - label: I would be willing to implement this if the maintainer agrees on the approach first.

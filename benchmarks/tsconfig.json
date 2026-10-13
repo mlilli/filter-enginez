@@ -1,0 +1,22 @@
+// Benchmark harness config for `tsc --noEmit` typecheck + ESLint's typed-lint projectService.
+// Node-only tooling (never bundled, never emitted) — run at runtime via `tsx`. References the
+// sibling build configs it imports so project-reference resolution stays honest.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"],
+  "references": [
+    {
+      "path": "../packages/core/tsconfig.build.json"
+    },
+    {
+      "path": "../packages/mock-data/tsconfig.build.json"
+    }
+  ]
+}
