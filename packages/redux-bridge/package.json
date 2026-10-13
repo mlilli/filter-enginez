@@ -1,12 +1,17 @@
 {
   "name": "@filter-enginez/redux-bridge",
   "version": "0.0.1",
-  "description": "Filter EngineZ — optional Redux mirror slice + middleware. One-way sync: engine is source of truth, Redux is read-only mirror. Isomorphic.",
+  "description": "Mirror Filter EngineZ filter state into a Redux store: a read-only slice plus middleware, with the engine as the single source of truth. Works with Redux Toolkit.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "redux",
     "redux-toolkit",
-    "state"
+    "middleware",
+    "state-management",
+    "filter",
+    "filtering",
+    "faceted-search",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

@@ -1,13 +1,18 @@
 {
   "name": "@filter-enginez/angular-rxjs",
   "version": "0.0.1",
-  "description": "Filter EngineZ — Angular DI bindings over @filter-enginez/reactive-rxjs. Deliberately thin: Angular consumes Observables natively, so this is dependency-injection plumbing, not a reactivity bridge. Browser-only.",
+  "description": "Angular providers for faceted search and filtering: inject the Filter EngineZ engine and its RxJS result streams through dependency injection.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "angular",
     "rxjs",
-    "signals",
-    "faceted-search"
+    "dependency-injection",
+    "filter",
+    "filtering",
+    "faceted-search",
+    "facets",
+    "search-filters",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

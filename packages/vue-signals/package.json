@@ -1,12 +1,19 @@
 {
   "name": "@filter-enginez/vue-signals",
   "version": "0.0.1",
-  "description": "Filter EngineZ — Vue 3 reactivity bindings over @filter-enginez/reactive-signals. Browser-only.",
+  "description": "Vue 3 composables for faceted search and filtering: reactive results, counts and filter state from the Filter EngineZ engine.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "vue",
+    "vue3",
     "composable",
-    "faceted-search"
+    "composition-api",
+    "filter",
+    "filtering",
+    "faceted-search",
+    "facets",
+    "search-filters",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

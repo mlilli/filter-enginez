@@ -1,12 +1,18 @@
 {
   "name": "@filter-enginez/worker-bridge",
   "version": "0.0.1",
-  "description": "Filter EngineZ — opt-in Web Worker offload via Comlink. Auto-engages above 50k items by default. Browser-only.",
+  "description": "Run the Filter EngineZ filtering engine in a Web Worker, off the main thread, via Comlink. Engages automatically above 50k items by default.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "web-worker",
+    "worker",
     "comlink",
-    "offload"
+    "off-main-thread",
+    "performance",
+    "filter",
+    "filtering",
+    "faceted-search",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

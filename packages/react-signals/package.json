@@ -1,13 +1,19 @@
 {
   "name": "@filter-enginez/react-signals",
   "version": "0.0.1",
-  "description": "Filter EngineZ — React hooks over @filter-enginez/reactive-signals. Browser-only.",
+  "description": "React hooks for faceted search and filtering: useResults, useResultCount, useRule and more over the Filter EngineZ engine, powered by signals.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "react",
-    "signals",
+    "react-hooks",
     "hooks",
-    "faceted-search"
+    "filter",
+    "filtering",
+    "faceted-search",
+    "facets",
+    "search-filters",
+    "signals",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

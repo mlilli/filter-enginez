@@ -1,12 +1,18 @@
 {
   "name": "@filter-enginez/reactive-rxjs",
   "version": "0.0.1",
-  "description": "Filter EngineZ — public RxJS Observable facade over @filter-enginez/core's subscribe API. Isomorphic.",
+  "description": "RxJS Observables for faceted search: results, counts and filter state from the Filter EngineZ engine as streams. Works in the browser, Node and Web Workers.",
   "keywords": [
+    "filter-enginez",
     "filter",
+    "filtering",
+    "faceted-search",
     "rxjs",
+    "observable",
     "reactive",
-    "observable"
+    "streams",
+    "typescript",
+    "isomorphic"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

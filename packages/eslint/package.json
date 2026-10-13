@@ -1,12 +1,15 @@
 {
   "name": "@filter-enginez/eslint",
   "version": "0.0.1",
-  "description": "Filter EngineZ — ESLint plugin (custom rules) + shared flat-config presets (base / react / nodeIsomorphic).",
+  "description": "ESLint rules and flat-config presets for Filter EngineZ projects: keep isomorphic code free of browser APIs and the Redux mirror read-only.",
   "keywords": [
+    "filter-enginez",
     "eslint",
     "eslint-plugin",
+    "eslintplugin",
     "eslint-config",
-    "filter"
+    "flat-config",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

@@ -1,12 +1,19 @@
 {
   "name": "@filter-enginez/svelte-signals",
   "version": "0.0.1",
-  "description": "Filter EngineZ — Svelte store bindings over @filter-enginez/reactive-signals. Browser-only.",
+  "description": "Svelte stores for faceted search and filtering: reactive results, counts and filter state from the Filter EngineZ engine.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "svelte",
+    "sveltekit",
+    "svelte-store",
     "runes",
-    "faceted-search"
+    "filter",
+    "filtering",
+    "faceted-search",
+    "facets",
+    "search-filters",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

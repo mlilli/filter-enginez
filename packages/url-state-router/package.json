@@ -1,12 +1,19 @@
 {
   "name": "@filter-enginez/url-state-router",
   "version": "0.0.1",
-  "description": "Filter EngineZ — react-router URL serialization for filter state. Push for route nav, replace for filter state. Browser-only.",
+  "description": "Keep faceted-search filter state in the URL with React Router: shareable, bookmarkable filter links for the Filter EngineZ engine.",
   "keywords": [
-    "filter",
+    "filter-enginez",
+    "react-router",
     "url-state",
+    "query-string",
     "querystring",
-    "shareable-links"
+    "shareable-links",
+    "deep-linking",
+    "filter",
+    "faceted-search",
+    "react",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

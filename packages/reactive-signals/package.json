@@ -1,12 +1,17 @@
 {
   "name": "@filter-enginez/reactive-signals",
   "version": "0.0.1",
-  "description": "Filter EngineZ — public signals facade over @filter-enginez/core's subscribe API. Isomorphic.",
+  "description": "Signals for faceted search: reactive results, counts and filter state from the Filter EngineZ engine, built on Preact signals. Works in the browser, Node and Web Workers.",
   "keywords": [
+    "filter-enginez",
     "filter",
+    "filtering",
+    "faceted-search",
     "signals",
+    "preact-signals",
     "reactive",
-    "preact-signals"
+    "typescript",
+    "isomorphic"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

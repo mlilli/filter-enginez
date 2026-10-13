@@ -1,13 +1,18 @@
 {
   "name": "@filter-enginez/mock-data",
   "version": "0.0.1",
-  "description": "Filter EngineZ — three mock datasets (real estate, wine, books) at ~10k stratified records each, plus MSW handlers. Isomorphic.",
+  "description": "Mock datasets for testing filter and faceted-search UIs: about 10k synthetic real-estate, wine and book records each, with MSW request handlers.",
   "keywords": [
-    "filter",
+    "filter-enginez",
     "mock-data",
+    "fake-data",
+    "test-data",
     "fixtures",
     "msw",
-    "test-data"
+    "mock-service-worker",
+    "faceted-search",
+    "filter",
+    "typescript"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",

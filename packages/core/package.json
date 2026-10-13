@@ -1,14 +1,23 @@
 {
   "name": "@filter-enginez/core",
   "version": "0.0.1",
-  "description": "Filter EngineZ — the engine: rules, composition, devtools, internal store, action log, four named CS algorithms (Roaring Bitmaps, R-tree, Bayesian co-occurrence, MinHash + LSH). Isomorphic.",
+  "description": "Faceted search and filtering engine for TypeScript: rules, and/or/not composition, filter groups, JSON config, undo/redo devtools, and Roaring Bitmap, R-tree, Bayesian suggestion and MinHash similarity acceleration. Runs in the browser, Node and Web Workers.",
   "keywords": [
+    "filter-enginez",
     "filter",
+    "filtering",
+    "filter-engine",
     "faceted-search",
+    "facets",
+    "search-filters",
+    "product-filter",
+    "data-filtering",
+    "query-builder",
+    "typescript",
+    "isomorphic",
     "roaring-bitmap",
     "r-tree",
-    "minhash",
-    "isomorphic"
+    "minhash"
   ],
   "license": "Apache-2.0",
   "author": "Michael Lilli",
