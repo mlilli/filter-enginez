@@ -28,17 +28,27 @@
 # attach one to a package that has never been published (npm/cli#8544). So a
 # brand-new package publishes its first version with a token, once:
 #
-#   1. Create a granular write token on npmjs.com, scoped as narrowly as npm
-#      allows for a package that does not exist yet (the `@filter-enginez`
-#      scope) and with the shortest expiry offered, and store it as the
-#      `NPM_TOKEN` repository secret. The "Bootstrap npm token" step below
-#      writes it to `~/.npmrc` only while that secret exists.
-#   2. Release as usual (merge the "Version Packages" PR).
-#   3. On npmjs.com, add a trusted publisher to the new package: owner,
-#      repository, and the workflow filename `release.yml`. ⚠ All three fields
-#      are case-sensitive and exact, and the filename needs its extension.
-#   4. Delete the `NPM_TOKEN` secret and revoke the token. With the secret gone
-#      the bootstrap step is skipped and every package publishes through OIDC.
+#   1. Create a granular access token on npmjs.com: read and write, scoped to
+#      the `@filter-enginez` organization (the narrowest scope that covers a
+#      package that does not exist yet), shortest expiry offered, with "Bypass
+#      two-factor authentication" ticked — without it the publish stops at a
+#      one-time-password prompt that CI cannot answer. Store it as the `NPM_TOKEN`
+#      repository secret. The "Bootstrap npm token" step below writes it to
+#      `~/.npmrc` only while that secret exists.
+#   2. Release as usual (merge the "Version Packages" PR, or push to `main`
+#      when there is nothing left to version).
+#   3. Delete the `NPM_TOKEN` secret and revoke the token.
+#   4. Shortly BEFORE the package's next release, add a trusted publisher to it
+#      on npmjs.com: owner, repository, workflow filename `release.yml`, and
+#      tick "Allow npm publish" (new configurations allow only
+#      `npm stage publish` unless it is ticked, and `changeset publish`
+#      publishes directly). ⚠ The fields are case-sensitive and exact, and the
+#      filename needs its extension. ⚠ A new configuration expires unless it
+#      completes a publish within 2 days, so add it when a release is ready to
+#      merge, not right after the bootstrap publish.
+#   5. Once that release has published through OIDC, set the package's
+#      "Publishing access" to "Require two-factor authentication and disallow
+#      tokens".
 #
 # ⚠ Never add `registry-url` to the setup-node step. It writes an `.npmrc` with
 # a token placeholder, and `pnpm publish` under OIDC then fails with a 404.
