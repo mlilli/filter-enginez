@@ -60,7 +60,7 @@
     "@filter-enginez/eslint": "workspace:^",
     "@size-limit/preset-small-lib": "^13.1.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@types/node": "^24.19.1",
+    "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/eslint-plugin": "^1.6.27",
     "@vitest/ui": "^4.1.11",
