@@ -1,5 +1,14 @@
 # @filter-enginez/mock-data
 
+## 0.0.3
+
+### Patch Changes
+
+- 1430f42: `@filter-enginez/mock-data` loads in bundled server runtimes that leave `import.meta.url` undefined, such as
+  Cloudflare Workers, and serves the synthetic datasets there.
+
+  <!-- markdownlint-disable-file MD041 -->
+
 ## 0.0.2
 
 ### Patch Changes
