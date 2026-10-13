@@ -27,6 +27,12 @@ concurrency:
 permissions:
   contents: read
 
+# The commit hooks (.husky/) are for people. `pnpm install` would install them here
+# too, and the release job's own `git push` of version tags would then run the
+# pre-push hook — the whole coverage suite, once per push, in parallel.
+env:
+  HUSKY: "0"
+
 jobs:
   gates:
     name: Gates (typecheck · lint · spell · test · build)
