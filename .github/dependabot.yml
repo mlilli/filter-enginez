@@ -32,11 +32,10 @@
 # refuses, the `pnpm install` inside Dependabot's lockfile step FAILS, and the PR
 # never opens. Same silence as above, different cause.
 #
-# So `cooldown.default-days` is set EXPLICITLY rather than inherited, at 7: above
-# the 24h quarantine, and equal to the 7-day npm release-age policy on the
-# development machines, so a Dependabot branch always installs locally too. Writing it down
-# is what makes the ordering visible, so that raising `minimumReleaseAge` past 7
-# days becomes an obvious edit here rather than a mystery about missing PRs.
+# So `cooldown.default-days: 3` is set EXPLICITLY rather than inherited. It is
+# already comfortably above the 24h quarantine; writing it down is what makes the
+# ordering visible, so that raising `minimumReleaseAge` past 3 days becomes an
+# obvious edit here rather than a mystery about missing PRs.
 #
 # ⚠ SECURITY updates bypass cooldown on Dependabot's side but NOT pnpm's. A
 # young security release can therefore still be refused by the quarantine. The
@@ -76,7 +75,7 @@ updates:
         update-types: ["version-update:semver-major"]
     cooldown:
       # See the header: must stay >= pnpm's `minimumReleaseAge` (24h).
-      default-days: 7
+      default-days: 3
     commit-message:
       # Matches the repo's Conventional Commits history (`chore(deps): …`).
       prefix: chore
@@ -134,7 +133,7 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     cooldown:
-      default-days: 7
+      default-days: 3
     commit-message:
       prefix: ci
       include: scope
