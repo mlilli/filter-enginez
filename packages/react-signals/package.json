@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/react-signals",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React hooks for faceted search and filtering: useResults, useResultCount, useRule and more over the Filter EngineZ engine, powered by signals.",
   "keywords": [
     "filter-enginez",

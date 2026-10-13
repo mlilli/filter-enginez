@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/angular-rxjs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Angular providers for faceted search and filtering: inject the Filter EngineZ engine and its RxJS result streams through dependency injection.",
   "keywords": [
     "filter-enginez",

@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/core",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Faceted search and filtering engine for TypeScript: rules, and/or/not composition, filter groups, JSON config, undo/redo devtools, and Roaring Bitmap, R-tree, Bayesian suggestion and MinHash similarity acceleration. Runs in the browser, Node and Web Workers.",
   "keywords": [
     "filter-enginez",
