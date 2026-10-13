@@ -32,9 +32,12 @@ import { generateWines } from './generate.js';
  * attempt when the module was served over HTTP keeps browsers on the synthetic generator, where they
  * would have ended up anyway, without the request or the warning.
  *
+ * Some bundled server runtimes, such as Cloudflare Workers, leave `import.meta.url` undefined. Nothing
+ * sits next to the module there either, so an undefined URL counts as "not from disk".
+ *
  * @internal
  */
-const isLoadedFromDisk = import.meta.url.startsWith('file:');
+const isLoadedFromDisk = (import.meta.url as string | undefined)?.startsWith('file:') === true;
 
 /**
  * Import a gitignored JSON corpus that may sit next to this module on disk; `null` when it is absent.
