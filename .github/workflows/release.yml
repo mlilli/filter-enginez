@@ -61,14 +61,19 @@
 #
 # ── Provenance ───────────────────────────────────────────────────────────────
 #
-# `NPM_CONFIG_PROVENANCE: true` is set deliberately rather than left to default.
-# Provenance is a verifiable link from the published tarball to the exact workflow
-# run that built it. Setting it explicitly makes a release FAIL rather than
-# quietly ship without an attestation.
+# Provenance is a verifiable link from each published tarball to the exact
+# workflow run that built it, and it can only be attached at publish time.
+#
+#   - `PNPM_CONFIG_PROVENANCE: "true"` asks for it. pnpm publishes natively since
+#     v11 and reads only `pnpm_config_*` variables; an `NPM_CONFIG_*` variable is
+#     silently ignored. Trusted publishing (OIDC) also attaches it on its own.
+#   - The "Verify provenance" step then asks the registry for each version the
+#     run just published (`scripts/verify-provenance.mjs`) and fails the run if
+#     any lacks an attestation.
 #
 # ⚠ It requires both the repository and the package to be public. On a private
-# repository (a fork made private, say) no attestation is generated — so if
-# provenance is absent, check the repository's visibility first.
+# repository (a fork made private, say) no attestation is generated — so if the
+# verify step fails, check the repository's visibility first.
 # ─────────────────────────────────────────────────────────────────────────────
 name: Release
 
@@ -146,6 +151,7 @@ jobs:
           pnpm test:coverage
 
       - name: Create version PR, or publish
+        id: changesets
         uses: changesets/action@v1
         with:
           # `pnpm release` = sync-licenses.mjs && changeset publish. The license
@@ -157,4 +163,11 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
+          PNPM_CONFIG_PROVENANCE: "true"
+
+      # Runs only when the step above published something. See the header.
+      - name: Verify provenance
+        if: steps.changesets.outputs.published == 'true'
+        run: node scripts/verify-provenance.mjs
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
