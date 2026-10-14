@@ -149,7 +149,7 @@ overrides:
 # ─── Accepted / false-positive advisories (kept out of `pnpm audit` noise) ─────────────────────────
 # `auditConfig.ignoreGhsas` (pnpm 11 reads it from this file, not from package.json's `pnpm` field)
 # suppresses the specific GHSA IDs below from `pnpm audit`. Each is individually justified; a NEW
-# advisory on any of these packages still surfaces. Reviewed 2026-10-07. See SECURITY.md → "Accepted
+# advisory on any of these packages still surfaces. Reviewed 2026-10-13. See SECURITY.md → "Accepted
 # advisories".
 #
 # 🟢 **pnpm 12's audit matches advisories against RESOLVED versions, not declared ranges.** An override
@@ -169,22 +169,16 @@ overrides:
 #     deeply-nested brace patterns. Verified 2026-10-04: `braces@3.0.3` is the LATEST published version
 #     and `micromatch@4.0.8` is likewise latest and still declares `braces: ^3.0.3`, so the advisory's
 #     "Patched versions: None" is accurate — there is nothing to upgrade to, and an override cannot
-#     invent a patched release. Every path is dev or release tooling, through `micromatch` (`@changesets/cli`,
-#     `lint-staged`, `markdownlint-cli2`), none reachable from a shipped library package. The attack
-#     needs a hostile glob PATTERN, and every glob in this repo comes from a committed config file
-#     rather than from input. Re-review when braces publishes a fix or micromatch drops it.
+#     invent a patched release. Every path is dev tooling, through `micromatch` under `markdownlint-cli2`,
+#     none reachable from a shipped library package. The attack needs a hostile glob PATTERN, and every
+#     glob in this repo comes from a committed config file rather than from input. Re-review when braces
+#     publishes a fix or micromatch drops it.
 #
-#   - GHSA-hp3w-g68c-fv3c (sprintf-js, moderate) — ACCEPTED BECAUSE THERE IS NO FIX. "Patched versions: None", and
-#     verified: the resolved copy is `sprintf-js@1.0.3`, reached only through
-#     `@changesets/cli > … > read-yaml-file > js-yaml > argparse`. ⚠ This is changesets' js-yaml chain, not
-#     markdownlint's, and `argparse@1.x` is what pins the ancient `sprintf-js`. Release tooling only, run by hand, on
-#     yaml files from this repo. The DoS needs an attacker-supplied FORMAT STRING, and nothing here passes untrusted
-#     input to a formatter. Re-review when changesets updates `read-yaml-file`, or when `sprintf-js` ships a patch.
 #   - GHSA-238p-pmpm-9mq7 (katex, low) — ACCEPTED: the vulnerable code is never executed. Reached via
 #     `markdownlint-cli2 > markdownlint > micromark-extension-math > katex`, and **`.markdownlint-cli2.yaml` enables no
 #     math extension**, so KaTeX never renders anything. Patched only in `>=0.18.2` against a resolved `0.16.47` — in
 #     0.x semver a minor bump is a breaking one, so an override would force a breaking change on a transitive dep to fix
-#     a path that does not run. Lowest severity of the three. Re-review when markdownlint drops the math extension or a
+#     a path that does not run. Lowest severity of the two. Re-review when markdownlint drops the math extension or a
 #     0.16.x patch appears.
 #
 #   Not suppressed here, and why:
@@ -203,8 +197,12 @@ overrides:
 #     **markdownlint-cli2 0.23.3 depends on js-yaml 5.4.1**, outside the vulnerable `>=4.0.0 <4.3.2` range entirely,
 #     and on smol-toml 1.8.0, which clears GHSA-7w5x-hrqm-74c2. One devDependency bump covers all three — which is
 #     why upstream comes before `overrides`.
+#
+#   - GHSA-hp3w-g68c-fv3c (sprintf-js) — gone upstream. Its only path was `@changesets/cli` 2.x, through
+#     `@manypkg/get-packages@1 > read-yaml-file > js-yaml@3 > argparse@1`. `@changesets/cli` 3 depends on
+#     `@manypkg/get-packages@3`, which has no such chain, and this lockfile resolves no `sprintf-js`, so an ignore
+#     would suppress NOTHING.
 auditConfig:
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
-    - GHSA-hp3w-g68c-fv3c
     - GHSA-238p-pmpm-9mq7

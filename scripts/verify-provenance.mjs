@@ -7,7 +7,8 @@
  *
  * @remarks
  * `release.yml` runs this right after the Changesets publish step, feeding it that step's
- * `publishedPackages` output. Provenance is a property of the published version and can never be added
+ * `published-packages` output: a JSON array of `{ name, version }`, one entry per version that
+ * `changeset publish` tagged. Provenance is a property of the published version and can never be added
  * afterwards, so the check belongs in the release run itself: a version that shipped without it stays
  * that way.
  *

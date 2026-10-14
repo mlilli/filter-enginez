@@ -48,7 +48,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  *
  * @remarks
  * Deliberately NOT a `semver` dependency. Every version this script compares is a plain `x.y.z`
- * release (`3.0.3`, `1.1.3`), `semver` is not a root dependency, and adding one to a
+ * release (`3.0.3`), `semver` is not a root dependency, and adding one to a
  * supply-chain script to parse four numbers would be its own small joke. Prereleases would need real
  * semver — if one ever appears here, that is the moment to take the dependency rather than to extend
  * this.
@@ -132,21 +132,6 @@ const ACCEPTED = [
 		ghsa: 'GHSA-vfj7-8cjw-p6xm',
 		premise: 'braces has no published fix, and micromatch still requires the vulnerable major',
 		severity: 'high',
-	},
-	{
-		async check() {
-			const { version } = await latestManifest('sprintf-js');
-			const fixed = compareVersions(version, '1.1.3') > 0;
-
-			return {
-				action: `sprintf-js ${version} is published — an override can now reach a patched copy`,
-				detail: `sprintf-js latest=${version} (vulnerable <=1.1.3)`,
-				holds: !fixed,
-			};
-		},
-		ghsa: 'GHSA-hp3w-g68c-fv3c',
-		premise: 'sprintf-js has no published fix',
-		severity: 'moderate',
 	},
 	{
 		// Static — no network. Mirrored in acceptedAdvisoryParity.test.ts, which runs continuously.

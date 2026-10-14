@@ -18,6 +18,13 @@
 # So a release is a PR merge, not a tag push. Nothing publishes without that
 # merge, which is the review step.
 #
+# The action commits the version bumps and creates each published version's
+# git tag and GitHub release through the GitHub API, as this run's token, so
+# the job itself never runs `git commit` or `git push`.
+#
+# ⚠ `changesets/action@v2` refuses to run against `@changesets/cli` 2.x, so the
+# action's major and the CLI's major (root package.json) move in one change.
+#
 # ── 🔴 AUTHENTICATION: OIDC TRUSTED PUBLISHING ──────────────────────────────
 #
 # Publishing authenticates with npm trusted publishing (OIDC): the job's
@@ -69,7 +76,11 @@
 #     silently ignored. Trusted publishing (OIDC) also attaches it on its own.
 #   - The "Verify provenance" step then asks the registry for each version the
 #     run just published (`scripts/verify-provenance.mjs`) and fails the run if
-#     any lacks an attestation.
+#     any lacks an attestation. That list is the action's `published-packages`
+#     output, which the action reads from the file `changeset publish` writes to
+#     `CHANGESETS_OUTPUT`. `pnpm release` passes its environment through to the
+#     CLI; a publish script that dropped that variable would leave the list
+#     empty, `published` false, and this check skipped.
 #
 # ⚠ It requires both the repository and the package to be public. On a private
 # repository (a fork made private, say) no attestation is generated — so if the
@@ -94,8 +105,10 @@ permissions:
   contents: read
 
 # The commit hooks (.husky/) are for people. `pnpm install` would install them here
-# too, and the release job's own `git push` of version tags would then run the
-# pre-push hook — the whole coverage suite, once per push, in parallel.
+# too, and any `git commit` or `git push` in the job would then run them. The
+# action pushes through the GitHub API, but with `push-with-git-cli: true` it
+# commits and pushes with git, and the pre-push hook is the whole coverage
+# suite, once per push.
 env:
   HUSKY: "0"
 
@@ -158,17 +171,18 @@ jobs:
 
       - name: Create version PR, or publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2
+        # No `github-token` and no `GITHUB_TOKEN` variable: the input defaults to
+        # this run's token, and the action reads no token from the environment.
         with:
           # `pnpm release` = sync-licenses.mjs && changeset publish. The license
           # sync is load-bearing: the per-package LICENSE/NOTICE copies are
           # gitignored, so a fresh CI clone has none until it runs.
-          publish: pnpm release
-          version: pnpm changeset version
-          commit: "chore(release): version packages"
-          title: "chore(release): version packages"
+          publish-script: pnpm release
+          version-script: pnpm changeset version
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PNPM_CONFIG_PROVENANCE: "true"
 
       # Runs only when the step above published something. See the header.
@@ -176,4 +190,4 @@ jobs:
         if: steps.changesets.outputs.published == 'true'
         run: node scripts/verify-provenance.mjs
         env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published-packages }}

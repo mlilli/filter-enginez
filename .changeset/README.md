@@ -19,5 +19,4 @@ The benchmark harness (`benchmarks/`) is `"private": true` and is never publishe
 the only things that ship to npm. The example apps live in a separate repository,
 [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples), and publish nothing.
 
-See the config in [`config.json`](./config.json). Full docs:
-<https://github.com/changesets/changesets/blob/main/docs/intro-to-using-changesets.md>.
+See the config in [`config.json`](./config.json). Full docs: <https://changesets.dev/guide/getting-started>.

@@ -13,6 +13,12 @@
  *   run published and fails the run when one has no SLSA provenance attestation. Its cases run here
  *   against a local stand-in registry.
  *
+ * The check is wired to the Changesets action's `published` and `published-packages` outputs, which are
+ * `changesets/action@v2`'s names; v1 called the list `publishedPackages`. An expression that reads an
+ * output the action does not set gets an empty string, so a stale `published` name skips the check
+ * without a word. That is why the action major is pinned here, together with the `@changesets/cli` major
+ * that action v2 requires: it refuses to run against CLI 2.x.
+ *
  * @packageDocumentation
  */
 
@@ -27,6 +33,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKFLOW = readFileSync(resolve(REPO_ROOT, '.github/workflows/release.yml'), 'utf8');
+const ROOT_MANIFEST = JSON.parse(readFileSync(resolve(REPO_ROOT, 'package.json'), 'utf8')) as {
+	devDependencies?: Record<string, string>;
+};
 const SCRIPT = resolve(REPO_ROOT, 'scripts/verify-provenance.mjs');
 
 const SLSA = 'https://slsa.dev/provenance/v1';
@@ -44,7 +53,7 @@ let registryUrl = '';
 /**
  * Run the script against the stand-in registry.
  *
- * @param published - The `publishedPackages` value the release step would pass.
+ * @param published - The `published-packages` value the release step would pass.
  * @returns The exit code and combined output.
  */
 async function verify(published: readonly { name: string; version: string }[]): Promise<{ code: number; output: string }> {
@@ -105,7 +114,20 @@ describe('release.yml asks for provenance in a way pnpm reads', () => {
 	it('verifies provenance after every publish, from the publish step’s own output', () => {
 		expect(WORKFLOW).toContain("if: steps.changesets.outputs.published == 'true'");
 		expect(WORKFLOW).toContain('run: node scripts/verify-provenance.mjs');
-		expect(WORKFLOW).toContain('PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}');
+		expect(WORKFLOW).toContain('PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published-packages }}');
+	});
+
+	it('runs changesets/action v2, the major whose output names the step above reads', () => {
+		expect(WORKFLOW, 'output names change with the action major: update the wiring and this test together').toMatch(
+			/^ {8}uses: changesets\/action@v2$/mu,
+		);
+	});
+
+	it('pairs the action with @changesets/cli 3, the only CLI major action v2 runs against', () => {
+		expect(
+			ROOT_MANIFEST.devDependencies?.['@changesets/cli'],
+			'move @changesets/cli and changesets/action across majors in one change',
+		).toMatch(/^\^3\./u);
 	});
 });
 
