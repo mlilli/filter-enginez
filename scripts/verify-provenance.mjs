@@ -13,15 +13,18 @@
  * that way.
  *
  * For each package the registry's attestations endpoint must answer 200 with a SLSA provenance
- * predicate. A fresh attestation can take a moment to appear, so a miss is retried until
- * `PROVENANCE_TIMEOUT_MS` (default 120 000) runs out. `NPM_REGISTRY` overrides the registry, which is how
+ * predicate. A fresh version and its attestation are not visible the moment `pnpm publish` returns:
+ * for `@filter-enginez/mock-data@0.1.0` the registry recorded the version about four minutes after the
+ * publish step finished. So a miss is retried every `PROVENANCE_RETRY_DELAY_MS` (default 5 000) until
+ * `PROVENANCE_TIMEOUT_MS` (default 900 000, fifteen minutes) runs out; a version that is genuinely
+ * missing its attestation still fails the run. `NPM_REGISTRY` overrides the registry, which is how
  * `tests/tooling/releaseProvenance.test.ts` drives the script against a local stand-in.
  *
  * @packageDocumentation
  */
 
 const REGISTRY = (process.env['NPM_REGISTRY'] ?? 'https://registry.npmjs.org').replace(/\/$/u, '');
-const TIMEOUT_MS = Number(process.env['PROVENANCE_TIMEOUT_MS'] ?? 120_000);
+const TIMEOUT_MS = Number(process.env['PROVENANCE_TIMEOUT_MS'] ?? 900_000);
 const RETRY_DELAY_MS = Number(process.env['PROVENANCE_RETRY_DELAY_MS'] ?? 5_000);
 const SLSA_PROVENANCE = /^https:\/\/slsa\.dev\/provenance\//u;
 
