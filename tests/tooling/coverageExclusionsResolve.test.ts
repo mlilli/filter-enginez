@@ -16,9 +16,9 @@
  * exists. It is not sufficient, for the reason that applies to every stand-in measurement: **a proxy
  * for coverage is not coverage.** A prefix check cannot see whether a glob with a wildcard
  * TAIL matches anything, and that is exactly where staleness hides. The nearest example is live:
- * `**\/mock-data/src/*\/generate-data.ts` matches exactly ONE file where its three siblings match
- * three each, so it is one rename away from matching nothing while its static prefix stays perfectly
- * valid.
+ * `**\/mock-data/src/*\/generate-*.ts` matches only wine's split generator modules where its
+ * siblings match one file per dataset, so a refactor that folds them back into `generate.ts` leaves
+ * it matching nothing while its static prefix stays perfectly valid.
  *
  * `node:fs`'s `globSync` is the right instrument: a real engine, zero new dependencies (so no
  * `pnpm install` is needed to run this guard) — and it handles `**`, `*`,

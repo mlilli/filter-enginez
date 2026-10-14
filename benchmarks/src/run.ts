@@ -7,8 +7,8 @@
  *
  * **Flags** (all optional; the committed report is a full default run):
  *   - `--write` — persist `RESULTS.md` + `results.json` (else print to stdout).
- *   - `--tiers=10k[,130k]` — restrict to named corpus tiers. `--tiers=10k` skips the ~116MB 130k
- *     load entirely (see `corpus.ts`), which is what makes a CI / low-memory smoke fast + safe.
+ *   - `--tiers=10k[,full]` — restrict to corpus tiers. `--tiers=10k` skips loading the full tier
+ *     entirely (see `corpus.ts`), which is what makes a CI / low-memory smoke fast + safe.
  *   - `--scenarios=<id>[,<id>]` — restrict to scenario ids (kebab-case, e.g. `filter-intersection`).
  *   - `--time=<ms>` / `--warmup=<ms>` — override the per-cell sampling + warmup budgets.
  *

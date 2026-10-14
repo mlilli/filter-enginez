@@ -139,8 +139,10 @@ CI ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) runs the same gate
 
 ## Mock data and the optional real wine corpus
 
-Everything `@filter-enginez/mock-data` ships is **synthetic**, produced by seeded generators. For local development you
-can swap the synthetic wines for the real Kaggle "Wine Reviews" dataset:
+Everything `@filter-enginez/mock-data` ships is **synthetic**, produced by seeded generators. The wine generator
+reproduces the Kaggle "Wine Reviews" dataset's measured shares — every origin, varietal, score, price and tasting-word
+frequency — without containing any of its records, and builds its 150k full tier on demand, in Node or a browser Web
+Worker. For local development you can swap the synthetic wines for the real dataset:
 
 ```bash
 pnpm --filter @filter-enginez/mock-data regen:wine:real --accept-data-license

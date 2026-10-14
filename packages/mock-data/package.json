@@ -30,6 +30,7 @@
     ".": "./src/index.ts",
     "./real-estate": "./src/real-estate/index.ts",
     "./wine": "./src/wine/index.ts",
+    "./wine/generator": "./src/wine/generator.ts",
     "./books": "./src/books/index.ts",
     "./handlers": "./src/handlers.ts"
   },
@@ -52,6 +53,10 @@
       "./wine": {
         "types": "./dist/wine/index.d.ts",
         "default": "./dist/wine/index.js"
+      },
+      "./wine/generator": {
+        "types": "./dist/wine/generator.d.ts",
+        "default": "./dist/wine/generator.js"
       },
       "./books": {
         "types": "./dist/books/index.d.ts",

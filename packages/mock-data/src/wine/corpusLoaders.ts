@@ -18,8 +18,8 @@
 
 import type { Wine } from './types.js';
 
-import { DEFAULT_TIER_SIZE } from '../tier-sizes.js';
-import { generateWines } from './generate.js';
+import { DEFAULT_TIER_SIZE, FULL_WINE_TIER_SIZE } from '../tier-sizes.js';
+import { generateWines, WINE_GENERATOR_SEED } from './generate.js';
 
 /**
  * Whether this module was loaded from the filesystem (Node, vitest) rather than over HTTP (a browser).
@@ -59,7 +59,7 @@ const isLoadedFromDisk = (import.meta.url as string | undefined)?.startsWith('fi
  *
  * Not attempted at all when this module was served over HTTP (see {@link isLoadedFromDisk}). Under
  * Vite's module runner (vitest) the JSON loads; plain Node rejects a JSON import without a
- * `type: 'json'` attribute, which lands in the same `catch` — both take the procedural tiers, by design.
+ * `type: 'json'` attribute, which lands in the same `catch` — both take the synthetic tiers, by design.
  *
  * No `with: { type: 'json' }` assertion: Vite serves JSON as transformed-to-ESM (`text/javascript`),
  * which rejects the assertion; the resolved module's `.default` is the parsed array either way.
@@ -100,16 +100,11 @@ const tryLoadRealDefault = async (): Promise<null | readonly Wine[]> => tryImpor
  */
 const tryLoadRealFull = async (): Promise<null | readonly Wine[]> => tryImportLocalCorpus('./data-real-full.json');
 
-/**
- * The procedural full tier (`data-full.json`, gitignored — only after `pnpm regen:mock-data --full`).
- * Second-choice full-tier source when the real full corpus isn't materialized.
- *
- * @internal
- */
-const tryLoadProceduralFull = async (): Promise<null | readonly Wine[]> => tryImportLocalCorpus('./data-full.json');
-
-/** Memoized default-tier promise — the load (real JSON or procedural fallback) happens once. */
+/** Memoized default-tier promise — the load (real JSON or synthetic fallback) happens once. */
 let defaultWinesPromise: Promise<readonly Wine[]> | null = null;
+
+/** Memoized full-tier promise — the load (real JSON or the synthetic full tier) happens once. */
+let fullWinesPromise: Promise<readonly Wine[]> | null = null;
 
 /**
  * Lazily resolve the default-tier wine corpus — the synthetic procedural generator, unless the
@@ -124,20 +119,18 @@ export async function loadDefaultWines(): Promise<readonly Wine[]> {
 }
 
 /**
- * Lazily resolve the full corpus — the locally downloaded real corpus first (a development checkout
- * only; never packaged), then the synthetic full tier written by `pnpm regen:mock-data --full`.
- * Returns `null` only when neither full-tier JSON exists (the consumer then falls back to the
- * default tier).
+ * Lazily resolve the full corpus — the synthetic full tier ({@link FULL_WINE_TIER_SIZE} records,
+ * generated in-process), unless the locally downloaded Kaggle corpus (~130k reviews, CC BY-NC-SA
+ * 4.0, gitignored and never packaged) is present and loadable. Memoized: the first caller pays the
+ * load, the rest await the same promise.
  *
  * @remarks
- * The full tier is the worker-bridge / streaming target (~130 k records either way).
+ * The full tier is the worker-bridge target. In a browser, generate it inside the worker instead
+ * (`generateWines(FULL_WINE_TIER_SIZE, undefined, 'full')` from
+ * `@filter-enginez/mock-data/wine/generator`), so 150k records never cross the thread boundary.
  */
-export async function loadFullWines(): Promise<null | readonly Wine[]> {
-	const real = await tryLoadRealFull();
+export async function loadFullWines(): Promise<readonly Wine[]> {
+	fullWinesPromise ??= tryLoadRealFull().then((real) => real ?? generateWines(FULL_WINE_TIER_SIZE, WINE_GENERATOR_SEED, 'full'));
 
-	if (real !== null) {
-		return real;
-	}
-
-	return tryLoadProceduralFull();
+	return fullWinesPromise;
 }

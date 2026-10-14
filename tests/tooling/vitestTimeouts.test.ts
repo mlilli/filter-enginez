@@ -2,8 +2,9 @@
  * The suite's timeout budgets, asserted against the config that declares them.
  *
  * @remarks
- * This repo's `mock-data` generates real corpora: the wine datasets are 8.6 MB (default tier),
- * 100 MB and 116 MB (full tiers). Most suites that import one of them live in the examples
+ * This repo's `mock-data` generates real corpora: the wine full tier is 150k records (about 130 MB as
+ * JSON, generated in about a second), and a locally imported real corpus is 8.6 MB (default tier) and
+ * 116 MB (full tier) of JSON to parse. Most suites that import one of them live in the examples
  * repository, which pins the same floor; this repo keeps it because any engine suite that loads a
  * corpus has the same exposure. Vitest's default per-test budget is 5s, which is sized for I/O-free unit tests and is
  * not enough for a corpus parse.

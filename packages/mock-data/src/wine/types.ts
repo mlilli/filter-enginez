@@ -9,20 +9,24 @@
  * tasting-notes field powers similarity search via MinHash + LSH; the
  * varietal/region/vintage combinations power the Bayesian co-occurrence suggestion model.
  *
- * Provenance: what ships is synthetic, produced by the seeded generator in `./generate.ts`.
- *   - **Varietals** — a curated pool weighted to roughly mirror the review volume in the Kaggle
- *     "Wine Reviews" dataset (Cabernet + Chardonnay + Pinot Noir dominate)
- *   - **Origin hierarchy** — a hand-curated country → province → region → subregion table with
- *     region-typical varietal weights
- *   - **Winery, vintage, ABV, price, points** — generated per record
- *   - **Tasting notes** — a curated descriptor library weighted by varietal-typicality
- *     (Cabernet → blackberry + leather; Sauvignon Blanc → grass + citrus + mineral)
+ * Provenance: what ships is synthetic, produced by the seeded generator in `./generate.ts` from
+ * aggregate statistics of the Kaggle "Wine Reviews" dataset — never from its records:
+ *   - **Origin and varietal** — all 1,619 measured country → province → region → subregion leaves
+ *     and 701 varietals, paired at their measured shares (Napa Cabernet, Barolo Nebbiolo,
+ *     Champagne sparkling)
+ *   - **Points, price, vintage** — the measured score histogram, price-by-score curve and vintage
+ *     ages, with country and varietal leans
+ *   - **ABV, body, sweetness** — hand-curated domain tables (the dataset records none of them)
+ *   - **Winery, designation** — invented names in each country's language
+ *   - **Tasting notes** — descriptors chosen at the frequency measured for the varietal
+ *     (Cabernet Sauvignon → cassis + cedar; Sauvignon Blanc → grapefruit + grass)
  *
  * ⚠ The one real-data path is local only: `pnpm regen:wine:real --accept-data-license` downloads
  * the Kaggle "Wine Reviews" dataset (scraped from WineEnthusiast in 2017) into gitignored JSON in
  * the same `Wine` shape. It is licensed CC BY-NC-SA 4.0, so it is never packaged or deployed.
  *
- * **Full corpus = 130k records** — the stress-test dataset for the benchmark suite.
+ * **Full tier = 150k records** (`FULL_WINE_TIER_SIZE`), generated on demand in Node or a browser
+ * Web Worker — the stress-test dataset for the benchmark suite and the worker-offload demos.
  *
  * @packageDocumentation
  */
@@ -47,9 +51,9 @@ export type WineSweetness = 'bone-dry' | 'dessert' | 'dry' | 'medium-sweet' | 'o
 export interface WineOrigin {
 	readonly country: string;
 	readonly province: string;
-	/** May be empty for wines from a regionless province (rare but possible in the dataset). */
+	/** Empty when the province has no named region (about one wine in six, as in the reviews measured). */
 	readonly region: string;
-	/** May be empty if no subregion exists. */
+	/** Empty when the region has no named subregion: every wine outside the United States, and some inside it. */
 	readonly subregion: string;
 }
 

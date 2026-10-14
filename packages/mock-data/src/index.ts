@@ -8,9 +8,9 @@
  *   - **Real estate** — synthetic addresses + coordinates inside curated metro bounding boxes,
  *     hand-picked neighborhoods + school districts, and prices centered on approximate 2024
  *     Zillow Home Value Index metro medians
- *   - **Wine** — varietals weighted roughly like the Kaggle Wine Reviews dataset, a hand-curated
- *     origin hierarchy, and tasting notes from a curated descriptor library weighted by
- *     varietal-typicality
+ *   - **Wine** — every origin, varietal, score, price, vintage and tasting-word share measured from
+ *     the Kaggle Wine Reviews dataset (aggregate statistics only), with invented producers and
+ *     notes; the 150k full tier is generated on demand, in Node or a browser Web Worker
  *   - **Books** — OpenLibrary-shaped records (subject tags, edition-ID format) with valid ISBN-13
  *     check digits, built from curated word lists
  *
@@ -25,8 +25,9 @@
  * @remarks
  * Type schemas, filter configs, MSW handler factories, and the per-dataset sub-export structure
  * all land here. No data files ship: the default tier is generated at module load from fixed
- * seeds, and `pnpm regen:mock-data --full` writes the gitignored full tier from the same
- * generators.
+ * seeds. Wine's full tier is generated on demand (`@filter-enginez/mock-data/wine/generator`);
+ * `pnpm regen:mock-data --full` writes the gitignored books and real-estate full tiers from the
+ * same generators.
  *
  * @packageDocumentation
  */
@@ -44,6 +45,7 @@ export {
 	type DatasetName,
 	DEFAULT_TIER_SIZE,
 	FULL_TIER_SIZES,
+	FULL_WINE_TIER_SIZE,
 } from './tier-sizes.js';
 
 // Per-dataset re-exports

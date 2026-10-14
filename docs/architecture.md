@@ -6115,9 +6115,9 @@ runtime explosions in an environment the author never considered, or silent bund
 scoped tightly enough that the module graph beneath them stays clean, and documents the constraint at the file it
 protects. In this repository:
 
-| Package     | Contaminant          | Firewall               | Protects                       |
-| ----------- | -------------------- | ---------------------- | ------------------------------ |
-| `mock-data` | MSW → `localStorage` | `./books`, `./wine`, … | Worker bundles, Node processes |
+| Package     | Contaminant                               | Firewall                                   | Protects                       |
+| ----------- | ----------------------------------------- | ------------------------------------------ | ------------------------------ |
+| `mock-data` | MSW → `localStorage`; corpus loaders' I/O | `./books`, `./wine`, `./wine/generator`, … | Worker bundles, Node processes |
 
 The same boundary shows up again in the test harness: `vitest.config.ts` splits packages into a `node` project and a
 `jsdom` project along very nearly this line. The examples repository applies the same tool twice more, where the
@@ -6137,10 +6137,23 @@ MSW-tainted entry. **Note that the root `.` barrel re-exports `allHandlers` and 
 consumer such as the examples repository's `examples-server` imports only the Node-safe subpaths.
 
 **Two tiers, sized to demonstrate something.** `DEFAULT_TIER_SIZE` is a uniform 10,000, generated at module load from a
-seed (wine prefers a 10k sample of a locally imported real corpus when one exists). The full tier is gitignored and
-generated on demand: books 100k, wine 130k, real estate **exactly 50,000** — chosen to just trip `worker-bridge`'s
+seed (wine prefers a 10k sample of a locally imported real corpus when one exists). The full tiers are books 100k, wine
+150k (`FULL_WINE_TIER_SIZE`) and real estate **exactly 50,000** — chosen to just trip `worker-bridge`'s
 `DEFAULT_AUTO_THRESHOLD` of 50,000. The full tier _is_ the worker-engagement demo, so the sizes are a design decision
-rather than an arbitrary "bigger".
+rather than an arbitrary "bigger". Books and real estate write theirs to gitignored JSON
+(`pnpm regen:mock-data --full`). Wine's is generated rather than stored, in about a second, so a demo builds it inside
+the Web Worker that hosts the engine: `./wine/generator` is a subpath with no loaders, no MSW and no top-level `await`,
+and `tests/tooling/wineGeneratorWorkerSafe.test.ts` walks its import graph to keep it that way.
+
+**The wine generator samples statistics, never records.** Its tables (`wine/generate-origins.ts`,
+`wine/generate-profile.ts`) are aggregate counts measured from the Kaggle "Wine Reviews" dataset: every origin leaf and
+varietal and the 9,663 pairings between them, the score histogram, the price-by-score curve with country and varietal
+leans, vintage ages and descriptor frequencies per varietal. Origin and varietal are not drawn per record. The generator
+apportions exactly `FULL_WINE_TIER_SIZE` records across the pairings by largest remainder and deals them out in a seeded
+shuffle, so at full size every share is exact and the rarest pairing still appears, while record `i` depends only on the
+seed and `i` — the default tier is the full tier's first 10,000 records. Everything from seed to field value uses
+correctly rounded arithmetic only (`wine/generate-math.ts` replaces `Math.exp`, `Math.log` and the normal quantile),
+because engines may disagree in the last bit of those functions and Node and Safari must produce the same wines.
 
 **Determinism from ~6 lines rather than a dependency.** A seeded Mulberry32 PRNG makes two runs byte-identical, which is
 what lets snapshots be stable and "the wine at index 42" be a citable reference. `seedrandom` and `faker` were rejected
@@ -6324,7 +6337,8 @@ This section maps each design pattern the engine uses to specific files in the c
 - standalone `tsx` + `tinybench`, deliberately decoupled from the Vitest runner so a test-runner upgrade cannot perturb
   the numbers
 - a generic cartesian-product matrix over the five acceleration axes, run against the tiered wine corpus (the 10k
-  default tier always; the 130k tier when it has been materialized locally)
+  default tier, and the full tier: 150k synthetic wines, or the 130k-review real corpus where it has been imported
+  locally; each tier is named by its size)
 - results written to `benchmarks/RESULTS.md` + `results.json` (`pnpm --filter @filter-enginez/benchmarks bench:write`),
   and surfaced as a live benchmark widget on the example apps' `/about` page in
   [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples)
@@ -6336,15 +6350,15 @@ never the memoized `getResultIndices()`, which would read a cached array and mea
 
 | Scenario                                                              | What it measures                                                                | Corpus    |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------- |
-| `filter-intersection`                                                 | Results via the bitmap AND vs a predicate pass                                  | 10k, 130k |
-| `simulate-per-option`                                                 | `simulate()` over 40 options of one field, two standing rules                   | 10k, 130k |
-| `similarity-find`                                                     | Top-k similar items (MinHash + LSH)                                             | 10k, 130k |
-| `bayesian-suggest`                                                    | Top-3 suggestions from a synthetic session history (independent of corpus size) | 10k, 130k |
-| `geo-radius-query`                                                    | "Within X km of Y" — R-tree vs haversine scan                                   | 10k, 130k |
-| `text-search-query`                                                   | Whole-word `allWords` — inverted index vs scan                                  | 10k, 130k |
-| `fuzzy-search-strict`                                                 | Fuzzy search at t=0.2 — trigram candidates vs a per-item Fuse probe             | 10k, 130k |
-| `fuzzy-search-loose`                                                  | Fuzzy search at t=0.4 — guardrail that the bypass costs nothing                 | 10k, 130k |
-| `replay-action-log-50`, `replay-action-log`, `replay-action-log-5000` | Replaying 50, 500 and 5000 logged actions                                       | 10k, 130k |
+| `filter-intersection`                                                 | Results via the bitmap AND vs a predicate pass                                  | 10k, full |
+| `simulate-per-option`                                                 | `simulate()` over 40 options of one field, two standing rules                   | 10k, full |
+| `similarity-find`                                                     | Top-k similar items (MinHash + LSH)                                             | 10k, full |
+| `bayesian-suggest`                                                    | Top-3 suggestions from a synthetic session history (independent of corpus size) | 10k, full |
+| `geo-radius-query`                                                    | "Within X km of Y" — R-tree vs haversine scan                                   | 10k, full |
+| `text-search-query`                                                   | Whole-word `allWords` — inverted index vs scan                                  | 10k, full |
+| `fuzzy-search-strict`                                                 | Fuzzy search at t=0.2 — trigram candidates vs a per-item Fuse probe             | 10k, full |
+| `fuzzy-search-loose`                                                  | Fuzzy search at t=0.4 — guardrail that the bypass costs nothing                 | 10k, full |
+| `replay-action-log-50`, `replay-action-log`, `replay-action-log-5000` | Replaying 50, 500 and 5000 logged actions                                       | 10k, full |
 
 ### §19.2. Configurations tested
 

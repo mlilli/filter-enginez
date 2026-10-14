@@ -2,10 +2,11 @@
  * `_wine-lookups.mjs` — static lookup tables shared by `import-kaggle-wine.mjs`.
  *
  * @remarks
- * These tables are duplicated from `src/wine/generate.ts` so the import script stays
- * self-contained (it must run before the package is built). They live in their own module
- * purely to keep `import-kaggle-wine.mjs` under the 500-line cap; the values here are the
- * source of truth for the script's color/body/sweetness synthesis and tasting-note
+ * The importer's own tables, kept in plain JavaScript so the import script stays self-contained
+ * (it must run before the package is built). They are not the synthetic generator's: that one's
+ * color, alcohol, body and sweetness models live in `src/wine/generate-*.ts`. They sit in their
+ * own module purely to keep `import-kaggle-wine.mjs` under the 500-line cap; the values here are
+ * the source of truth for the script's color/body/sweetness synthesis and tasting-note
  * extraction, and MUST stay byte-identical to keep the generated JSON stable.
  *
  * @packageDocumentation

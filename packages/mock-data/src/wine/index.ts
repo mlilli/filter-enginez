@@ -14,6 +14,7 @@ export {
 
 export { loadFullWines, wineFilterConfig, wines } from './data.js';
 export { loadDefaultWines } from './corpusLoaders.js';
+export { generateWineRange, generateWines, WINE_GENERATOR_SEED } from './generate.js';
 export { buildOriginTree, buildWineFilterConfig, getWineFilterConfig } from './filter-config.js';
 // `wineHandlers` is intentionally NOT re-exported from this barrel. Pulling it in here
 // drags MSW (which depends on `localStorage` via its cookieStore module) into every

@@ -2,7 +2,7 @@
  * Ambient declarations for the optional `data-full.json` files in each dataset directory.
  *
  * @remarks
- * The full-tier corpora (130k wines, 50k+ listings, 100k books) live in gitignored JSON files
+ * The books and real-estate full-tier corpora (100k books, 50k listings) live in gitignored JSON files
  * that consumers generate on demand via `pnpm regen:mock-data --full`. The `loadFullX`
  * functions in each `data.ts` dynamically import these files — but TypeScript's static
  * resolver still wants to type-check the import path at compile time, so we declare a

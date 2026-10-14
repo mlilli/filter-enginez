@@ -12,20 +12,21 @@ pnpm bench                     # run all scenarios + tiers, print the report to 
 pnpm --filter @filter-enginez/benchmarks bench:write   # also write RESULTS.md + results.json
 ```
 
-**The committed `RESULTS.md` is a full default run** (all scenarios, 10k + 130k tiers) — regenerate it with
-`bench:write` on real, quiet hardware; a shared/throttled machine (CI runner, container) produces numbers not worth
+**The committed `RESULTS.md` is a full default run** (all scenarios, the 10k tier and the full tier) — regenerate it
+with `bench:write` on real, quiet hardware; a shared/throttled machine (CI runner, container) produces numbers not worth
 committing.
 
 Optional flags narrow or speed up a run (pass them through after `bench` / the `tsx src/run.ts` entry):
 
 ```bash
-tsx src/run.ts --tiers=10k                 # only the 10k default tier — skips the ~116MB 130k load entirely
+tsx src/run.ts --tiers=10k                 # only the 10k default tier — never loads the full tier
 tsx src/run.ts --scenarios=filter-intersection,geo-radius-query
 tsx src/run.ts --tiers=10k --time=100 --warmup=50   # a fast smoke (default: 1000ms / 150ms per cell)
 ```
 
-`--tiers=10k` is what makes a quick CI or low-memory sanity run practical: it never materializes the gitignored 130k
-corpus.
+`--tiers=10k` is what makes a quick CI or low-memory sanity run practical: it never generates the 150k full tier (or,
+where the real corpus has been imported locally, parses its ~116MB JSON). The full tier is named by its size in the
+report: `150k` for the synthetic wines, `130k` for the real corpus.
 
 The runner is standalone [`tsx`](https://github.com/privatenumber/tsx) + `tinybench` — decoupled from the Vitest test
 runner so a test-runner upgrade can't perturb the numbers.

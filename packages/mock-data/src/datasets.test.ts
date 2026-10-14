@@ -62,8 +62,7 @@ describe('dataset filter-configs', () => {
 
 	it('ends a branch at the last non-empty level, whichever level that is', () => {
 		// Hand-built rather than read from a corpus, so every level's "no children" branch is reached
-		// on every machine: the synthetic generator never emits a regionless province, and the real
-		// corpus (which does) exists only where it has been imported.
+		// by name and asserted exactly, whichever corpus a machine has.
 		const tree = buildOriginTree([
 			{ origin: { country: 'Spain', province: 'Galicia', region: '', subregion: '' }},
 			{ origin: { country: 'France', province: 'Bordeaux', region: 'Graves', subregion: '' }},

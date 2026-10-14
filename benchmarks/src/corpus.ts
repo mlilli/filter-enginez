@@ -1,8 +1,8 @@
 /**
- * The tiered wine corpus the benchmark suite runs against: the 10k default tier always (generated
- * at module load, or a sample of the local real corpus when one has been imported), plus the
- * gitignored 130k full tier when it has been materialized. Sourced from
- * `@filter-enginez/mock-data/wine` so dev, tests, and benchmarks all filter the same data.
+ * The tiered wine corpus the benchmark suite runs against: the 10k default tier (generated at module
+ * load, or a sample of the local real corpus when one has been imported) and the full tier — the
+ * 150k synthetic wines, or the ~130k-review real corpus where it has been imported locally. Sourced
+ * from `@filter-enginez/mock-data/wine` so dev, tests, and benchmarks all filter the same data.
  *
  * @packageDocumentation
  */
@@ -14,29 +14,41 @@ export interface CorpusTier {
 	readonly name: string;
 }
 
+/** Name of the default tier, and the `--tiers` value that selects it alone. */
+const DEFAULT_TIER_NAME = '10k';
+
 /**
- * Resolve the available corpus tiers. The 10k default tier is always present (`mock-data`'s `wines`);
- * the 130k full tier appears only after `pnpm regen:wine:real` has written its gitignored JSON,
- * in which case it is appended. Callers iterate whatever tiers come back.
+ * A tier's report name: its size in thousands, so a report says which full tier it measured
+ * (`150k` synthetic, `130k` real).
  *
- * @param requested - Optional tier-name allowlist (e.g. `['10k']`). When omitted, every available
- *   tier is returned. Filtering happens BEFORE the 130k JSON is read, so `['10k']` never pays the
- *   ~116MB `loadFullWines()` cost — which is what makes a fast, single-tier run (CI, a low-memory
+ * @param data - The tier's records.
+ * @returns The name, such as `150k`.
+ */
+function tierName(data: readonly Wine[]): string {
+	return `${Math.round(data.length / 1000)}k`;
+}
+
+/**
+ * Resolve the corpus tiers. The 10k default tier is `mock-data`'s `wines`; the full tier is
+ * `loadFullWines()`.
+ *
+ * @param requested - Optional tier allowlist (e.g. `['10k']`). When omitted, both tiers are
+ *   returned. Any name other than `10k` (`full`, `130k`, `150k`) selects the full tier. Filtering
+ *   happens BEFORE the full tier is loaded, so `['10k']` never pays for generating 150k wines or
+ *   parsing the ~116MB real corpus — which is what makes a fast, single-tier run (CI, a low-memory
  *   smoke) practical.
+ * @returns The selected tiers, default tier first.
  */
 export async function loadCorpusTiers(requested?: readonly string[]): Promise<readonly CorpusTier[]> {
-	const wants = (name: string): boolean => requested === undefined || requested.includes(name);
 	const tiers: CorpusTier[] = [];
 
-	if (wants('10k')) {
-		tiers.push({ data: wines, name: '10k' });
+	if (requested === undefined || requested.includes(DEFAULT_TIER_NAME)) {
+		tiers.push({ data: wines, name: DEFAULT_TIER_NAME });
 	}
-	if (wants('130k')) {
+	if (requested === undefined || requested.some((name) => name !== DEFAULT_TIER_NAME)) {
 		const full = await loadFullWines();
 
-		if (full !== null) {
-			tiers.push({ data: full, name: '130k' });
-		}
+		tiers.push({ data: full, name: tierName(full) });
 	}
 
 	return tiers;

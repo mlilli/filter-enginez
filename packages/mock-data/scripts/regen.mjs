@@ -9,10 +9,13 @@
  *     so there's no JSON to write. The validation surfaces drift early.
  *
  * Full mode (`pnpm regen:full` / `pnpm regen:mock-data --full`):
- *   - Generates the full-tier corpora (wine 130k, real-estate 50k, books 100k) and writes
- *     each to its gitignored `src/<dataset>/data-full.json` file. After this, the
- *     `loadFullX()` functions in each `data.ts` resolve to actual data instead of `null`,
- *     and the MSW handlers stop returning 404 on `?tier=full`.
+ *   - Generates the full-tier corpora (wine 150k, real-estate 50k, books 100k). Real estate and
+ *     books are written to their gitignored `src/<dataset>/data-full.json` files; after this,
+ *     their `loadFullX()` functions resolve to actual data instead of `null`, and their MSW
+ *     handlers stop returning 404 on `?tier=full`.
+ *   - Wine's full tier is generated on demand (`loadFullWines()`, or `generateWines` in a browser
+ *     Web Worker), so nothing is written for it: the run validates it and reports how long the
+ *     150k generation takes.
  *
  * The script runs against the built `dist/` output (after `pnpm build`) because Node can't
  * load the `.ts` source files directly under nodenext resolution. If `dist/` is missing or
@@ -130,7 +133,7 @@ async function main() {
 		validate('listings', listings, g.DEFAULT_TIER_SIZE);
 		validate('books', books, g.DEFAULT_TIER_SIZE);
 		console.log('\nDefault-tier datasets are healthy. No files written (default tier is generated at module load).');
-		console.log('To materialize the FULL tier (wine 130k, real-estate 50k, books 100k), re-run with --full.');
+		console.log('To materialize the FULL tier (real-estate 50k, books 100k; wine 150k is generated on demand), re-run with --full.');
 
 		return;
 	}
@@ -141,6 +144,7 @@ async function main() {
 	const tWines = performance.now() - t0;
 
 	console.log(`✓ wines generation: ${g.FULL_TIER_SIZES.wine.toLocaleString()} records [${tWines.toFixed(0)}ms]`);
+	validate('wines', fullWines, g.FULL_TIER_SIZES.wine);
 
 	const t1 = performance.now();
 	const fullListings = g.generateListings(g.FULL_TIER_SIZES['real-estate'], undefined, 'full');
@@ -154,8 +158,7 @@ async function main() {
 
 	console.log(`✓ books generation: ${g.FULL_TIER_SIZES.books.toLocaleString()} records [${tBooks.toFixed(0)}ms]`);
 
-	console.log('\nWriting full-tier JSON files (gitignored)...');
-	await writeFullTier('wines', fullWines, 'wine');
+	console.log('\nWriting full-tier JSON files (gitignored; wine is generated on demand and needs none)...');
 	await writeFullTier('listings', fullListings, 'real-estate');
 	await writeFullTier('books', fullBooks, 'books');
 
@@ -163,7 +166,7 @@ async function main() {
 	const totalRecords = g.FULL_TIER_SIZES.wine + g.FULL_TIER_SIZES['real-estate'] + g.FULL_TIER_SIZES.books;
 
 	console.log(`\nFull-tier materialization complete: ${totalRecords.toLocaleString()} records in ${totalMs}ms.`);
-	console.log('The `loadFullX()` functions in each data.ts will now resolve to real data; MSW handlers will serve `?tier=full` requests.');
+	console.log('The books and real-estate `loadFullX()` functions will now resolve to data; their MSW handlers will serve `?tier=full` requests.');
 }
 
 main().catch((err) => {

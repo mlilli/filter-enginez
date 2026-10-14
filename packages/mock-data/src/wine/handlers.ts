@@ -22,12 +22,13 @@ import { buildWineFilterConfig } from './filter-config.js';
  *
  * @remarks
  * **`loadFullRecords` returns `null` on purpose — the full tier is NOT servable via MSW.** These
- * handlers run in the browser (MSW's resolver executes on the main thread), and `loadFullWines`'s
- * `import('./data-real-full.json')` makes Vite's dev server transform the ~116 MB JSON on the fly,
- * which runs it out of memory. Even absent the OOM, materializing 130k records in a
- * main-thread resolver would invert the very worker-offload the full tier exists for. So MSW serves
- * only the default (~10k) tier; the 130k worker tier keeps its own direct NDJSON stream, and a
- * `?tier=full` request here 404s cleanly (`DATASET_NOT_GENERATED`).
+ * handlers run in the browser (MSW's resolver executes on the main thread). With the local real
+ * corpus present, `loadFullWines`'s `import('./data-real-full.json')` makes Vite's dev server
+ * transform the ~116 MB JSON on the fly, which runs it out of memory; without it, generating 150k
+ * records in a main-thread resolver would freeze the page. Either way it would invert the very
+ * worker offload the full tier exists for. So MSW serves only the default (~10k) tier; the full tier
+ * is generated inside the worker (`@filter-enginez/mock-data/wine/generator`), and a `?tier=full`
+ * request here 404s cleanly (`DATASET_NOT_GENERATED`).
  */
 export const wineHandlers: readonly MswHandlerLike[] = createDatasetHandlers({
 	basePath: '/api/wine',

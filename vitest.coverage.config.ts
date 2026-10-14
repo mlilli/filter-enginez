@@ -44,17 +44,19 @@ export const COVERAGE_EXCLUDE: readonly string[] = [
 	'**/worker-bridge/src/WorkerHostedEngine.ts',
 	// ─── mock-data: procedural generators + dynamic-import data loaders ─────────────
 	// WHY EXCLUDED (whole-file coverage exception):
-	//   1. The domain *generators* (`<dataset>/generate*.ts`) are regenerable build-time
-	//      tooling driven by the `regen` CLI — they synthesize fixtures, not shipped
-	//      consumer runtime. The seeded RNG they lean on (`_generation/random.ts`) IS
-	//      unit-tested; the corpus-shaping code above it is fixture generation.
+	//   1. The domain *generators* (`<dataset>/generate.ts` and wine's `generate-*.ts` modules)
+	//      synthesize fixture corpora. The seeded RNG they lean on (`_generation/random.ts`) IS
+	//      unit-tested; the corpus-shaping code above it is held to a statistical contract
+	//      instead (wine's `generate.test.ts`: determinism, every leaf and varietal present,
+	//      distributions within tolerance of the measured targets), which line coverage does
+	//      not measure.
 	//   2. The `<dataset>/data.ts` + `wine/corpusLoaders.ts` loaders are environment-dependent
 	//      dynamic-import glue: their branches hinge on which gitignored / on-demand JSON files
 	//      exist on a given machine, and the full-tier paths would load 100MB+ corpora.
 	//      Deterministic 100% would require mocking the runtime module system for little value
 	//      over the handler-factory tests that already exercise the served data end-to-end.
 	'**/mock-data/src/*/generate.ts',
-	'**/mock-data/src/*/generate-data.ts',
+	'**/mock-data/src/*/generate-*.ts',
 	'**/mock-data/src/*/data.ts',
 	'**/mock-data/src/wine/corpusLoaders.ts',
 	// The per-dataset `handlers.ts` are thin wiring: `createDatasetHandlers({ basePath,
