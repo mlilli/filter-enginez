@@ -112,11 +112,13 @@ export const realEstateFilterConfig: FilterEngineConfig = {
 			rule: {
 				// Default center is San Francisco; consumers update via UI (map click, address
 				// geocode, "near me" geolocation). Radius default 25km — typical commute radius.
+				// `coords` is the listing's `{ lat, lng }` point, the shape the rule reads; naming it by
+				// string is what lets this rule survive `exportConfig` → JSON → `loadConfig`.
 				config: {
-					center: { lat: 37.7749, lon: -122.4194 },
+					center: { lat: 37.7749, lng: -122.4194 },
 					radiusKm: 25,
 				},
-				field: 'coordinates',
+				field: 'coords',
 				type: 'GeoProximityRule',
 			},
 		},

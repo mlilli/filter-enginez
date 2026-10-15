@@ -5,7 +5,7 @@
  * The "kitchen-sink" dataset — exercises every rule
  * type in the catalog: `RangeRule` (price, sqft, beds, baths, year), `BooleanRule` (has pool,
  * has garage, waterfront), `InSetRule` (property type, neighborhood, school district),
- * `GeoProximityRule` (lat/lon → "within N km of"), `HierarchicalRule` (state → metro →
+ * `GeoProximityRule` (`coords` → "within N km of"), `HierarchicalRule` (state → metro →
  * neighborhood → block), `DateRangeRule` (listed date), `TextSearchRule` (full-text address +
  * description), `ExistsRule` (has open house scheduled).
  *
@@ -67,13 +67,44 @@ export interface ListingCoordinates {
 }
 
 /**
+ * The same point as {@link ListingCoordinates}, in the `{ lat, lng }` shape that `GeoProximityRule`
+ * and the engine's R-tree spatial index read.
+ *
+ * @remarks
+ * Structurally identical to `GeoCoords` from `@filter-enginez/core`, and declared here for the same
+ * reason as {@link ListingCoordinates}: the type files stay free of a dependency edge into `core`.
+ */
+export interface ListingGeoCoords {
+	readonly lat: number;
+	readonly lng: number;
+}
+
+/**
  * A single real-estate listing.
  */
 export interface Listing extends BaseRecord {
 	// ─── Identity / address ────────────────────────────────────────────────
 	readonly addressLine1: string;
 	readonly city: string;
+	/** Where the listing is, as `{ lat, lon }`. {@link Listing.coords} holds the same point for geo rules. */
 	readonly coordinates: ListingCoordinates;
+	/**
+	 * Where the listing is, as `{ lat, lng }` — the field a `GeoProximityRule` names by string.
+	 *
+	 * @remarks
+	 * Redundant with `coordinates` on purpose, for the reason `locationId` below is: a rule that
+	 * reaches a value through a function extractor cannot be serialized. `exportConfig` writes a
+	 * function field as the placeholder `'<function>'`, which revives as "the item itself", so a radius
+	 * filter in a shared link or a saved config would match nothing once loaded. Mapping
+	 * `coordinates.lon` to `lng` therefore happens here, once, at generation time, and
+	 * `new GeoProximityRule('coords', { center, radiusKm })` round-trips through `exportConfig` →
+	 * JSON → `loadConfig`, a URL, a worker and a server. The R-tree spatial index reads the same
+	 * field, so it accelerates the rule unchanged.
+	 *
+	 * Both fields carry identical values: `coords.lat === coordinates.lat` and
+	 * `coords.lng === coordinates.lon` for every listing.
+	 */
+	readonly coords: ListingGeoCoords;
 	/**
 	 * Composite `state/metro/neighborhood` path, materialized rather than derived.
 	 *

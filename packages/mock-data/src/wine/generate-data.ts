@@ -241,9 +241,13 @@ export const SWEETNESS_WEIGHTS_BY_VARIETAL: Readonly<Record<string, readonly num
 export const VINTAGE_REFERENCE_YEAR = 2024;
 
 /**
- * The year non-vintage wines carry: the year after the youngest possible vintage, the same way the
- * local real-corpus import marks them. The vintage filter can select it, and no harvest year
- * collides with it.
+ * The year non-vintage wines carry: the year after the youngest possible vintage. The vintage
+ * filter can select it, and no harvest year collides with it.
+ *
+ * @remarks
+ * The local real-corpus import follows the same rule against its own data, so its year differs:
+ * the youngest vintage in those 2017 reviews is 2017, and a title with no year in it (an `NV`
+ * wine) imports as 2018.
  *
  * @internal
  */

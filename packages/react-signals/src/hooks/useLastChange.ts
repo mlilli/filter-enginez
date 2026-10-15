@@ -45,7 +45,7 @@ export function useLastChange(): LastChange {
 	// values actually changed.** Without this, every call returns a fresh object literal,
 	// and any consumer using the return in a `useMemo` deps array invalidates on EVERY
 	// parent re-render — not just on real engine events. For a filter panel with slider bounds
-	// + histograms over a large corpus, that means 8 × 130k-record iterations re-firing on every
+	// + histograms over a large corpus, that means 8 × 150k-record iterations re-firing on every
 	// unrelated render. Memoizing here is the lowest-cost / highest-impact way to prevent it.
 	return useMemo<LastChange>(
 		() => ({ event, ruleId, timestamp }),

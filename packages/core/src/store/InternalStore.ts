@@ -120,9 +120,9 @@ export class InternalStore<T> {
 	 * in a Web Worker (see `@filter-enginez/worker-bridge`'s `getResultIndices()` over the wire).
 	 *
 	 * @remarks
-	 * Why Uint32Array, not number[]: a 130k-record corpus has at most 130k indices × 4 bytes =
-	 * 520KB. That fits in a single transferable `ArrayBuffer`, which moves between threads in
-	 * constant time regardless of payload size — vs ~110MB of structuredClone work to ship the
+	 * Why Uint32Array, not number[]: a 150k-record corpus has at most 150k indices × 4 bytes =
+	 * 600KB. That fits in a single transferable `ArrayBuffer`, which moves between threads in
+	 * constant time regardless of payload size — vs ~130MB of structuredClone work to ship the
 	 * full filtered Wine objects per filter tick.
 	 */
 	readonly resultIndices: ReadonlySignal<Uint32Array>;

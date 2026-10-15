@@ -14,6 +14,25 @@ distributions. No third-party data is included. Generation scripts live in `scri
 default tier and `pnpm regen --full` to write the real-estate and books full tiers (gitignored). The wine full tier
 needs no file: it is generated where it is used, including inside a browser Web Worker.
 
+## Real estate
+
+Each `Listing` carries its position twice, with the same values: `coordinates` as `{ lat, lon }`, and `coords` as
+`{ lat, lng }`, the shape `GeoProximityRule` and the engine's R-tree read. Name `coords` as the rule's field and the
+filter round-trips through `exportConfig` → JSON → `loadConfig`, a URL, a worker or a server; a function extractor over
+`coordinates` cannot, because a function field serializes as a placeholder.
+
+```ts
+import { createFilterEngine, GeoProximityRule } from '@filter-enginez/core';
+import { type Listing, listings } from '@filter-enginez/mock-data/real-estate';
+
+const engine = createFilterEngine<Listing>({ sourceData: listings });
+
+engine.addRule('near-sf', new GeoProximityRule('coords', { center: { lat: 37.7749, lng: -122.4194 }, radiusKm: 25 }));
+```
+
+`locationId` (`state/metro/neighborhood`) is stored for the same reason: a hierarchical location filter can name it by
+string.
+
 ## Wine
 
 The wine generator samples **aggregate statistics** measured from the Kaggle "Wine Reviews" dataset (129,907 reviews),
@@ -91,6 +110,6 @@ Consumer guides live in the engine repository under `docs/guides/`:
 - `acceleration_tuning.md` — what the five `acceleration` toggles are worth, measured
 - `worker_offload.md` — running the engine in a Web Worker
 
-Project home: <https://filterenginez.com>
+Project home, with six live demos: <https://filterenginez.com>. Documentation site: <https://docs.filterenginez.com>.
 
 Apache-2.0. See `LICENSE.md` and `NOTICE.md`, both included in this package.

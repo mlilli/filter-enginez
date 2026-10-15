@@ -10,9 +10,11 @@
  * `declare module 'rbush'` shim — so an ambient form silently produces TS7016
  * ("could not find a declaration file"). Instead this file is a normal module
  * (top-level `export`), wired in as the types for `import … from 'rbush'` via a
- * `paths` entry. The mapping is type-only; Node's runtime resolution still loads the
- * real `rbush` package. Update if later work reaches for more methods (e.g. `toJSON`
- * / `fromJSON`).
+ * `paths` entry. For `tsc` the mapping is type-only, and Node's runtime resolution
+ * still loads the real `rbush` package. `tsx` is the exception: it applies `paths` at
+ * runtime and would load this file instead, so `tsx` runs with a config that clears
+ * them (see `tsconfig.base.json`). Update if later work reaches for more methods (e.g.
+ * `toJSON` / `fromJSON`).
  *
  * **That entry lives in `tsconfig.base.json`, NOT in this package's tsconfig.**
  * `@filter-enginez/core`'s `exports` map points at source, so any program importing

@@ -65,6 +65,6 @@ Consumer guides live in the engine repository under `docs/guides/`:
 - `acceleration_tuning.md` — what the five `acceleration` toggles are worth, measured
 - `worker_offload.md` — running the engine in a Web Worker
 
-Project home: <https://filterenginez.com>
+Project home, with six live demos: <https://filterenginez.com>. Documentation site: <https://docs.filterenginez.com>.
 
 Apache-2.0. See `LICENSE.md` and `NOTICE.md`, both included in this package.

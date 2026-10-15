@@ -46,7 +46,7 @@ import type {
  * @remarks
  * The full `ActionLogEntry` shape on the worker side carries `FilterRule` instances (in the
  * action's payload) plus full pre/next `EngineSnapshot` blobs. Neither is structuredClone-
- * safe (rules contain functions; snapshots can be 130k items). Shipping the full entry over
+ * safe (rules contain functions; snapshots can be 150k items). Shipping the full entry over
  * postMessage would either throw or be wasteful — we serialize each entry to this thin
  * summary instead.
  *
@@ -147,7 +147,7 @@ export interface FilterEngineAsync<T> {
 	 * @remarks
 	 * The bandwidth-frugal alternative to `getResults()` for worker-hosted engines. The
 	 * underlying `Uint32Array.buffer` is `postMessage`-transferred (zero-copy) — typical
-	 * payload for a 130k-record corpus is ≤520KB and the transfer is constant-time regardless
+	 * payload for a 150k-record corpus is ≤600KB and the transfer is constant-time regardless
 	 * of how much of the corpus passed the filter.
 	 *
 	 * **Invariant:** `(await getResults())[i]` references the same logical item as
@@ -165,12 +165,12 @@ export interface FilterEngineAsync<T> {
 	 *
 	 * @remarks
 	 * Returned as a `Float64Array` (transferable, zero-copy across the postMessage boundary).
-	 * Typical payload for the wine corpus: 100k items × 8 bytes = 800KB upper bound, often
+	 * Typical payload for the wine corpus: 150k items × 8 bytes = 1.2MB upper bound, often
 	 * far less after filtering. Transfer is constant-time regardless of array length.
 	 *
 	 * **Why this exists.** The alternative is for consumer code to iterate the full
 	 * sourceData on the main thread, applying all-rules-except-X per render per slider. For
-	 * the 130k-record wine corpus with 4 sliders that means ~4.68M predicate evaluations on
+	 * the 150k-record wine corpus with 4 sliders that means ~5.4M predicate evaluations on
 	 * every panel render, frequently blocking the main thread for 1-2 seconds at a time. By
 	 * exposing the operation as an engine method, the work runs entirely on whichever thread
 	 * the engine itself lives on (the worker, for worker-hosted engines), leaving the main

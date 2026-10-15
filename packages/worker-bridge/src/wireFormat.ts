@@ -42,7 +42,7 @@ import type { WireActionLogEntry } from './FilterEngineAsync.js';
  *     `lastChangeEvent.value`.
  *   - **`expression`** — same story: `CompositeRule` is a `FilterRule` subclass; serialize.
  *   - **`sourceData` / `workingSet` / `results`** — the `previous` and `next` arrays can be
- *     130k+ items each on the wine corpus. Even if they're plain-cloneable, shipping them
+ *     150k items each on the wine full tier. Even if they're plain-cloneable, shipping them
  *     across the wire on every event would be enormously wasteful (the adapter already
  *     mirrors source/result state via its own dedicated getter dance). We strip these into
  *     empty arrays — consumers needing the actual contents should read the adapter's signals

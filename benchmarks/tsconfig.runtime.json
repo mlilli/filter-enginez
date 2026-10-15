@@ -1,0 +1,17 @@
+// The config `tsx` runs the harness with (`tsx --tsconfig tsconfig.runtime.json`, in the `bench`
+// scripts). Type checking keeps using `tsconfig.json`.
+//
+// `tsx` resolves imports through a tsconfig's `paths` at RUNTIME, not only for types. The shared
+// base maps `rbush` to core's type-only stub (`packages/core/src/types/rbush.d.ts`), which every
+// program that compiles core's source needs for TYPE resolution; under `tsx` the same entry makes
+// core's `SpatialIndex` import the empty stub instead of the `rbush` package, and every R-tree
+// cell throws `tree.load is not a function`. `extends` replaces `paths` as a whole object, so the
+// empty object below clears the mapping and `rbush` resolves to the real package.
+// `tests/tooling/tsxRuntimeConfig.test.ts` holds every `tsx` script in the repository to this.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {}
+  }
+}

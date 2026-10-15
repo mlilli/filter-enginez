@@ -16,7 +16,7 @@
  *
  *   1. **LSH candidate lookup** — query signature → bucket lookup → set of candidate item
  *      indices. Sub-linear in dataset size; typical candidate counts are 10-50 regardless of
- *      whether the corpus is 10k or 130k items.
+ *      whether the corpus is 10k or 150k items.
  *   2. **Exact-Jaccard verification + ranking** — compute the precise MinHash-estimated
  *      similarity for each candidate, filter by `threshold`, sort descending, slice to `k`.
  *

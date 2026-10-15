@@ -6,8 +6,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bench": "tsx src/run.ts",
-    "bench:write": "tsx src/run.ts --write",
+    "bench": "tsx --tsconfig tsconfig.runtime.json src/run.ts",
+    "bench:write": "tsx --tsconfig tsconfig.runtime.json src/run.ts --write",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --color --no-error-on-unmatched-pattern .",
     "lint:fix": "pnpm prettier:fix && pnpm eslint:fix",

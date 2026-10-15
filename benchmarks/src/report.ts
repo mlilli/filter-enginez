@@ -40,6 +40,26 @@ export function outcomeFromTask(cellLabel: string, task: Task): BenchOutcome {
 	};
 }
 
+/**
+ * Name every cell that produced no measurement — a non-finite mean or zero samples — as
+ * `<scenario> @ <tier>: <cell>`.
+ *
+ * @remarks
+ * A cell whose function throws is not timed: tinybench records the error, and
+ * {@link outcomeFromTask} reads it as a `NaN` mean over 0 samples. Rendered, that is one more table
+ * row, easy to miss among the others and easy to commit. The runner refuses to write a report while
+ * this list is non-empty.
+ *
+ * @param reports - Every scenario/tier report of a run.
+ * @returns The unmeasured cells, in report order; empty when every cell has a number.
+ */
+export function unmeasuredCells(reports: readonly ScenarioReport[]): readonly string[] {
+	return reports.flatMap((report) =>
+		report.outcomes
+			.filter((outcome) => !Number.isFinite(outcome.meanMs) || outcome.samples === 0)
+			.map((outcome) => `${report.scenarioId} @ ${report.tierName}: ${outcome.cellLabel}`));
+}
+
 /** Render an ASCII bar sized relative to `max` (the slowest cell in the group). */
 function bar(value: number, max: number): string {
 	if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {

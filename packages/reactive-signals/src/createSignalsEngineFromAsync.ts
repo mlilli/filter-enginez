@@ -118,9 +118,9 @@ export async function createSignalsEngineFromAsync<T>(
 ): Promise<SignalsEngine<T>> {
 	// ─── Initial state pull — sourceData ONCE, then derived state ──────────
 	// **The bandwidth contract.** `getSourceData()` is the only call that ships the full
-	// corpus across the postMessage boundary — paid exactly once at boot (~110MB of
-	// structuredClone for a 130k-record dataset). Every subsequent rule/expression
-	// event refresh ships indices (Uint32Array, ≤520KB upper bound, postMessage-transferred
+	// corpus across the postMessage boundary — paid exactly once at boot (~130MB of
+	// structuredClone for a 150k-record dataset). Every subsequent rule/expression
+	// event refresh ships indices (Uint32Array, ≤600KB upper bound, postMessage-transferred
 	// zero-copy) rather than re-shipping the full filtered objects. The main thread joins
 	// indices against the bootstrapped `initialSourceData` to hydrate the results signal —
 	// a sub-millisecond projection over already-resident memory.

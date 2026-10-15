@@ -17,6 +17,7 @@ import type {
 	Listing,
 	ListingCoordinates,
 	ListingFeature,
+	ListingGeoCoords,
 	ListingStatus,
 	PropertyType,
 } from './types.js';
@@ -390,6 +391,10 @@ function generateListing(rng: SeededRng, index: number, tier: 'default' | 'full'
 		lat: Math.round(randomFloat(rng, metro.bbox.latMin, metro.bbox.latMax) * 1_000_000) / 1_000_000,
 		lon: Math.round(randomFloat(rng, metro.bbox.lonMin, metro.bbox.lonMax) * 1_000_000) / 1_000_000,
 	};
+	// The same point in the `{ lat, lng }` shape `GeoProximityRule` reads, so a geo rule can name the
+	// field by string and survive serialization (see `Listing.coords`). Copied, not drawn: no extra RNG
+	// call, so every other field of every listing is unchanged.
+	const coords: ListingGeoCoords = { lat: coordinates.lat, lng: coordinates.lon };
 
 	// Price normally distributed around metro median, capped so we don't get negative or
 	// $30M-listing outliers (those exist in real life but skew the dataset's UX badly).
@@ -464,6 +469,7 @@ function generateListing(rng: SeededRng, index: number, tier: 'default' | 'full'
 		bedrooms,
 		city,
 		coordinates,
+		coords,
 		description,
 		features,
 		id,

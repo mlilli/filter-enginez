@@ -114,8 +114,8 @@ export function createAsyncMirrorRefreshers<T>(
 	// the currently-resident workingSet mirror (which doubles as sourceData when no working-
 	// set substitution is active).
 	//
-	// **Why preallocate + loop, not `.map`.** At 130k indices the V8 `.map` allocation
-	// pattern (sparse growth, bounds-check on each write) measures ~1.5x slower than a
+	// **Why preallocate + loop, not `.map`.** Measured at 130k indices, the V8 `.map` allocation
+	// pattern (sparse growth, bounds-check on each write) runs ~1.5x slower than a
 	// preallocated `new Array(idx.length)` + indexed write. The hot path runs on every
 	// rule:changed event during slider drag — every saved millisecond counts.
 	//

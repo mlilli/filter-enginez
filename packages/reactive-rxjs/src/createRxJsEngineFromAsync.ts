@@ -97,7 +97,7 @@ export async function createRxJsEngineFromAsync<T>(
 	const replayBufferSize = options.replayBufferSize ?? 1;
 
 	// ─── Initial state pull — sourceData ONCE, then derived state ──────────
-	// Same bandwidth contract as `createSignalsEngineFromAsync`: pull the ~110MB source corpus
+	// Same bandwidth contract as `createSignalsEngineFromAsync`: pull the ~130MB source corpus
 	// exactly once at boot, then subsequent rule/expression events ship indices (Uint32Array,
 	// postMessage-transferred zero-copy) and the main thread joins them against the bootstrapped
 	// source mirror to hydrate results. See sibling adapter's intro comment for the full design.

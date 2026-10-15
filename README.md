@@ -32,6 +32,15 @@ Angular.
   [`predictive_disable.md`](./docs/guides/predictive_disable.md).
 - **Devtools** — action log, time travel, state diffing, replay, and a Redux DevTools bridge.
 
+## Live demos
+
+[filterenginez.com](https://filterenginez.com) links six live demo apps — React with and without Redux Toolkit,
+SvelteKit, Vue, Angular, and plain TypeScript — each running the engine over the same three synthetic datasets.
+[How it works](https://filterenginez.com/how-it-works) animates the algorithms and runs a live benchmark in your
+browser, [Compare](https://filterenginez.com/compare) opens one filter state in every app that serves its dataset, and
+[docs.filterenginez.com](https://docs.filterenginez.com) has the rule catalog, a playground, and the API reference. The
+apps' source is in [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples).
+
 ## Packages
 
 This repository is a pnpm + Turborepo workspace holding the 13 packages that publish to npm. Each package README is the
@@ -155,6 +164,8 @@ it, and the example apps strip it from production builds. Without the flag the s
 
 ## Documentation
 
+- [docs.filterenginez.com](https://docs.filterenginez.com) — the documentation site: rule catalog, playground, API
+  reference.
 - [`docs/architecture.md`](./docs/architecture.md) — class hierarchies, type signatures, data flow.
 - [`docs/guides/`](./docs/guides/) — task-shaped how-tos: [extending rules](./docs/guides/extending_rules.md),
   [JSON config](./docs/guides/json_config.md), [acceleration tuning](./docs/guides/acceleration_tuning.md),

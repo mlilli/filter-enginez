@@ -189,7 +189,7 @@ function parseCsv(csv) {
 // ─── Row → Wine transformer ───────────────────────────────────────────────
 
 /**
- * Extract a 4-digit year (1900-2024) from a wine title string. Real Wine Enthusiast titles
+ * Extract a 4-digit year (1900-2029) from a wine title string. Real Wine Enthusiast titles
  * typically embed the vintage like "Nicosia 2013 Vulkà Bianco (Etna)" — we grab the year if
  * present, else return null (will fall back to a synthesized default).
  */
@@ -299,7 +299,9 @@ function transformRow(row, index, tier) {
 		priceUsd = Math.round(Math.exp((points - 80) * 0.12) * 8 * randomFloat(rng, 0.7, 1.3) * 100) / 100;
 	}
 
-	const vintage = extractVintageFromTitle(title) ?? 2018; // fall back to mid-corpus year
+	// No year in the title (an NV wine): the year after the corpus's youngest vintage, 2017, the
+	// same rule the synthetic generator's NON_VINTAGE_YEAR follows.
+	const vintage = extractVintageFromTitle(title) ?? 2018;
 	const color = colorFromVariety(variety, region1);
 	const body = pickWeighted(rng, BODY_WEIGHTS_BY_COLOR[color]);
 	const sweetness = pickWeighted(rng, SWEETNESS_WEIGHTS_BY_COLOR[color]);

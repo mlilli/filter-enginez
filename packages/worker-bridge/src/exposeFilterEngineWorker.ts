@@ -161,7 +161,7 @@ export function exposeFilterEngineWorker<ItemTypes extends Readonly<Record<strin
 			const bundle = ensure(engine).applyFiltersAndQuery(query);
 
 			// Copy + collect transferables. The copy is byte-level memcpy via the typed-array
-			// constructor; for the wine corpus's ~130k-record upper bound, total copy cost
+			// constructor; for the wine corpus's 150k-record full tier, total copy cost
 			// is sub-millisecond. The transfer itself is constant-time regardless of size.
 			const indicesCopy = new Uint32Array(bundle.resultIndices);
 			const transferables: ArrayBuffer[] = [indicesCopy.buffer];
@@ -282,7 +282,7 @@ export function exposeFilterEngineWorker<ItemTypes extends Readonly<Record<strin
 		 * intact while still giving us a transferable to ship.
 		 *
 		 * The copy itself is byte-level (Uint32Array's constructor accepts another typed-array
-		 * and runs the equivalent of a memcpy). At 130k indices × 4 bytes = 520KB, that's a
+		 * and runs the equivalent of a memcpy). At 150k indices × 4 bytes = 600KB, that's a
 		 * sub-millisecond cost regardless of the filter result size; the transfer that follows
 		 * is constant-time.
 		 *

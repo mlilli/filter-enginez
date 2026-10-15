@@ -229,7 +229,8 @@ DevTools bridge and schedules persistence — and (f) notifies subscribers. The 
 **The composition.** Three layers, each cheap on its own, each composing:
 
 1. **Roaring Bitmaps** — one compressed bitmap per active rule. Filter intersection = bitwise AND across bitmaps: 0.02
-   ms at 10k items and 0.40 ms at 130k with warm bitmaps (`benchmarks/RESULTS.md`).
+   ms over a 10k sample of the local real wine corpus and 0.40 ms over all 129,907 reviews, with warm bitmaps (measured
+   July 2026, `benchmarks/RESULTS.md`).
 2. **Mutual Exclusion Graph** — pre-computed pairwise table of rules that share zero items. Lazy by default;
    `engine.precomputeExclusions()` warms it, and `acceleration.exclusionGraph: 'eager'` keeps it warm.
 3. **Memoized Simulation** — `simulate({ withRule: X })` results cached in an LRU (100 entries), keyed by the
@@ -276,7 +277,7 @@ packages/core/src/
 ├── queryBundle.ts              # FilterBundleQuery / FilterBundle types — the bundle wire shape
 ├── types.ts                    # Shared types — RuleId, ChangeEvent, etc.
 ├── types/
-│   └── rbush.d.ts              # Ambient types for the untyped rbush dependency
+│   └── rbush.d.ts              # Type-only stub for the untyped rbush dependency (wired in via `paths`)
 ├── errors/
 │   ├── index.ts
 │   ├── FilterEngineError.ts    # Base class: `code` + `cause`, a name that survives minification
@@ -714,9 +715,9 @@ export class InternalStore<T> {
    * in a Web Worker (see `@filter-enginez/worker-bridge`'s `getResultIndices()` over the wire).
    *
    * @remarks
-   * Why Uint32Array, not number[]: a 130k-record corpus has at most 130k indices × 4 bytes =
-   * 520KB. That fits in a single transferable `ArrayBuffer`, which moves between threads in
-   * constant time regardless of payload size — vs ~110MB of structuredClone work to ship the
+   * Why Uint32Array, not number[]: a 150k-record corpus has at most 150k indices × 4 bytes =
+   * 600KB. That fits in a single transferable `ArrayBuffer`, which moves between threads in
+   * constant time regardless of payload size — vs ~130MB of structuredClone work to ship the
    * full filtered Wine objects per filter tick.
    */
   readonly resultIndices: ReadonlySignal<Uint32Array>;
@@ -1444,6 +1445,11 @@ Two-line type, ten-line implementation, enormous decoupling power:
  * - **`(item) => unknown`** — arbitrary extractor function (the escape hatch for any access
  *   pattern the string forms can't express)
  *
+ * Only the first three forms serialize. A function is written as the placeholder `'<function>'` by
+ * `serialize()` / `exportConfig`, and revives as `undefined` — "the item itself" — so a rule that
+ * travels through a config document, a URL, a worker or a server names its field by path. Where the
+ * value needs computing, store it on the item and name that field.
+ *
  * @example
  *   // Simple property:
  *   const f1: FieldExtractor = 'price';
@@ -2157,6 +2163,11 @@ export interface GeoProximityRuleConfig {
  *
  * The field extractor MUST return a `GeoCoords` object (or `undefined` for items without a
  * location, which fail the rule).
+ *
+ * Name the field by path, as below, for a rule that is exported, put in a URL, or sent to a worker
+ * or server: a function extractor serializes as `'<function>'` and loads back as "the item itself",
+ * which carries no `lat` / `lng`, so the loaded rule matches nothing. Data whose coordinates are
+ * shaped differently (`{ lat, lon }`, say) gets a `{ lat, lng }` field of its own.
  *
  * @example
  *   // Items within 5 km of San Francisco's Ferry Building:
@@ -3126,7 +3137,8 @@ For each of 20 color options:
     └─ cache.set(key, result)
 ```
 
-Measured by `simulate-per-option` (`benchmarks/RESULTS.md`: 40 options of one field, two standing rules):
+Measured by `simulate-per-option` (`benchmarks/RESULTS.md`: 40 options of one field, two standing rules) in July 2026,
+on the local real wine corpus — a 10k sample and all 129,907 reviews:
 
 | Path                                                          | 10k items | 130k items |
 | ------------------------------------------------------------- | --------- | ---------- |
@@ -3759,7 +3771,8 @@ so a candidate can never be used unconfirmed:
 `TEXT_INDEX_AUTO_THRESHOLD` (500, aligned with the bitmap auto-threshold — below it a single scan is sub-millisecond and
 the posting-build cost is not repaid); `'on'` engages at any size; `'off'` always uses the predicate scan. The index
 serves the bitmap build, so it is in effect only while bitmaps are engaged (`acceleration.bitmap: 'on'` engages them at
-any size). Measured at 130k (`benchmarks/RESULTS.md`): `allWords` 306×, fuzzy@0.2 about 3×, fuzzy@0.4 1.0× (the bypass).
+any size). Measured in July 2026 over the 129,907-review local real wine corpus (`benchmarks/RESULTS.md`): `allWords`
+306×, fuzzy@0.2 about 3×, fuzzy@0.4 1.0× (the bypass).
 
 ### §8a.3. Constraints both inherit
 
@@ -6335,13 +6348,16 @@ This section maps each design pattern the engine uses to specific files in the c
 
 - `benchmarks/` at the repo root: the private `@filter-enginez/benchmarks` package, never published
 - standalone `tsx` + `tinybench`, deliberately decoupled from the Vitest runner so a test-runner upgrade cannot perturb
-  the numbers
-- a generic cartesian-product matrix over the five acceleration axes, run against the tiered wine corpus (the 10k
-  default tier, and the full tier: 150k synthetic wines, or the 130k-review real corpus where it has been imported
-  locally; each tier is named by its size)
-- results written to `benchmarks/RESULTS.md` + `results.json` (`pnpm --filter @filter-enginez/benchmarks bench:write`),
-  and surfaced as a live benchmark widget on the example apps' `/about` page in
-  [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples)
+  the numbers. `tsx` runs with `benchmarks/tsconfig.runtime.json`, which clears the base config's `paths`: `tsx` applies
+  them at runtime, and the type-only `rbush` mapping would load core's stub in place of the package
+- a cell that throws or ends without samples fails the run, and nothing is written
+- a generic cartesian-product matrix over the five acceleration axes, run against the tiered wine corpus, each tier
+  named by its size: the 10k default tier and the 150k synthetic full tier, or, where the real corpus has been imported
+  locally, its stratified 10k sample and all 129,907 reviews (`130k`)
+- results written to `benchmarks/RESULTS.md` + `results.json` (`pnpm --filter @filter-enginez/benchmarks bench:write`);
+  [filterenginez.com/how-it-works](https://filterenginez.com/how-it-works), built in
+  [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples), runs the `simulate-per-option`
+  workload live in the browser over the 10k tier
 
 **`filter-intersection` measures `engine.computeResults()` against a fresh `applyFiltersAndQuery({})` predicate pass**,
 never the memoized `getResultIndices()`, which would read a cached array and measure nothing.

@@ -8,6 +8,7 @@ export {
 	type Listing,
 	type ListingCoordinates,
 	type ListingFeature,
+	type ListingGeoCoords,
 	type ListingStatus,
 	type PropertyType,
 } from './types.js';

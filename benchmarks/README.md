@@ -16,17 +16,32 @@ pnpm --filter @filter-enginez/benchmarks bench:write   # also write RESULTS.md +
 with `bench:write` on real, quiet hardware; a shared/throttled machine (CI runner, container) produces numbers not worth
 committing.
 
-Optional flags narrow or speed up a run (pass them through after `bench` / the `tsx src/run.ts` entry):
+Optional flags narrow or speed up a run (pass them after the package's `bench` or `bench:write` script):
 
 ```bash
-tsx src/run.ts --tiers=10k                 # only the 10k default tier — never loads the full tier
-tsx src/run.ts --scenarios=filter-intersection,geo-radius-query
-tsx src/run.ts --tiers=10k --time=100 --warmup=50   # a fast smoke (default: 1000ms / 150ms per cell)
+pnpm --filter @filter-enginez/benchmarks bench --tiers=10k   # only the 10k default tier — never loads the full tier
+pnpm --filter @filter-enginez/benchmarks bench --scenarios=filter-intersection,geo-radius-query
+pnpm --filter @filter-enginez/benchmarks bench --tiers=10k --time=100 --warmup=50   # faster (default: 1000ms / 150ms per cell)
+pnpm --filter @filter-enginez/benchmarks bench --tiers=10k --time=1 --warmup=1 --iterations=1   # smoke: one sample per cell
 ```
+
+`--iterations` lowers the minimum number of samples per cell (default 64). A cell runs until both its time budget and
+that count are met, so the smoke line above only proves that every cell produces a number.
+
+**A run with an unmeasured cell fails.** A cell whose function throws stops the run with that error, and a cell that
+ends with no samples or a non-finite mean makes the run exit non-zero without writing anything.
+
+Start the runner through these scripts rather than calling `tsx src/run.ts` directly. They pass
+`--tsconfig tsconfig.runtime.json`, which clears the base config's `paths`: `tsx` applies `paths` at runtime, and the
+base config maps `rbush` to core's type-only stub, so a bare `tsx` run loads the stub and every R-tree cell throws.
 
 `--tiers=10k` is what makes a quick CI or low-memory sanity run practical: it never generates the 150k full tier (or,
 where the real corpus has been imported locally, parses its ~116MB JSON). The full tier is named by its size in the
-report: `150k` for the synthetic wines, `130k` for the real corpus.
+report: `150k` for the synthetic wines, `130k` for the real corpus. The `10k` tier follows the same choice: the first
+10,000 synthetic wines, or the real corpus's stratified 10,000-review sample. A run on a machine that has imported the
+real corpus therefore measures it in both tiers; to measure the synthetic tiers there, move
+`packages/mock-data/src/wine/data-real-default.json` and `data-real-full.json` aside for the run. `results.json` records
+when a run was made (`generatedAt`).
 
 The runner is standalone [`tsx`](https://github.com/privatenumber/tsx) + `tinybench` — decoupled from the Vitest test
 runner so a test-runner upgrade can't perturb the numbers.

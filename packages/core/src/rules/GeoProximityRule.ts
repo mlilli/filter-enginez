@@ -9,8 +9,8 @@
  *
  * While bitmaps are engaged, the engine builds this rule's bitmap through the R-tree spatial
  * index (`internals/SpatialIndex.ts`): a bounding-box prune, then the exact haversine check on
- * the surviving candidates only. `benchmarks/RESULTS.md` measures radius queries 165.5× faster
- * at 10k items and 216× at 130k.
+ * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries in July 2026 on
+ * the local real wine corpus: 165.5× faster on its 10k sample and 216× over all 129,907 reviews.
  *
  * @packageDocumentation
  */
@@ -40,6 +40,11 @@ export interface GeoProximityRuleConfig {
  *
  * The field extractor MUST return a `GeoCoords` object (or `undefined` for items without a
  * location, which fail the rule).
+ *
+ * Name the field by path, as below, for a rule that is exported, put in a URL, or sent to a worker
+ * or server: a function extractor serializes as `'<function>'` and loads back as "the item itself",
+ * which carries no `lat` / `lng`, so the loaded rule matches nothing. Data whose coordinates are
+ * shaped differently (`{ lat, lon }`, say) gets a `{ lat, lng }` field of its own.
  *
  * @example
  *   // Items within 5 km of San Francisco's Ferry Building:

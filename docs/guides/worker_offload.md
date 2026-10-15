@@ -115,8 +115,8 @@ histogram buckets, and per-chip exclusion data — in **one** trip. It is the me
 needs more than one fact about the new state.
 
 **`getFilteredFieldValuesExcept(ruleId, fieldKey)`** computes the all-rules-except-this-one projection on whichever
-thread the engine lives on, instead of iterating the corpus on the main thread per slider per render (at 130k records
-with four sliders, about 4.68M predicate evaluations per panel render).
+thread the engine lives on, instead of iterating the corpus on the main thread per slider per render (at 150k records
+with four sliders, about 5.4M predicate evaluations per panel render).
 
 Both return **transferable typed arrays** — `Uint32Array` for indices, `Float64Array` for field values, and the bundle's
 `bucketEdges` / `counts`. The worker copies each array once into a buffer it can give away (so the engine's memoized

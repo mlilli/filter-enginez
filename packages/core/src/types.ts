@@ -34,6 +34,11 @@ export type RuleId = string;
  * - **`(item) => unknown`** — arbitrary extractor function (the escape hatch for any access
  *   pattern the string forms can't express)
  *
+ * Only the first three forms serialize. A function is written as the placeholder `'<function>'` by
+ * `serialize()` / `exportConfig`, and revives as `undefined` — "the item itself" — so a rule that
+ * travels through a config document, a URL, a worker or a server names its field by path. Where the
+ * value needs computing, store it on the item and name that field.
+ *
  * @example
  *   // Simple property:
  *   const f1: FieldExtractor = 'price';
@@ -73,9 +78,9 @@ export type FilterRuleAction = (item: unknown, rule: FilterRule) => boolean;
  *
  * @remarks
  * The `type` field maps to a registered rule class via the `RuleRegistry`. The `field` is
- * normalized to its serializable form (functions become the string `'<function>'` placeholder
- * with a warning that round-trip is lossy). The `config` is JSON-serializable; rules with
- * non-JSON-safe configs override `serialize()`.
+ * normalized to its serializable form (functions become the string `'<function>'` placeholder,
+ * which deserializes to `undefined`: the round-trip is lossy). The `config` is JSON-serializable;
+ * rules with non-JSON-safe configs override `serialize()`.
  */
 export interface SerializedRule {
 	readonly config: unknown;

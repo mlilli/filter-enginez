@@ -110,9 +110,9 @@ export class TextInvertedIndex<T> {
 	 * The count accumulator is a `Uint16Array(N)` (posting ids increment into it; a final scan
 	 * collects ids at or above the bound). Benchmarked against a `Map<idx, count>`, the typed
 	 * array wins whenever the pattern's trigram postings are more than
-	 * ~2% dense over the corpus — which real query trigrams are (a `Map` ran up to ~9× slower at 130k
-	 * dense) — and the only regime the `Map` wins (rare-trigram queries over a huge corpus) is already
-	 * sub-100µs either way, so the typed array stays. Counts are bounded by the pattern's
+	 * ~2% dense over the corpus — which real query trigrams are (dense, a `Map` ran up to ~9× slower
+	 * over the 129,907-review real wine corpus) — and the only regime the `Map` wins (rare-trigram
+	 * queries over a huge corpus) is already sub-100µs either way, so the typed array stays. Counts are bounded by the pattern's
 	 * distinct-trigram count (≤ ~30, patterns being ≤ 32 chars), well within `Uint16`.
 	 *
 	 * @param patternTrigrams - The pattern's DISTINCT lowercased trigrams (duplicates would

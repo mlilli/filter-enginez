@@ -78,8 +78,9 @@ desktop.ini
 # Mock data — full datasets (large, generated on-demand)
 # ─────────────────────────────────────────────────────────────────────────────
 # No dataset file is committed: the default tiers (~10k each) are generated at load time by
-# seeded generators. The full tiers (~130k wine, ~50k real estate, ~100k books) are generated
-# locally via `pnpm regen:mock-data --full` (~65 MB+ per dataset) and stay local.
+# seeded generators. The real-estate and books full tiers (50k, ~100k) are written locally by
+# `pnpm regen:mock-data --full` (~65 MB+ per dataset) and stay local; the 150k wine full tier is
+# generated on demand and never written.
 packages/mock-data/src/*/data-full.json
 packages/mock-data/src/**/*.json
 packages/mock-data/dist/**/*.json

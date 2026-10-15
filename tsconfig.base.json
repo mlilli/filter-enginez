@@ -24,6 +24,13 @@
      *
      * Paths without `baseUrl` resolve relative to the config file DECLARING them, so
      * this is relative to the repo root — verified, not assumed.
+     *
+     * **Type-only for `tsc`, NOT for `tsx`.** `tsx` applies `paths` at runtime, so a
+     * `tsx` process under this config imports the empty stub in place of `rbush` and
+     * the R-tree throws `tree.load is not a function`. A `tsx` entry point that reaches
+     * core passes `--tsconfig` with a config that clears `paths`
+     * (`benchmarks/tsconfig.runtime.json`); `tests/tooling/tsxRuntimeConfig.test.ts`
+     * fails for any `tsx` script that does not.
      */
     "paths": {
       "rbush": ["./packages/core/src/types/rbush.d.ts"]
