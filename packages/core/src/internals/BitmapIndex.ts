@@ -5,7 +5,7 @@
  * Per `docs/architecture.md` §6.1. For each active rule,
  * maintains a `RoaringBitmap32` where bit `i` is 1 iff source-data item `i` passes that rule.
  * Filter intersection then becomes a bitwise AND across bitmaps — O(rules) AND ops instead of
- * O(items × rules) predicate evaluations (39.8× faster than a predicate pass at 10k items with
+ * O(items × rules) predicate evaluations (42.1× faster than a predicate pass at 10k items with
  * warm bitmaps; see `benchmarks/RESULTS.md`).
  *
  * **The bitmap path serves conjunctions only.** It engages for flat-map mode when every filter

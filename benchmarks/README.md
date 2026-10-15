@@ -79,8 +79,9 @@ Each scenario declares its **applicable axes**, so degenerate cells collapse (th
 
 ## Why there's no exclusion-graph scenario
 
-`exclusionGraph:lazy` vs `off` reads **flat** in `simulate-per-option`, and a dedicated scenario would too — ~1.0×
-(within 1%) even when every simulated option is mutually exclusive with a standing rule. Two structural reasons:
+`exclusionGraph:lazy` vs `off` reads **flat** in `simulate-per-option` — 1.0× at both tiers, every pair of cells within
+4% of each other and neither setting consistently ahead — and a dedicated scenario would too, even when every simulated
+option is mutually exclusive with a standing rule. Two structural reasons:
 
 1. **`lazy` never fires the short-circuit in a simulate loop.** `SimulationCache` gates the exclusion check on
    `exclusionGraph.isReady`, which is `false` until the graph is built — and only `eager` (or an explicit

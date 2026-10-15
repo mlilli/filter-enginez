@@ -9,8 +9,8 @@
  *
  * While bitmaps are engaged, the engine builds this rule's bitmap through the R-tree spatial
  * index (`internals/SpatialIndex.ts`): a bounding-box prune, then the exact haversine check on
- * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries in July 2026 on
- * the local real wine corpus: 165.5× faster on its 10k sample and 216× over all 129,907 reviews.
+ * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries on 2026-10-15
+ * over the synthetic wine tiers: 298.5× faster than the scan at 10k items and 290.9× at 150k.
  *
  * @packageDocumentation
  */

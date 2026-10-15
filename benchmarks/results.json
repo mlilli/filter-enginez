@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-07-08T08:33:02.699Z",
+  "generatedAt": "2026-10-15T03:33:15.238Z",
   "reports": [
     {
       "outcomes": [
         {
           "cellLabel": "bitmap:on",
-          "meanMs": 0.02164428026925261,
-          "rmePct": 7.508590846560037,
-          "samples": 46202
+          "meanMs": 0.021956309583927462,
+          "rmePct": 3.1712800648188306,
+          "samples": 45545
         },
         {
           "cellLabel": "bitmap:off",
-          "meanMs": 0.8620761310344881,
-          "rmePct": 0.39995536613527394,
-          "samples": 1160
+          "meanMs": 0.9233738051708206,
+          "rmePct": 0.6297070195134833,
+          "samples": 1083
         }
       ],
       "scenarioId": "filter-intersection",
@@ -24,69 +24,69 @@
       "outcomes": [
         {
           "cellLabel": "bitmap:on",
-          "meanMs": 0.40350724122630127,
-          "rmePct": 5.039715677584606,
-          "samples": 2479
+          "meanMs": 0.4198302712006743,
+          "rmePct": 4.544250937656426,
+          "samples": 2382
         },
         {
           "cellLabel": "bitmap:off",
-          "meanMs": 11.196769844444418,
-          "rmePct": 0.8100602106118291,
-          "samples": 90
+          "meanMs": 15.512941723076914,
+          "rmePct": 1.31564148720922,
+          "samples": 65
         }
       ],
       "scenarioId": "filter-intersection",
       "scenarioTitle": "Filter intersection",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
-          "meanMs": 0.0867458685808477,
-          "rmePct": 5.810675325615476,
-          "samples": 11528
+          "meanMs": 0.0865156776537805,
+          "rmePct": 1.9539379236996668,
+          "samples": 11559
         },
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
-          "meanMs": 10.487780374999904,
-          "rmePct": 0.4042638089784477,
-          "samples": 96
+          "meanMs": 9.905748772277324,
+          "rmePct": 0.6534284312630463,
+          "samples": 101
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
-          "meanMs": 0.08269502861160075,
-          "rmePct": 0.9434060794275528,
-          "samples": 12093
+          "meanMs": 0.08532584180886725,
+          "rmePct": 1.2209028837258418,
+          "samples": 11720
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
-          "meanMs": 10.317280989690754,
-          "rmePct": 0.5116239992668313,
-          "samples": 97
+          "meanMs": 9.798498786407666,
+          "rmePct": 0.6298840088320111,
+          "samples": 103
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08276392154265336,
-          "rmePct": 1.138434183999105,
-          "samples": 12083
+          "meanMs": 0.08663759915099942,
+          "rmePct": 1.332419319483576,
+          "samples": 11543
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
-          "meanMs": 27.821701812500038,
-          "rmePct": 0.4751951644710582,
+          "meanMs": 27.62754684374991,
+          "rmePct": 0.5903219995786892,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
-          "meanMs": 0.08279762957442449,
-          "rmePct": 1.243357371977916,
-          "samples": 12078
+          "meanMs": 0.0864956278325592,
+          "rmePct": 1.43476922924576,
+          "samples": 11562
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
-          "meanMs": 28.93206443750001,
-          "rmePct": 2.3129610601111747,
+          "meanMs": 27.400363953125034,
+          "rmePct": 0.5594323421077333,
           "samples": 64
         }
       ],
@@ -98,64 +98,64 @@
       "outcomes": [
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08424966849202124,
-          "rmePct": 2.165948213601988,
-          "samples": 11870
+          "meanMs": 0.08551320418985889,
+          "rmePct": 1.004496213194322,
+          "samples": 11695
         },
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
-          "meanMs": 204.87267643750008,
-          "rmePct": 1.4076670516203604,
+          "meanMs": 241.0767878124998,
+          "rmePct": 0.7422188821222171,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
-          "meanMs": 0.0830762269480314,
-          "rmePct": 0.9688142833889783,
-          "samples": 12038
+          "meanMs": 0.08553868796508854,
+          "rmePct": 1.3774537367871895,
+          "samples": 11691
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
-          "meanMs": 194.33615243749924,
-          "rmePct": 1.4908191317581299,
+          "meanMs": 249.71767059374994,
+          "rmePct": 0.6551268929217043,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08408131024049333,
-          "rmePct": 2.2872103749208454,
-          "samples": 11894
+          "meanMs": 0.08537393802291184,
+          "rmePct": 1.3203651206300073,
+          "samples": 11714
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
-          "meanMs": 478.5243300312492,
-          "rmePct": 0.4002938911311086,
+          "meanMs": 420.59589526562394,
+          "rmePct": 0.19886043394388425,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
-          "meanMs": 0.0844682622687909,
-          "rmePct": 0.9829947649464568,
-          "samples": 11839
+          "meanMs": 0.08523394170293652,
+          "rmePct": 0.981941439681191,
+          "samples": 11733
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
-          "meanMs": 482.64366598437516,
-          "rmePct": 0.5231251229354756,
+          "meanMs": 425.0161289218747,
+          "rmePct": 0.24365017931550176,
           "samples": 64
         }
       ],
       "scenarioId": "simulate-per-option",
       "scenarioTitle": "Simulate per option",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.006686346304743389,
-          "rmePct": 0.2685259190644528,
-          "samples": 149559
+          "meanMs": 0.003976216226112291,
+          "rmePct": 0.518351118712756,
+          "samples": 251496
         }
       ],
       "scenarioId": "similarity-find",
@@ -166,22 +166,22 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.05882177054288816,
-          "rmePct": 0.5563173957312147,
-          "samples": 17001
+          "meanMs": 0.025688692740471232,
+          "rmePct": 0.39870086283340594,
+          "samples": 38928
         }
       ],
       "scenarioId": "similarity-find",
       "scenarioTitle": "Similarity find",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.002000063395900076,
-          "rmePct": 0.781744664567576,
-          "samples": 499985
+          "meanMs": 0.002037028019264367,
+          "rmePct": 0.6937422356226906,
+          "samples": 490912
         }
       ],
       "scenarioId": "bayesian-suggest",
@@ -192,28 +192,28 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.0020146582884081362,
-          "rmePct": 0.7443226822150321,
-          "samples": 496363
+          "meanMs": 0.002039764099371048,
+          "rmePct": 0.6707223777052924,
+          "samples": 490253
         }
       ],
       "scenarioId": "bayesian-suggest",
       "scenarioTitle": "Bayesian suggest",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "rtree:auto",
-          "meanMs": 0.007362916188788993,
-          "rmePct": 3.6870812895598704,
-          "samples": 135817
+          "meanMs": 0.005095269039699759,
+          "rmePct": 10.457264522174906,
+          "samples": 196261
         },
         {
           "cellLabel": "rtree:off",
-          "meanMs": 1.218600267966163,
-          "rmePct": 1.2864866398843011,
-          "samples": 821
+          "meanMs": 1.520980044073323,
+          "rmePct": 1.4072343006228571,
+          "samples": 658
         }
       ],
       "scenarioId": "geo-radius-query",
@@ -224,34 +224,34 @@
       "outcomes": [
         {
           "cellLabel": "rtree:auto",
-          "meanMs": 0.0898738979959008,
-          "rmePct": 0.5596215474442287,
-          "samples": 11127
+          "meanMs": 0.09925915493812483,
+          "rmePct": 0.7561698997673547,
+          "samples": 10075
         },
         {
           "cellLabel": "rtree:off",
-          "meanMs": 19.4098229531246,
-          "rmePct": 1.583691518219162,
+          "meanMs": 28.876596953128224,
+          "rmePct": 1.0057753489700516,
           "samples": 64
         }
       ],
       "scenarioId": "geo-radius-query",
       "scenarioTitle": "Geo radius query",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 0.011206640514181184,
-          "rmePct": 14.004333370196647,
-          "samples": 89233
+          "meanMs": 0.011512202544260882,
+          "rmePct": 16.99097844988376,
+          "samples": 87255
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 3.8959361361875358,
-          "rmePct": 1.230355548261518,
-          "samples": 257
+          "meanMs": 5.162925701031818,
+          "rmePct": 1.5993682635366966,
+          "samples": 194
         }
       ],
       "scenarioId": "text-search-query",
@@ -262,34 +262,34 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 0.1661298619603941,
-          "rmePct": 9.65202471593956,
-          "samples": 6020
+          "meanMs": 0.18995983494749258,
+          "rmePct": 14.595473859491673,
+          "samples": 5265
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 50.87109953125036,
-          "rmePct": 2.106341297919835,
+          "meanMs": 76.4368796093736,
+          "rmePct": 1.6424715648768962,
           "samples": 64
         }
       ],
       "scenarioId": "text-search-query",
       "scenarioTitle": "Text search (allWords)",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 3.5455599399306137,
-          "rmePct": 1.8117608087067665,
-          "samples": 283
+          "meanMs": 4.72998585377313,
+          "rmePct": 1.4943501859540087,
+          "samples": 212
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 11.423764170455383,
-          "rmePct": 1.0135154362922036,
-          "samples": 88
+          "meanMs": 12.995680688311158,
+          "rmePct": 1.1034001412460854,
+          "samples": 77
         }
       ],
       "scenarioId": "fuzzy-search-strict",
@@ -300,33 +300,33 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 47.19874545312359,
-          "rmePct": 1.199551002002412,
+          "meanMs": 74.71214065625055,
+          "rmePct": 0.3818990461371143,
           "samples": 64
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 144.3637305000003,
-          "rmePct": 0.31824193441303245,
+          "meanMs": 186.3885123749983,
+          "rmePct": 0.20346762162116025,
           "samples": 64
         }
       ],
       "scenarioId": "fuzzy-search-strict",
       "scenarioTitle": "Fuzzy search (t=0.2, candidate)",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 15.965166734375089,
-          "rmePct": 0.7232546051457528,
+          "meanMs": 18.74436139062527,
+          "rmePct": 0.9365941852491941,
           "samples": 64
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 15.909085328125,
-          "rmePct": 0.7343277074621067,
+          "meanMs": 18.645507187501163,
+          "rmePct": 1.0155038131445244,
           "samples": 64
         }
       ],
@@ -338,46 +338,98 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 204.74820245312551,
-          "rmePct": 0.3686358657492627,
+          "meanMs": 270.4690605781248,
+          "rmePct": 0.18721354838909848,
           "samples": 64
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 204.39938670312353,
-          "rmePct": 0.31446597089239997,
+          "meanMs": 271.5292564531251,
+          "rmePct": 0.21572760326102183,
           "samples": 64
         }
       ],
       "scenarioId": "fuzzy-search-loose",
       "scenarioTitle": "Fuzzy search (t=0.4, bypass)",
-      "tierName": "130k"
+      "tierName": "150k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 8.679708715518462,
-          "rmePct": 1.5150162982513256,
-          "samples": 116
+          "meanMs": 0.077244597821876,
+          "rmePct": 0.5968659702993176,
+          "samples": 12947
         }
       ],
-      "scenarioId": "replay-action-log",
-      "scenarioTitle": "Replay action log",
+      "scenarioId": "replay-action-log-50",
+      "scenarioTitle": "Replay action log (50 actions)",
       "tierName": "10k"
     },
     {
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 8.431668016806187,
-          "rmePct": 0.7329307721268083,
-          "samples": 119
+          "meanMs": 0.07861843215417248,
+          "rmePct": 0.5906996720747245,
+          "samples": 12720
+        }
+      ],
+      "scenarioId": "replay-action-log-50",
+      "scenarioTitle": "Replay action log (50 actions)",
+      "tierName": "150k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 8.869620938054174,
+          "rmePct": 1.278576128824494,
+          "samples": 113
         }
       ],
       "scenarioId": "replay-action-log",
-      "scenarioTitle": "Replay action log",
-      "tierName": "130k"
+      "scenarioTitle": "Replay action log (500 actions)",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 8.76422939999864,
+          "rmePct": 0.9822325984010808,
+          "samples": 115
+        }
+      ],
+      "scenarioId": "replay-action-log",
+      "scenarioTitle": "Replay action log (500 actions)",
+      "tierName": "150k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 1927.3031940156245,
+          "rmePct": 0.9770799608440444,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "replay-action-log-5000",
+      "scenarioTitle": "Replay action log (5000 actions)",
+      "tierName": "10k"
+    },
+    {
+      "outcomes": [
+        {
+          "cellLabel": "defaults",
+          "meanMs": 2181.3603782031237,
+          "rmePct": 0.7054323423063289,
+          "samples": 64
+        }
+      ],
+      "scenarioId": "replay-action-log-5000",
+      "scenarioTitle": "Replay action log (5000 actions)",
+      "tierName": "150k"
     }
   ]
 }
