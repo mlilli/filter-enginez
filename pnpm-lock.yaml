@@ -287,8 +287,8 @@ importers:
         version: link:../reactive-rxjs
     devDependencies:
       '@angular/common':
-        specifier: ^22.0.7
-        version: 22.2.2(@angular/core@22.2.2(rxjs@7.8.2))(rxjs@7.8.2)
+        specifier: ^22.2.3
+        version: 22.2.3(@angular/core@22.2.2(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/core':
         specifier: ^22.0.7
         version: 22.2.2(rxjs@7.8.2)
@@ -577,11 +577,11 @@ importers:
 
 packages:
 
-  '@angular/common@22.2.2':
-    resolution: {integrity: sha512-d+mbF1UQLpsoJiC7h4pl58G7XeLHKU8DdLbq9u7TuOK0AnC1t2rrphi8M8WqUrZ+bfmFKCU4i1i4+vOF1N5GtA==}
+  '@angular/common@22.2.3':
+    resolution: {integrity: sha512-sRzcvxzurbkCDVFJMguNVgsHds3NvDj5qbZ44NHjH7J9MBk5oZYXHppdHVm8AolBhCXAWvMk0vx+NO8Bt4rS7A==}
     engines: {node: ^22.22.3 || ^24.15.0 || >=26.0.0}
     peerDependencies:
-      '@angular/core': 22.2.2
+      '@angular/core': 22.2.3
       rxjs: ^6.5.3 || ^7.4.0
 
   '@angular/core@22.2.2':
@@ -3484,7 +3484,7 @@ packages:
 
 snapshots:
 
-  '@angular/common@22.2.2(@angular/core@22.2.2(rxjs@7.8.2))(rxjs@7.8.2)':
+  '@angular/common@22.2.3(@angular/core@22.2.2(rxjs@7.8.2))(rxjs@7.8.2)':
     dependencies:
       '@angular/core': 22.2.2(rxjs@7.8.2)
       rxjs: 7.8.2
