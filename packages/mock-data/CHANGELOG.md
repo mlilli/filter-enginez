@@ -1,5 +1,15 @@
 # @filter-enginez/mock-data
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+  - @filter-enginez/core@0.1.0
+
 ## 0.2.1
 
 ### Patch Changes
