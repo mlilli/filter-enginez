@@ -4104,11 +4104,12 @@ deserialize(json: SerializedRule): FilterRule {
 
     instance = new RuleClassCtor(field, json.config);
   } catch {
-    // Fallback — rules whose second constructor arg is structurally incompatible with
-    // the serialized config (notably `InSetRule(field, initialSet: readonly V[])`,
-    // which spreads its second arg as an iterable — passing `{ set: [...] }` throws
-    // "object is not iterable"). Single-arg construction + post-construct config
-    // assignment is correct for these.
+    // Fallback — a rule with no hook whose second constructor arg is structurally
+    // incompatible with the serialized config, for example a consumer rule declared as
+    // `(field, values: readonly string[])` that spreads its second arg: passing
+    // `{ values: [...] }` throws "object is not iterable". (The built-ins of that shape,
+    // such as `InSetRule`, have their own hooks.) Single-arg construction + post-construct
+    // config assignment is correct for these.
 
     instance = new RuleClassCtor(field);
   }
