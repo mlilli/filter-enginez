@@ -17,7 +17,7 @@
 import type { FilterRuleAction, SerializedRule } from '../types.js';
 
 import { evaluateExpression } from '../composition/ExpressionEvaluator.js';
-import { FilterRule } from './FilterRule.js';
+import { FilterRule, prepareRuleForCollection } from './FilterRule.js';
 
 // #region docs:composite-rule-class
 /**
@@ -78,6 +78,17 @@ export class CompositeRule extends FilterRule {
 	override action: FilterRuleAction = (item, rule): boolean => {
 		return evaluateExpression(rule, item);
 	};
+
+	/**
+	 * Prepare every child for a pass over `collection` — see {@link FilterRule.prepareForCollection}.
+	 *
+	 * @param collection - The items the coming pass will evaluate
+	 */
+	override prepareForCollection(collection: readonly unknown[]): void {
+		for (const child of this.config.rules) {
+			prepareRuleForCollection(child, collection);
+		}
+	}
 
 	/**
 	 * Recursively serialize the composite and every child into a fully plain, JSON-safe tree.

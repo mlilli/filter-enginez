@@ -179,6 +179,48 @@ describe('resolveConfig', () => {
 		expect(() => resolveConfig(config)).toThrow(/unknown ruleId 'missing'/);
 	});
 
+	it('resolves the expression through inline entries without returning them as rules', () => {
+		const config: FilterEngineConfig = {
+			...baseConfig(),
+			expression: {
+				children: [{ ruleId: 'color', type: 'rule' }, { ruleId: 'leaf', type: 'rule' }],
+				op: 'or',
+				type: 'composite',
+			},
+			rules: [...baseConfig().rules, { id: 'leaf', inline: true, rule: { config: 3, field: 'size', type: 'ValueRule' }}],
+		};
+		const resolved = resolveConfig(config);
+
+		const leaf = resolved.expression?.config.rules[1];
+
+		expect([...resolved.rules.keys()]).toEqual(['color', 'shape']);
+		expect(leaf).toBeInstanceOf(ValueRule);
+		expect(leaf?.serialize()).toEqual({ config: 3, field: 'size', type: 'ValueRule' });
+	});
+
+	it('reads an unmarked __inline_<n> entry the expression references as inline', () => {
+		const config: FilterEngineConfig = {
+			expression: { children: [{ ruleId: '__inline_0', type: 'rule' }], op: 'and', type: 'composite' },
+			rules: [
+				{ id: '__inline_0', rule: { config: 'red', field: 'color', type: 'ValueRule' }},
+				{ id: '__inline_12', rule: { config: 'round', field: 'shape', type: 'ValueRule' }},
+			],
+			version: CURRENT_CONFIG_VERSION,
+		};
+
+		// `__inline_12` has the reserved form, but nothing references it: it is an ordinary rule.
+		expect([...resolveConfig(config).rules.keys()]).toEqual(['__inline_12']);
+	});
+
+	it('registers an unmarked __inline_<n> entry when the document has no expression', () => {
+		const config: FilterEngineConfig = {
+			rules: [{ id: '__inline_0', rule: { config: 'red', field: 'color', type: 'ValueRule' }}],
+			version: CURRENT_CONFIG_VERSION,
+		};
+
+		expect([...resolveConfig(config).rules.keys()]).toEqual(['__inline_0']);
+	});
+
 	it('runs the config through the migrator when version differs from current', () => {
 		const migrator = new ConfigMigrator();
 		const raw: Record<string, unknown> = {

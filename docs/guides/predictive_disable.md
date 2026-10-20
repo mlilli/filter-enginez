@@ -81,6 +81,14 @@ for (const group of bundle.chipGroups) {
 empty?"_ It is computed against the current rule set, so it is **automatically bidirectional**: pick a value in facet A
 and the conflicting values in facet B disable, and vice versa.
 
+**Array-valued fields.** Every kind reads a field that holds an array (`tags: ['vegan', 'organic']`) as the set of
+values it holds, and an item counts **once toward each candidate** some element attributes to: `projectedCount` is a
+number of items, so a book tagged with two subgenres of one group adds one to that group, and a repeated value never
+counts twice. The rule decides how the projection is made. An `InSetRule` / `InSetofSetsRule` / `HierarchicalRule` with
+the default `arrayMatch: 'any'` widens as candidates are added, so each candidate is projected on its own, like a
+single-value field. One with `arrayMatch: 'all'` (every selected value required) narrows, so it is projected like
+`containsAll`: its rule stays active and the candidate is required on top of the current selection.
+
 **Always leave a selected candidate clickable** even if `wouldBeEmpty` is `true` for its neighbors — the user must be
 able to deselect to escape. (The `ChipToggleGroup` component in the examples repository's `react-ui` package does this:
 `disabled = wouldBeEmpty && !isSelected`.)

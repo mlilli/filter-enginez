@@ -411,6 +411,8 @@ verified as described in §0.1:
 ```ts
 // ─── Rule catalog (15 rules + composite + registry + factories) ────────────
 export {
+  type ArrayMatch,
+  type ArrayMatchOptions,
   bloomMembership,
   BloomMembershipRule,
   type BloomMembershipRuleConfig,
@@ -1399,6 +1401,14 @@ protected getFieldValue(item: unknown): unknown {
 }
 ```
 
+**`prepareForCollection(collection)`** is the one optional hook beside `action`. Every engine pass that runs `action`
+across a collection — the predicate results pass, a bitmap build, `applyFiltersAndQuery`, the filtered-except-self
+projection, a simulation, `applyExpression` — first calls it with the collection it is about to iterate (through
+`prepareRuleForCollection`, which skips a rule that lacks the method, such as one built against another installed copy
+of `core`); a `CompositeRule` passes the call to its children. The base does nothing. A rule that answers faster for a
+whole collection overrides it to work its answers out ahead of the per-item calls, and must still answer `action`
+exactly for any item outside the prepared collection. `FuzzySearchRule` is the built-in that does (§4.3).
+
 #### §4.1a. `ruleTypeName` — why the wire name is a declared static
 
 `serialize()` writes `type: Class.ruleTypeName`, a string literal each rule class declares, and `ruleRegistry` looks
@@ -1824,6 +1834,11 @@ export class NumericComparisonRule extends FilterRule {
 export interface InSetRuleConfig<V> {
   /** Array of allowed values. Empty array means "match anything." */
   readonly set: readonly V[];
+  /**
+   * How an array-valued field meets `set`: `'any'` (default) passes when at least one element is
+   * in it, `'all'` when the array contains every value in it. Ignored for a non-array field.
+   */
+  readonly arrayMatch?: ArrayMatch;
 }
 
 /**
@@ -1837,6 +1852,10 @@ export interface InSetRuleConfig<V> {
  *   // Toggle a value in/out via the helper:
  *   colors.toggleSetValues(['cabernet']);  // adds 'cabernet' to set
  *   colors.toggleSetValues(['cabernet']);  // removes 'cabernet' from set
+ *
+ *   // An array field: venues that accept card OR cash, then venues that accept both:
+ *   new InSetRule<string>('paymentMethods', ['card', 'cash']);
+ *   new InSetRule<string>('paymentMethods', ['card', 'cash'], { arrayMatch: 'all' });
  *
  * @typeParam V - The element type. Defaults to `unknown`.
  */
@@ -1852,22 +1871,30 @@ export class InSetRule<V = unknown> extends FilterRule {
   /**
    * @param field - How to pull the value-to-test from each item
    * @param initialSet - Initial set of allowed values (may be empty)
+   * @param options - `arrayMatch` for array-valued fields; omitted, they match `'any'`
    */
-  constructor(field: FieldExtractor, initialSet: readonly V[] = []) {
+  constructor(field: FieldExtractor, initialSet: readonly V[] = [], options: ArrayMatchOptions = {}) {
     super(field);
-    this.config = { set: [...initialSet]};
+    this.config = options.arrayMatch === undefined
+      ? { set: [...initialSet]}
+      : { arrayMatch: options.arrayMatch, set: [...initialSet]};
   }
 
-  /** Passes when the field value is in `config.set`; an empty set passes everything. */
+  /**
+   * Passes when the field value is in `config.set` (an array field: per `config.arrayMatch`); an
+   * empty set passes everything.
+   */
   override action: FilterRuleAction = (item, rule): boolean => {
-    const { set } = (rule as InSetRule<V>).config;
+    const { arrayMatch, set } = (rule as InSetRule<V>).config;
 
     if (set.length === 0) {
       return true;
     }
-    const value = this.getFieldValue(item) as V;
+    const value = this.getFieldValue(item);
 
-    return set.includes(value);
+    return Array.isArray(value)
+      ? matchesArraySelection(value, set, arrayMatch, isSameValueZero)
+      : set.includes(value as V);
   };
 
   /**
@@ -1877,18 +1904,36 @@ export class InSetRule<V = unknown> extends FilterRule {
    *   - If currently in the set → remove it
    *   - If currently NOT in the set → add it
    *
-   * Replaces `config` with a new set; the previous array is left untouched, so a snapshot
-   * holding it still describes the earlier state.
+   * Replaces `config` with a new set, keeping `arrayMatch`; the previous array is left untouched,
+   * so a snapshot holding it still describes the earlier state.
    *
    * @param values - Values to toggle
    */
   toggleSetValues(values: readonly V[]): void {
-    this.config = { set: xor(this.config.set, values) };
+    this.config = { ...this.config, set: xor(this.config.set, values) };
   }
-}
 ```
 
 (Note: the `xor` helper is from `lib/internal.ts`, replacing `_xor`.)
+
+**Array-valued fields.** `InSetRule`, `InSetofSetsRule` and `HierarchicalRule` read a field that holds an array
+(`paymentMethods: ['card', 'cash']`) as the set of values it holds, and `config.arrayMatch` (`rules/arrayMatch.ts`)
+decides how that set meets the selection. The selection is a list of units: a value for `InSetRule`, a subset for
+`InSetofSetsRule`, a selected node for `HierarchicalRule`.
+
+| `arrayMatch`      | An array passes when                             | Selecting another unit | Example                        |
+| ----------------- | ------------------------------------------------ | ---------------------- | ------------------------------ |
+| `'any'` (default) | at least one element satisfies at least one unit | widens the result      | "accepts any of these methods" |
+| `'all'`           | every unit is satisfied by at least one element  | narrows the result     | "has all of these features"    |
+
+An empty selection constrains nothing under either mode, an empty array satisfies no unit (so it fails any non-empty
+selection), and a field that is not an array is compared as a single value exactly as before, whatever the mode.
+`InSetRule` compares elements as `includes` does (SameValueZero). The option is written only when set, revives through
+each rule's `static deserialize` hook (which rejects any value but `'any'` and `'all'`), and survives `toggleSetValues`.
+Bitmap acceleration builds these rules' bitmaps from the same `action`, so accelerated and per-item results are the same
+by construction; `config/configRoundTripBehavior.test.ts` holds every rule case to that, array fields included. For
+facet counts over array fields, see `FilterBundleChipGroupQuery` in `queryBundle.ts` and
+[`predictive_disable.md`](./guides/predictive_disable.md).
 
 #### `InSetofSetsRule<V>`
 
@@ -1900,6 +1945,11 @@ export class InSetRule<V = unknown> extends FilterRule {
  */
 export interface InSetofSetsRuleConfig<V> {
   readonly set: readonly (readonly V[])[];
+  /**
+   * How an array-valued field meets `set`: `'any'` (default) passes when at least one element is in
+   * some subset, `'all'` when every subset has a value in the array. Ignored for a non-array field.
+   */
+  readonly arrayMatch?: ArrayMatch;
 }
 
 /**
@@ -1925,27 +1975,40 @@ export class InSetofSetsRule<V = unknown> extends FilterRule {
   /**
    * @param field - How to pull the value-to-test from each item
    * @param initialSets - Initial subsets of allowed values (may be empty)
+   * @param options - `arrayMatch` for array-valued fields; omitted, they match `'any'`
    */
   constructor(
     field: FieldExtractor,
     initialSets: readonly (readonly V[])[] = [],
+    options: ArrayMatchOptions = {},
   ) {
     super(field);
-    this.config = { set: initialSets };
+    this.config = options.arrayMatch === undefined
+      ? { set: initialSets }
+      : { arrayMatch: options.arrayMatch, set: initialSets };
   }
 
-  /** Passes when the field value is in any of the configured subsets; no subsets passes everything. */
+  /**
+   * Passes when the field value is in any of the configured subsets (an array field: per
+   * `config.arrayMatch`); no subsets passes everything.
+   */
   override action: FilterRuleAction = (item, rule): boolean => {
-    const { set } = (rule as InSetofSetsRule<V>).config;
+    const { arrayMatch, set } = (rule as InSetofSetsRule<V>).config;
 
     if (set.length === 0) {
       return true;
     }
-    const value = this.getFieldValue(item) as V;
+    const value = this.getFieldValue(item);
 
-    return set.some((subset) => subset.includes(value));
+    return Array.isArray(value)
+      ? matchesArraySelection(value, set, arrayMatch, (subset, element) => subset.includes(element as V))
+      : set.some((subset) => subset.includes(value as V));
   };
 ```
+
+Under `arrayMatch: 'all'` every subset must have at least one of its values in the array: selecting the subsets
+`['it-pie', 'it-ven']` and `['fr-bdx']` asks for an item listed under Italy **and** France. See `InSetRule` above for
+the shared array semantics.
 
 #### `TextSearchRule`
 
@@ -1983,23 +2046,14 @@ export interface TextSearchRuleConfig {
 <!-- prettier-ignore -->
 ```ts
 /**
- * Configuration for `FuzzySearchRule`.
+ * Configuration for `FuzzySearchRule`: the query, optional `keys`, and any of the Fuse.js options
+ * in {@link FuzzySearchFuseOptions}, passed through to Fuse as they are.
  *
- * Mirrors a subset of Fuse.js's option set. See [Fuse.js
- * docs](https://www.fusejs.io/api/options.html) for the full option reference.
+ * See [Fuse.js docs](https://www.fusejs.io/api/options.html) for the full option reference.
  */
-export interface FuzzySearchRuleConfig {
+export interface FuzzySearchRuleConfig extends FuzzySearchFuseOptions {
   /** The search query. Empty string matches every item with a string field. */
   readonly query: string;
-  /**
-   * Match strictness — 0 means exact match, 1 means anything matches. Default 0.4.
-   */
-  readonly threshold?: number;
-  /**
-   * Maximum allowed distance between matched characters in the source string. Higher values
-   * allow more lenient matching. See Fuse.js `distance` option.
-   */
-  readonly distance?: number;
   /**
    * Optional list of property paths to search within (for object items). When set, overrides
    * the rule's `field` extractor in favor of multi-field Fuse search.
@@ -2016,6 +2070,14 @@ export interface FuzzySearchRuleConfig {
  *     'fuzzy-title',
  *     new FuzzySearchRule('title', { query: 'cabernay', threshold: 0.4 }),
  *   );
+ *
+ *   // Several fields, matched anywhere in the text, ignoring one-character runs:
+ *   new FuzzySearchRule(undefined, {
+ *     ignoreLocation: true,
+ *     keys: ['name', 'winery'],
+ *     minMatchCharLength: 2,
+ *     query: 'cabernay',
+ *   });
  */
 export class FuzzySearchRule extends FilterRule {
   /**
@@ -2031,11 +2093,20 @@ export class FuzzySearchRule extends FilterRule {
       return true;
     }
 
+    // The prepared collection's answer, when this item is in it and nothing has changed since.
+    const verdicts = this._verdicts;
+
+    if (verdicts?.config === cfg && verdicts.field === this.field) {
+      const isMatch = verdicts.matched.get(item);
+
+      if (isMatch !== undefined) {
+        return isMatch;
+      }
+    }
+
     // Multi-key mode: search the entire item via Fuse, not just the field extractor.
     if (cfg.keys && cfg.keys.length > 0) {
-      const fuse = new Fuse([item], buildFuseOptions(cfg));
-
-      return fuse.search(cfg.query).length > 0;
+      return new Fuse([item], buildFuseOptions(cfg)).search(cfg.query).length > 0;
     }
 
     // Single-field mode: extract the string and probe.
@@ -2044,11 +2115,30 @@ export class FuzzySearchRule extends FilterRule {
     if (typeof fieldValue !== 'string') {
       return false;
     }
-    const fuse = new Fuse([fieldValue], buildFuseOptions(cfg));
 
-    return fuse.search(cfg.query).length > 0;
+    return new Fuse([fieldValue], buildFuseOptions(cfg)).search(cfg.query).length > 0;
   };
 ```
+
+**Fuse options.** `FuzzySearchFuseOptions` (`rules/fuseOptions.ts`) passes Fuse.js's serializable options through:
+`threshold`, `distance`, `location`, `ignoreLocation`, `minMatchCharLength`, `isCaseSensitive`, `ignoreDiacritics`,
+`findAllMatches`, `ignoreFieldNorm`, `fieldNormWeight`, `useExtendedSearch`, `useTokenSearch` and `tokenMatch`. An
+absent option takes Fuse's default. Function options are not part of it — `getFn` (a function `field` extractor does
+that job in single-field mode) and `sortFn` (a filter never ranks) — and neither are the options that shape Fuse's
+result list (`includeScore`, `includeMatches`, `shouldSort`); a key outside the list stays on the config and never
+reaches Fuse. `FuzzySearchRule.deserialize` checks each option's type as it loads.
+
+**One Fuse index per collection.** `prepareForCollection` (§4.1) builds one Fuse index over the collection — each item's
+field string in single-field mode, the items themselves with `keys` — searches it once, and records each indexed item's
+answer, which `action` then looks up. The index is cached per collection array (a `WeakMap`) and rebuilt when the
+collection, the `field` or any Fuse option other than `query` changes; a new `query` searches the existing index. The
+answers are tied to the `config` object and the `field`, so replacing either prepares afresh, and an item outside the
+prepared collection (or one the index left out: a non-string field, a non-object item with `keys`) is answered by the
+one-item search. The match set is the per-item search's exactly: Fuse decides each record's match from that record alone
+(the threshold applies to each field's own Bitap score), while the parts of scoring that read the collection — the
+field-length norm, token search's inverse document frequency — only order the matches, which a filter never reads.
+`FuzzySearchRule.collection.test.ts` holds the collection search, the per-item search and a direct
+`new Fuse(collection).search(query)` to the same answer for every option.
 
 #### `RegexRule`
 
@@ -2155,6 +2245,11 @@ export interface HierarchicalRuleConfig {
   readonly tree: TreeNode;
   /** IDs of selected nodes. Each selection includes the node itself + all descendants. */
   readonly selected: readonly string[];
+  /**
+   * How an array-valued field meets `selected`: `'any'` (default) passes when at least one id lies
+   * in a selected subtree, `'all'` when every selected subtree holds one. Ignored for a string field.
+   */
+  readonly arrayMatch?: ArrayMatch;
 }
 
 /**
@@ -2182,19 +2277,27 @@ export class HierarchicalRule extends FilterRule {
    */
   static override readonly ruleTypeName = 'HierarchicalRule';
 
+  /**
+   * Passes a string field inside a selected subtree, or an array field whose ids meet the selection
+   * per `config.arrayMatch`; anything else fails. Nothing selected passes every string or array field.
+   */
   override action: FilterRuleAction = (item, rule): boolean => {
     const fieldValue = this.getFieldValue(item);
 
-    if (typeof fieldValue !== 'string') {
+    if (typeof fieldValue !== 'string' && !Array.isArray(fieldValue)) {
       return false;
     }
-    const { selected, tree } = (rule as HierarchicalRule).config;
+    const { arrayMatch, selected, tree } = (rule as HierarchicalRule).config;
 
     if (selected.length === 0) {
       return true;
     }
+    if (typeof fieldValue === 'string') {
+      return selected.some((selectedId) => isInSubtreeRootedAt(tree, selectedId, fieldValue));
+    }
 
-    return selected.some((selectedId) => isInSubtreeRootedAt(tree, selectedId, fieldValue));
+    return matchesArraySelection(fieldValue, selected, arrayMatch, (selectedId, element) =>
+      typeof element === 'string' && isInSubtreeRootedAt(tree, selectedId, element));
   };
 
   config: HierarchicalRuleConfig;
@@ -2203,8 +2306,12 @@ export class HierarchicalRule extends FilterRule {
     super(field);
     this.config = config;
   }
-}
 ```
+
+An array field (a product under several categories) is read as a set of node ids per `config.arrayMatch`, with the
+semantics described under `InSetRule`: under `'any'` one id in a selected subtree is enough, under `'all'` every
+selected subtree needs one. Elements that are not strings never match. A field that is neither a string nor an array
+fails whatever is selected; with nothing selected, every string or array field passes.
 
 #### `GeoProximityRule`
 
@@ -2440,24 +2547,29 @@ export function numCompare(
   return new NumericComparisonRule(field, config);
 }
 
-/** Create an `InSetRule` — value must be in a configured set. */
+/**
+ * Create an `InSetRule` — value must be in a configured set. Pass the config form
+ * (`{ set, arrayMatch }`) to choose how an array-valued field matches.
+ */
 export function inSet<V>(
   field: FieldExtractor,
   initialSetOrConfig: InSetRuleConfig<V> | readonly V[],
 ): InSetRule<V> {
-  const initialSet = Array.isArray(initialSetOrConfig)
-    ? initialSetOrConfig
-    : (initialSetOrConfig as InSetRuleConfig<V>).set;
+  if (Array.isArray(initialSetOrConfig)) {
+    return new InSetRule<V>(field, initialSetOrConfig);
+  }
+  const { set, ...options } = initialSetOrConfig as InSetRuleConfig<V>;
 
-  return new InSetRule<V>(field, initialSet);
+  return new InSetRule<V>(field, set, options);
 }
 
 /** Create an `InSetofSetsRule` — value must be in any of the configured subsets. */
 export function inSetofSets<V>(
   field: FieldExtractor,
   initialSets: readonly (readonly V[])[] = [],
+  options: ArrayMatchOptions = {},
 ): InSetofSetsRule<V> {
-  return new InSetofSetsRule<V>(field, initialSets);
+  return new InSetofSetsRule<V>(field, initialSets, options);
 }
 ```
 
@@ -2528,6 +2640,17 @@ export class CompositeRule extends FilterRule {
   override action: FilterRuleAction = (item, rule): boolean => {
     return evaluateExpression(rule, item);
   };
+
+  /**
+   * Prepare every child for a pass over `collection` — see {@link FilterRule.prepareForCollection}.
+   *
+   * @param collection - The items the coming pass will evaluate
+   */
+  override prepareForCollection(collection: readonly unknown[]): void {
+    for (const child of this.config.rules) {
+      prepareRuleForCollection(child, collection);
+    }
+  }
 
   /**
    * Recursively serialize the composite and every child into a fully plain, JSON-safe tree.
@@ -2906,6 +3029,7 @@ private _buildBitmapForRule(rule: FilterRule): RoaringBitmap32 {
   const items = this._store.sourceData.value;
   const bitmap = new RoaringBitmap32();
 
+  prepareRuleForCollection(rule, items);
   if (rule instanceof CompositeRule) {
     // Composite — defer to predicate evaluation per item. Rare in flat-map mode; the
     // normal arrival path for composites is `engine.setExpression(...)` which short-
@@ -3002,35 +3126,29 @@ queryRadius(center: GeoCoords, radiusKm: number): number[] {
     return [];
   }
 
-  // Compute the lat/lng bbox.
-  const deltaLat = radiusKm * DEGREES_PER_KM_LAT;
-  const cosLat = Math.max(Math.cos(toRadians(center.lat)), COS_LAT_FLOOR);
-  const deltaLng = radiusKm * DEGREES_PER_KM_LAT / cosLat;
-
-  const bbox = {
-    maxX: center.lng + deltaLng,
-    maxY: center.lat + deltaLat,
-    minX: center.lng - deltaLng,
-    minY: center.lat - deltaLat,
-  };
-
-  // Bounding-box prune via the R-tree.
-  const candidates = this._tree.search(bbox);
-
-  // Exact haversine refinement.
+  // Bounding-box prune via the R-tree, then exact haversine refinement. The two boxes of a cap
+  // that crosses ±180° are disjoint, so no index is reported twice.
   const result: number[] = [];
 
-  for (const entry of candidates) {
-    const distance = haversineKm({ lat: entry.lat, lng: entry.lng }, center);
-
-    if (distance <= radiusKm) {
-      result.push(entry.idx);
+  for (const box of capSearchBoxes(center, radiusKm)) {
+    for (const entry of this._tree.search(box)) {
+      if (haversineKm({ lat: entry.lat, lng: entry.lng }, center) <= radiusKm) {
+        result.push(entry.idx);
+      }
     }
   }
 
   return result;
 }
 ```
+
+The bounding box is the spherical cap's: `d = r / R` of latitude either side, and `asin(sin d / cos φ)` of longitude
+either side, the cap's widest point, which lies poleward of the center's latitude `φ`. A cap that reaches a pole covers
+every longitude and is searched as one full band; one that crosses ±180° is searched as two boxes, one on each side.
+Both extents carry a 1e-6° margin so floating-point rounding never prunes an item the exact check keeps. The R-tree
+answer therefore equals the per-item `GeoProximityRule` scan for every center and radius (coordinates in the `GeoCoords`
+convention, `lng` in [-180, 180]); `SpatialIndex.test.ts` compares the two over a grid of centers and radii that
+includes both poles and the antimeridian.
 
 ### §6.3. Mutual Exclusion Graph
 
@@ -3825,9 +3943,14 @@ so a candidate can never be used unconfirmed:
   the provably-sound bound `minShared = D - 3e` with `e = maxFuseErrors(m, t)` (`internals/fuzzyTrigramBound.ts`,
   guarded by a Fuse-version-pinned fuzz test), then an exact Fuse confirm on the survivors.
 - **everything else** is a **bypass** to the per-item predicate scan: substring / `tokenized` / exact (native
-  `String.includes` wins), case-sensitive `allWords`, an empty or punctuation-only query, multi-key fuzzy, and any fuzzy
+  `String.includes` wins), case-sensitive `allWords`, an empty or punctuation-only query, multi-key fuzzy, any fuzzy
   query whose sound bound proves nothing (`D − 3e ≤ 0`, which includes Fuse's default threshold of 0.4 for typical query
-  lengths).
+  lengths), and fuzzy with an option that changes what the query means: `ignoreDiacritics` (`café` matches `cafe`, which
+  shares none of its accented trigrams), `useExtendedSearch` and `useTokenSearch`. The other Fuse options keep the bound
+  sound — `ignoreLocation`, `location` and `distance` only add a non-negative location term to the score,
+  `minMatchCharLength` only rejects matches, `isCaseSensitive` matches a subset of the lowercased comparison, and the
+  norm options and `findAllMatches` never change which items match. A bypassed fuzzy rule's scan is one Fuse search over
+  the whole collection (§4.3, `FuzzySearchRule`).
 
 `acceleration.textIndex` is `'auto' | 'off' | 'on'`. `'auto'` engages at source data at or above
 `TEXT_INDEX_AUTO_THRESHOLD` (500, aligned with the bitmap auto-threshold — below it a single scan is sub-millisecond and
@@ -4068,9 +4191,20 @@ export interface FilterEngineConfig {
   /** Optional human-readable label for the config (devtools display + debugging). */
   readonly label?: string;
 
-  /** The rule definitions — each entry pairs a `RuleId` with its serialized form. */
+  /**
+   * The rule definitions — each entry pairs a `RuleId` with its serialized form. An entry marked
+   * `inline: true` is a leaf of `expression` that was never registered on the engine: `loadConfig`
+   * resolves the expression's references to it but does not register it, so it stops filtering
+   * when the expression is cleared, exactly as it did before export.
+   */
   readonly rules: readonly {
     readonly id: RuleId;
+    /**
+     * `true` for an expression leaf that is not a registered rule. Ids of the form
+     * `__inline_<n>` are reserved for these; an entry with such an id that the expression
+     * references is read as inline even without the flag.
+     */
+    readonly inline?: boolean;
     readonly rule: SerializedRule;
   }[];
 
@@ -4096,11 +4230,19 @@ export interface FilterEngineConfig {
 ### §9.3. Serialization round-trip
 
 **`config/exportConfig.ts` + `config/loadConfig.ts`.** Two free functions (not a `ConfigSerializer` class). The
-contract: `loadConfig(engine, exportConfig(engine))` reproduces the engine's filtering — the same results for every
-item. The document itself can differ from the state that produced it in four ways: an expression's inline rules come
-back as top-level rules named `__inline_{n}` (one per occurrence); a function `field` is written as `'<function>'` and
-cannot be revived; a `PredicateRule` cannot be exported at all (`serialize()` throws); and a lone-leaf expression comes
-back wrapped in `and(...)`.
+contract: `loadConfig(engine, exportConfig(engine))` reproduces the engine's state — the same registered rules, the same
+groups, the same expression, and so the same results for every item, before and after the expression is cleared. Three
+things fall outside it: a function `field` is written as `'<function>'` and cannot be revived; a `PredicateRule` cannot
+be exported at all (`serialize()` throws); and a lone-leaf expression comes back wrapped in `and(...)`.
+
+**Inline rules stay inline.** An expression leaf that was never registered with `addRule` (built with `and(...)` and
+passed straight to `setExpression`) has no id of its own, so the exporter mints one, `__inline_{n}`: one per distinct
+rule instance, numbered in depth-first order and skipping any id a registered rule holds. Its entry in `rules` is marked
+`inline: true`, and `resolveConfig` revives it for the expression without returning it among the rules to register. The
+loaded engine therefore registers exactly the rules the exporting one did, and clearing the expression leaves no leaf
+behind still filtering. The `__inline_<n>` form is reserved: an unmarked entry with such an id that the expression
+references is read as inline too. `configRoundTripBehavior.test.ts` checks export → load → export for an identical
+document, the same registered rules, and the same match sets with the expression set and cleared.
 
 **Open numeric bounds.** JSON has no `Infinity`, `-Infinity` or `NaN`; `JSON.stringify` writes each as `null`. A
 document that crossed JSON (a `?f=` URL, devtools persistence over `localStorage`, an HTTP request body) therefore holds
@@ -4121,20 +4263,23 @@ with `min: Infinity`, empty whatever its `max`) and a `NaN` bound both arrive as
 their position. A bound that is neither a number nor `null` (a string, a missing key, a `NaN` that arrived by structured
 clone) throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG`, naming the rule type and the key.
 Equality values (`ValueRule`, `InSetRule`, `InSetofSetsRule`) are compared as written, so a `null` there is the value
-`null`. `packages/core/src/config/configRoundTripBehavior.test.ts` holds every registered rule type to the same match
-set before and after the trip, through JSON and through structured clone.
+`null`. The same hooks check the options with no open form: `FuzzySearchRule`'s other Fuse options (a finite number, a
+boolean, or `'all'` / `'any'` for `tokenMatch`) and the `arrayMatch` of `InSetRule`, `InSetofSetsRule` and
+`HierarchicalRule` (`'any'` or `'all'`). `packages/core/src/config/configRoundTripBehavior.test.ts` holds every
+registered rule type to the same match set before and after the trip, through JSON and through structured clone.
 
 - **`exportConfig(engine, options?)`** reads `getRules()` / `getGroups()` / `getExpression()`. Each registered rule
   serializes via `rule.serialize()`; the expression is walked by `serializeExpression()` into a
   `SerializedExpressionNode` tree. A leaf that matches a registered rule emits `{ type: 'rule', ruleId }`; an _inline_
-  rule (created via `and(rule1, rule2)` without a prior `addRule`) gets a synthetic `__inline_{n}` id minted and
-  appended to the exported `rules` so the round-trip resolves.
+  rule (created via `and(rule1, rule2)` without a prior `addRule`) gets a synthetic `__inline_{n}` id minted and is
+  appended to the exported `rules`, marked `inline: true`, so the round-trip resolves without registering it.
 - **`loadConfig(engine, rawConfig, options?)`** (and the preview-only `resolveConfig`) migrate the config forward when
   `version !== CURRENT_CONFIG_VERSION`, `deserialize` every rule into a `rulesById` map, rebuild groups, then
   reconstruct the expression via `buildExpression()` — resolving each leaf's `ruleId` against `rulesById` and recursing
   composites into real `CompositeRule`s (a lone top-level leaf is wrapped in `and(...)`). It dispatches `clearRules()`
-  (skipped with `clearExisting: false`) → `addRule()` × n → `addGroup()` × n → `setExpression()` (only when the document
-  carries an expression) through the engine's public API so the action log captures a clean replay.
+  (skipped with `clearExisting: false`) → `addRule()` × n for every rule that is not inline → `addGroup()` × n →
+  `setExpression()` (only when the document carries an expression) through the engine's public API so the action log
+  captures a clean replay.
 
 ```ts
 import {
@@ -6649,7 +6794,7 @@ entry, so each budget measures the package's own code. Without that convention `
 
 | Entry                   | Budget |
 | ----------------------- | ------ |
-| `core` (default entry)  | 18 kB  |
+| `core` (default entry)  | 19 kB  |
 | `core/storage/browser`  | 2 kB   |
 | `core/keyboard/browser` | 1 kB   |
 | `reactive-signals`      | 3 kB   |
@@ -6664,11 +6809,13 @@ entry, so each budget measures the package's own code. Without that convention `
 | `worker-bridge`         | 5 kB   |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 17.6 kB: the error hierarchy (§2.5), filter groups composed into every
+nearest half kilobyte. `core` measures about 18.8 kB: the error hierarchy (§2.5), filter groups composed into every
 evaluation path, bitmap-backed results, the devtools snapshot codec with cross-reload persistence, devtools failure
-reporting, and the rules' revival of open bounds from JSON (§9.3) are all in its default entry. `reactive-rxjs` measures
-about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine`
-member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
+reporting, the rules' revival of open bounds and checking of options from JSON (§9.3), array-valued membership and its
+facet counts, `FuzzySearchRule`'s Fuse option passthrough with its per-collection index (§4.3), and the R-tree's cap
+geometry (§6.2) are all in its default entry. `reactive-rxjs` measures about 3.0 kB, most of it the worker-backed
+adapter and its `engine.core` shim, which answers every public `FilterEngine` member (§11.2).
+`tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;
 `angular-rxjs` is the smallest binding because Angular consumes `Observable`s natively, leaving only DI to plumb.

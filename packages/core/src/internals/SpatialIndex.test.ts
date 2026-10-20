@@ -3,8 +3,9 @@
  * Behavior-asserting unit tests for {@link SpatialIndex} — the R-tree (rbush) proximity index
  * behind `GeoProximityRule`. Covers the two-phase query (`queryRadius`): bounding-box prune +
  * exact haversine refinement (a point inside the bbox but outside the true radius is rejected),
- * nearest-and-self inclusion, the `radiusKm <= 0` guard, the pole-clamp branch
- * (`cos(lat)` floored so polar queries don't divide by zero), skipping items whose extracted
+ * nearest-and-self inclusion, the `radiusKm <= 0` guard, caps that reach a pole (every
+ * longitude) or cross ±180° on either side (two boxes), a high-latitude cap's flanks, and
+ * agreement with a brute-force haversine scan over a grid of centers and radii; skipping items whose extracted
  * coordinate is `undefined` and items that are sparse-array holes, the empty-tree path, lazy
  * build + automatic rebuild on source-data-version advance, explicit `rebuild()`, `clear()`,
  * and the `isReady` diagnostic across all of those transitions.
@@ -12,6 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { haversineKm } from '../lib/geo.js';
 import { InternalStore } from '../store/InternalStore.js';
 import { type GeoCoords, SpatialIndex } from './SpatialIndex.js';
 
@@ -201,5 +203,91 @@ describe('SpatialIndex lifecycle + isReady', () => {
 
 		expect(index.queryRadius(SF, 10)).toEqual([0]);
 		expect(index.isReady).toBe(true);
+	});
+});
+
+describe('SpatialIndex.queryRadius — cap geometry', () => {
+	/** Points every 10° of latitude and 15° of longitude, both poles and ±180° included. */
+	const GRID: readonly Place[] = (() => {
+		const places: Place[] = [];
+
+		for (let lat = -90; lat <= 90; lat += 10) {
+			for (let lng = -180; lng <= 180; lng += 15) {
+				places.push({ lat, lng, name: `${String(lat)},${String(lng)}` });
+			}
+		}
+
+		return places;
+	})();
+
+	/**
+	 * The indices a per-item haversine scan keeps, ascending.
+	 *
+	 * @param center - The query center
+	 * @param radiusKm - The query radius
+	 * @returns What `GeoProximityRule.action` would pass
+	 */
+	function scan(center: GeoCoords, radiusKm: number): number[] {
+		return GRID.flatMap((place, idx) =>
+			haversineKm({ lat: place.lat as number, lng: place.lng as number }, center) <= radiusKm ? [idx] : []);
+	}
+
+	/**
+	 * The indices the R-tree query keeps, ascending.
+	 *
+	 * @param center - The query center
+	 * @param radiusKm - The query radius
+	 * @returns What the bitmap path would pass
+	 */
+	function query(center: GeoCoords, radiusKm: number): number[] {
+		return new SpatialIndex(makeStore(GRID), placeCoords).queryRadius(center, radiusKm).toSorted((a, b) => a - b);
+	}
+
+	it('keeps exactly what a haversine scan keeps, for every center and radius on a grid', () => {
+		let compared = 0;
+		let nonEmpty = 0;
+
+		for (const lat of [-89, -60, -35, 0, 35, 60, 89]) {
+			for (const lng of [-179, -120, 0, 120, 179]) {
+				for (const radiusKm of [100, 900, 2_500, 6_000, 12_000, 20_000]) {
+					const expected = scan({ lat, lng }, radiusKm);
+
+					expect(query({ lat, lng }, radiusKm), `${String(lat)},${String(lng)} r=${String(radiusKm)}`).toEqual(expected);
+					compared++;
+					nonEmpty += expected.length > 0 ? 1 : 0;
+				}
+			}
+		}
+		expect(compared).toBe(210);
+		expect(nonEmpty).toBeGreaterThan(150);
+	});
+
+	it('finds a point across ±180° from either side', () => {
+		const fiji = { lat: -17, lng: 179 };
+		const samoa = { lat: -14, lng: -172 };
+		const store = makeStore([{ ...fiji, name: 'fiji' }, { ...samoa, name: 'samoa' }]);
+		const index = new SpatialIndex(store, placeCoords);
+
+		// About 1,000 km apart, straddling the antimeridian.
+		expect(index.queryRadius(fiji, 1_500).toSorted((a, b) => a - b)).toEqual([0, 1]);
+		expect(index.queryRadius(samoa, 1_500).toSorted((a, b) => a - b)).toEqual([0, 1]);
+	});
+
+	it('covers every longitude when the cap reaches either pole', () => {
+		const store = makeStore([{ lat: 85, lng: 0, name: 'n0' }, { lat: 85, lng: 180, name: 'n180' }, { lat: -85, lng: 90, name: 's90' }]);
+		const index = new SpatialIndex(store, placeCoords);
+
+		expect(index.queryRadius({ lat: 80, lng: 0 }, 2_000).toSorted((a, b) => a - b)).toEqual([0, 1]);
+		expect(index.queryRadius({ lat: -80, lng: -90 }, 2_000)).toEqual([2]);
+	});
+
+	it('keeps a high-latitude cap\'s flanks, which lie poleward of its center', () => {
+		// From 60°N, 2,200 km reaches about 40° of longitude at 64°N — past the 40° that r / cos φ allows.
+		const center = { lat: 60, lng: 0 };
+		const flank = { lat: 64, lng: 40.5 };
+		const index = new SpatialIndex(makeStore([{ ...flank, name: 'flank' }]), placeCoords);
+
+		expect(haversineKm(center, flank)).toBeLessThan(2_200);
+		expect(index.queryRadius(center, 2_200)).toEqual([0]);
 	});
 });

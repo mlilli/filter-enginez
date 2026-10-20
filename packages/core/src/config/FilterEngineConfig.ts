@@ -90,9 +90,20 @@ export interface FilterEngineConfig {
 	/** Optional human-readable label for the config (devtools display + debugging). */
 	readonly label?: string;
 
-	/** The rule definitions — each entry pairs a `RuleId` with its serialized form. */
+	/**
+	 * The rule definitions — each entry pairs a `RuleId` with its serialized form. An entry marked
+	 * `inline: true` is a leaf of `expression` that was never registered on the engine: `loadConfig`
+	 * resolves the expression's references to it but does not register it, so it stops filtering
+	 * when the expression is cleared, exactly as it did before export.
+	 */
 	readonly rules: readonly {
 		readonly id: RuleId;
+		/**
+		 * `true` for an expression leaf that is not a registered rule. Ids of the form
+		 * `__inline_<n>` are reserved for these; an entry with such an id that the expression
+		 * references is read as inline even without the flag.
+		 */
+		readonly inline?: boolean;
 		readonly rule: SerializedRule;
 	}[];
 

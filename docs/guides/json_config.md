@@ -37,6 +37,28 @@ Each `rule` entry is a `SerializedRule`: `{ config, field, type }`.
   which silently means "the whole item".
 - **`config`** is whatever that rule type's config interface says — `{ min, max }` for `RangeRule`, `{ set }` for
   `InSetRule`, and so on. The rule's own docblock is the reference.
+- **`inline`**, on the entry beside `id` and `rule`, marks a rule that exists only inside `expression`. See
+  [Inline rules](#inline-rules) below.
+
+Options travel inside `config` like everything else. `InSetRule`, `InSetofSetsRule` and `HierarchicalRule` take
+`arrayMatch` (`"any"` or `"all"`) for array-valued fields, and `FuzzySearchRule` takes Fuse.js options beside its query:
+
+```json
+{
+  "id": "pay",
+  "rule": { "config": { "arrayMatch": "all", "set": ["card", "cash"] }, "field": "payment", "type": "InSetRule" }
+}
+```
+
+```json
+{
+  "id": "search",
+  "rule": {
+    "config": { "ignoreLocation": true, "keys": ["name", "winery"], "minMatchCharLength": 2, "query": "cabernay" },
+    "type": "FuzzySearchRule"
+  }
+}
+```
 
 `CURRENT_CONFIG_VERSION` is `1`.
 
@@ -112,8 +134,38 @@ registered rule, so one rule that cannot serialize fails the whole export with a
 `PredicateRule` always will, by design (`RULE_NOT_SERIALIZABLE`), and so will any custom rule that never declared
 `ruleTypeName` (`RULE_TYPE_NAME_MISSING`). If an engine must stay exportable, keep predicates out of it.
 
-One nicety: a rule that appears **only** inside the expression tree and was never registered by id still exports. It
-gets a synthetic `__inline_0`-style id appended to `rules`, so the round trip resolves.
+### Inline rules
+
+A rule that appears **only** inside the expression tree and was never registered by id still exports. It gets a
+synthetic id, `__inline_0`, `__inline_1` and so on (one per distinct rule, skipping any id a registered rule holds), and
+its entry in `rules` is marked `"inline": true`:
+
+```json
+{
+  "expression": {
+    "children": [
+      { "ruleId": "__inline_0", "type": "rule" },
+      { "ruleId": "__inline_1", "type": "rule" }
+    ],
+    "op": "or",
+    "type": "composite"
+  },
+  "rules": [
+    {
+      "id": "__inline_0",
+      "inline": true,
+      "rule": { "config": "pinot noir", "field": "varietal", "type": "ValueRule" }
+    },
+    { "id": "__inline_1", "inline": true, "rule": { "config": "pinot gris", "field": "varietal", "type": "ValueRule" } }
+  ],
+  "version": 1
+}
+```
+
+`loadConfig` revives an inline entry so the expression can reference it, and does not register it. The loaded engine
+holds the registered rules the exported one held and nothing more, so clearing the expression with `setExpression(null)`
+leaves the same rules filtering on both. The `__inline_<n>` id form is reserved: an entry with such an id that the
+expression references is read as inline even without the mark.
 
 ---
 
@@ -190,12 +242,13 @@ So the trust boundary is the registry, and it is small enough to reason about:
 That last column is why `resolveConfig` exists: run an untrusted config through it first, catch, reject. Every row that
 throws throws a `FilterEngineError`, so one `instanceof` check separates a bad document from a bug in your own code.
 
-**Beyond the numeric bounds, `config` payloads are not validated by the engine.** `config` is typed `unknown` on the
+**Beyond the bounds and options, `config` payloads are not validated by the engine.** `config` is typed `unknown` on the
 base class and the rule casts it. The rules with numeric bounds (`RangeRule`, `NumericComparisonRule`,
 `GeoProximityRule`, `FuzzySearchRule`, `DateRangeRule`) check each bound as they revive it, accepting a number or `null`
-and rejecting anything else, so a string or a missing key never compares as `0`; nothing else is checked. If configs
-arrive from outside your own code, validate them against the rule types you allow — a schema validator at the edge, or a
-hand-written allowlist.
+and rejecting anything else, so a string or a missing key never compares as `0`. `FuzzySearchRule` also checks its other
+Fuse options (a finite number, a boolean, or `"all"` / `"any"` for `tokenMatch`), and `InSetRule`, `InSetofSetsRule` and
+`HierarchicalRule` check `arrayMatch` (`"any"` or `"all"`). Nothing else is checked. If configs arrive from outside your
+own code, validate them against the rule types you allow — a schema validator at the edge, or a hand-written allowlist.
 
 ---
 
@@ -246,9 +299,9 @@ them — so pass them back in or compare without them.
 Beyond that it holds for the format itself, with two lossy cases — a function `field` (written as `'<function>'`) and a
 `PredicateRule` (which cannot be exported at all) — and four normalizations a deep-equality check will notice: a group
 that omitted `composition` comes back with `'or'`, a lone-leaf expression comes back wrapped in `and`, an unstamped
-document comes back as version 1, and a rule that appeared only inside the expression comes back as a top-level
-`__inline_{n}` rule. Write your configs in the normalized form and the check is exact; this is the two-line test that
-tells you before a shareable link does.
+document comes back as version 1, and an unmarked `__inline_{n}` entry the expression references comes back marked
+`"inline": true`. Write your configs in the normalized form and the check is exact; this is the two-line test that tells
+you before a shareable link does.
 
 Run the check on the parsed JSON rather than on the object `exportConfig` returned when your rules hold open bounds:
 `JSON.stringify` turns their infinities into `null`, so compare what the engine matches before and after the trip (its

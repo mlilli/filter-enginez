@@ -18,6 +18,7 @@ export {
 	NumericComparisonRule,
 	type NumericComparisonRuleConfig,
 } from './NumericComparisonRule.js';
+export { type ArrayMatch, type ArrayMatchOptions } from './arrayMatch.js';
 export { InSetRule, type InSetRuleConfig } from './InSetRule.js';
 export { InSetofSetsRule, type InSetofSetsRuleConfig } from './InSetofSetsRule.js';
 export { BloomMembershipRule, type BloomMembershipRuleConfig } from './BloomMembershipRule.js';

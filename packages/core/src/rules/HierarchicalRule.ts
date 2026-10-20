@@ -8,14 +8,27 @@
  * filter dimension is hierarchical and "select this node" means "include this node and all
  * its descendants."
  *
- * Empty `selected` array is a no-op (matches everything).
+ * The field holds a node id (a string). An empty `selected` array constrains nothing: it passes
+ * every item whose field is a string or an array, and an item whose field is neither fails
+ * whatever is selected.
+ *
+ * **Array-valued fields.** A field holding an array of node ids (a product listed under several
+ * categories) is read as a set, and `config.arrayMatch` decides how it meets the selection:
+ * `'any'` (the default) passes when at least one id lies in a selected subtree, `'all'` when every
+ * selected subtree holds at least one of the ids. Elements that are not strings never match, and
+ * an empty array fails any non-empty selection. See `./arrayMatch.ts`.
  *
  * @packageDocumentation
  */
 
-import type { FieldExtractor, FilterRuleAction } from '../types.js';
+import type { FieldExtractor, FilterRuleAction, SerializedRule } from '../types.js';
 
+import { type ArrayMatch, matchesArraySelection, readArrayMatchConfig } from './arrayMatch.js';
 import { FilterRule } from './FilterRule.js';
+import { revivedField } from './serializedConfig.js';
+
+/** A constructor with `HierarchicalRule`'s signature: the class itself, or a subclass that keeps it. */
+type HierarchicalRuleClass = new (field: FieldExtractor, config: HierarchicalRuleConfig) => HierarchicalRule;
 
 // #region docs:hierarchical-rule
 /**
@@ -33,6 +46,11 @@ export interface HierarchicalRuleConfig {
 	readonly tree: TreeNode;
 	/** IDs of selected nodes. Each selection includes the node itself + all descendants. */
 	readonly selected: readonly string[];
+	/**
+	 * How an array-valued field meets `selected`: `'any'` (default) passes when at least one id lies
+	 * in a selected subtree, `'all'` when every selected subtree holds one. Ignored for a string field.
+	 */
+	readonly arrayMatch?: ArrayMatch;
 }
 
 /**
@@ -60,19 +78,27 @@ export class HierarchicalRule extends FilterRule {
 	 */
 	static override readonly ruleTypeName = 'HierarchicalRule';
 
+	/**
+	 * Passes a string field inside a selected subtree, or an array field whose ids meet the selection
+	 * per `config.arrayMatch`; anything else fails. Nothing selected passes every string or array field.
+	 */
 	override action: FilterRuleAction = (item, rule): boolean => {
 		const fieldValue = this.getFieldValue(item);
 
-		if (typeof fieldValue !== 'string') {
+		if (typeof fieldValue !== 'string' && !Array.isArray(fieldValue)) {
 			return false;
 		}
-		const { selected, tree } = (rule as HierarchicalRule).config;
+		const { arrayMatch, selected, tree } = (rule as HierarchicalRule).config;
 
 		if (selected.length === 0) {
 			return true;
 		}
+		if (typeof fieldValue === 'string') {
+			return selected.some((selectedId) => isInSubtreeRootedAt(tree, selectedId, fieldValue));
+		}
 
-		return selected.some((selectedId) => isInSubtreeRootedAt(tree, selectedId, fieldValue));
+		return matchesArraySelection(fieldValue, selected, arrayMatch, (selectedId, element) =>
+			typeof element === 'string' && isInSubtreeRootedAt(tree, selectedId, element));
 	};
 
 	config: HierarchicalRuleConfig;
@@ -81,8 +107,21 @@ export class HierarchicalRule extends FilterRule {
 		super(field);
 		this.config = config;
 	}
+	// #endregion docs:hierarchical-rule
+
+	/**
+	 * Revive a `HierarchicalRule` from its serialized form. `ruleRegistry.deserialize` calls this hook
+	 * with the registered class as `this`, so a subclass registered in its place revives as itself.
+	 *
+	 * @param json - The serialized rule
+	 * @returns The revived rule, its `config` exactly as serialized
+	 * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `config` is not an
+	 *   object, or `arrayMatch` is present and neither `'any'` nor `'all'`
+	 */
+	static deserialize(this: HierarchicalRuleClass, json: SerializedRule): HierarchicalRule {
+		return new this(revivedField(json), readArrayMatchConfig(json) as unknown as HierarchicalRuleConfig);
+	}
 }
-// #endregion docs:hierarchical-rule
 
 /**
  * Determine whether `target` appears in the subtree rooted at the node with id `rootId`,

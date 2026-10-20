@@ -35,7 +35,6 @@
  * @packageDocumentation
  */
 
-import type { FilterRule } from '../rules/FilterRule.js';
 import type { Action } from '../store/Action.js';
 import type { InternalStore } from '../store/InternalStore.js';
 import type {
@@ -49,6 +48,7 @@ import type { ExclusionGraph } from './ExclusionGraph.js';
 import { composeFlatExpression } from '../composition/composeFlatExpression.js';
 import { evaluateExpression } from '../composition/ExpressionEvaluator.js';
 import { LRUCache } from '../lib/LRUCache.js';
+import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 
 /**
  * Options for `SimulationCache` construction.
@@ -266,6 +266,7 @@ export class SimulationCache<T> {
 		if (effectiveExpression === null) {
 			return [...items];
 		}
+		prepareRuleForCollection(effectiveExpression, items);
 
 		return items.filter((item) => evaluateExpression(effectiveExpression, item));
 	}

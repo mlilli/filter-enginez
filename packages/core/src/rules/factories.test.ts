@@ -109,6 +109,13 @@ describe('inSet', () => {
 		expect(rule.config).toEqual({ set: ['syrah']});
 		expect(rule.action({ varietal: 'syrah' }, rule)).toBe(true);
 	});
+
+	it('passes arrayMatch through from the config form', () => {
+		const rule = inSet<string>('payment', { arrayMatch: 'all', set: ['card', 'cash']});
+
+		expect(rule.config).toEqual({ arrayMatch: 'all', set: ['card', 'cash']});
+		expect(rule.action({ payment: ['card']}, rule)).toBe(false);
+	});
 });
 
 describe('inSetofSets', () => {
@@ -120,6 +127,13 @@ describe('inSetofSets', () => {
 		expect(rule.config).toEqual({ set: [['xs', 's'], ['xl']]});
 		expect(rule.action({ size: 's' }, rule)).toBe(true);
 		expect(rule.action({ size: 'm' }, rule)).toBe(false);
+	});
+
+	it('passes the arrayMatch option through', () => {
+		const rule = inSetofSets<string>('sizes', [['xs'], ['xl']], { arrayMatch: 'all' });
+
+		expect(rule.config).toEqual({ arrayMatch: 'all', set: [['xs'], ['xl']]});
+		expect(rule.action({ sizes: ['xs']}, rule)).toBe(false);
 	});
 
 	it('defaults to an empty set-of-sets (no-op)', () => {

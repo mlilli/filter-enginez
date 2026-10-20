@@ -161,6 +161,32 @@ export abstract class FilterRule {
 	// #endregion docs:get-field-value
 
 	/**
+	 * Get ready to evaluate `action` over the items of `collection`. The engine calls this once
+	 * before every pass that runs `action` across a collection (the results pass, a bitmap build,
+	 * `applyFiltersAndQuery`, the filtered-except-self projection, a simulation), always with the
+	 * collection the pass then iterates; a `CompositeRule` passes the call to its children.
+	 *
+	 * @remarks
+	 * The base implementation does nothing: most rules judge each item on its own. A rule that
+	 * answers faster for a whole collection than one item at a time overrides it to work out its
+	 * answers here, ahead of the per-item `action` calls. `FuzzySearchRule` builds one Fuse.js index
+	 * over the collection and searches it once.
+	 *
+	 * An override must keep `action` exact on its own: `action` may still be called for an item
+	 * outside the last prepared collection (a consumer calling it directly, a simulation over other
+	 * data), and must answer it as if `prepareForCollection` had never run. Prepared answers are tied
+	 * to the collection array and the rule's `config` object; replacing either (rather than mutating
+	 * it in place, as everywhere else in the engine) is what makes the next call prepare afresh.
+	 *
+	 * @param collection - The items the coming pass will call `action` on
+	 */
+	// eslint-disable-next-line class-methods-use-this -- the base hook is a no-op that subclasses override
+	prepareForCollection(collection: readonly unknown[]): void {
+		// Nothing to prepare for a rule that judges each item on its own.
+		void collection;
+	}
+
+	/**
 	 * Serialize this rule to its JSON shape for round-tripping through:
 	 *   - JSON config export (`engine.exportConfig()`)
 	 *   - URL state (`@filter-enginez/url-state-router`)
@@ -200,5 +226,23 @@ export abstract class FilterRule {
 			field: typeof this.field === 'function' ? '<function>' : this.field,
 			type: ruleTypeName,
 		};
+	}
+}
+
+/**
+ * Call `rule.prepareForCollection(collection)` when the rule has it. Every engine pass prepares its
+ * rules through this, rather than calling the method directly, because a rule may come from
+ * elsewhere: a subclass of another installed copy of `@filter-enginez/core`, or a plain object
+ * written to the `FilterRule` shape. Such a rule has nothing to prepare, and is evaluated by its
+ * `action` alone.
+ *
+ * @param rule - The rule (or composite tree) about to be evaluated
+ * @param collection - The items the coming pass will evaluate
+ */
+export function prepareRuleForCollection(rule: FilterRule, collection: readonly unknown[]): void {
+	const { prepareForCollection } = rule as Partial<Pick<FilterRule, 'prepareForCollection'>>;
+
+	if (typeof prepareForCollection === 'function') {
+		prepareForCollection.call(rule, collection);
 	}
 }

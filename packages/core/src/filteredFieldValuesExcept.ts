@@ -13,11 +13,11 @@
  */
 
 import type { FilterGroup } from './composition/FilterGroup.js';
-import type { FilterRule } from './rules/FilterRule.js';
 import type { RuleId } from './types.js';
 
 import { composeFlatExpression } from './composition/composeFlatExpression.js';
 import { evaluateExpression } from './composition/ExpressionEvaluator.js';
+import { type FilterRule, prepareRuleForCollection } from './rules/FilterRule.js';
 
 /**
  * Collect the finite values of `fieldKey` over the working-set items that pass every
@@ -42,6 +42,10 @@ export function filteredFieldValuesExcept<T>(
 	remaining.delete(excludeRuleId);
 	const expression = composeFlatExpression(remaining, groups);
 	const out: number[] = [];
+
+	if (expression !== null) {
+		prepareRuleForCollection(expression, workingSet);
+	}
 
 	for (const item of workingSet) {
 		if (expression !== null && !evaluateExpression(expression, item)) {

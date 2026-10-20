@@ -79,6 +79,24 @@ constructor derives nothing from `config`. Several built-ins take their value or
 config. That is the shape the engine passes rules through, and following it keeps your rule's behavior identical to the
 built-ins' under composition.
 
+### Optional: answer for a whole collection at once
+
+Some rules answer much faster for a whole collection than one item at a time — a search index, a ranking, a statistic
+over every item. The base class has a hook for that, `prepareForCollection(collection)`. Before every pass that runs
+`action` across a collection (the results pass, a bitmap build, `applyFiltersAndQuery`, a simulation), the engine calls
+it with the collection it is about to iterate; `CompositeRule` passes the call down to its children. The base
+implementation does nothing.
+
+Override it to work your answers out ahead of the per-item calls, and keep two rules:
+
+- **`action` stays exact on its own.** It can still be called for an item outside the prepared collection — by a
+  consumer, or by a simulation over other data — and must answer as if `prepareForCollection` had never run.
+- **Key what you prepare on the collection array and the `config` object.** The engine replaces both rather than
+  mutating them, so an identity check tells you when the prepared answers are stale.
+
+`FuzzySearchRule` is the built-in that uses it: it builds one Fuse.js index per collection, searches it once per query,
+and answers `action` from the result.
+
 ---
 
 ## `ruleTypeName` must be a declared literal, and the reason is not stylistic
@@ -262,7 +280,8 @@ submitted by a user can only name rule types you registered. Nothing is ever `ev
 `ContainsAllRule` — "this array contains all of these values" — is implemented, registered and round-tripped through
 every transport in `packages/examples-shared/src/real-estate/real-estate-domain/ContainsAllRule.ts`, in
 [`filter-enginez-examples`](https://github.com/mlilli/filter-enginez-examples). It is about eighty lines including the
-docblock, and it carries the HMR registration guard above.
+docblock, and it carries the HMR registration guard above. The built-in `InSetRule` with `arrayMatch: 'all'` matches the
+same items; the custom rule stays as the worked example of the extension contract.
 
 ---
 

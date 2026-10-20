@@ -23,6 +23,7 @@
 
 import type { BloomFilter } from '../lib/BloomFilter.js';
 import type { FieldExtractor } from '../types.js';
+import type { ArrayMatchOptions } from './arrayMatch.js';
 
 import { BloomMembershipRule } from './BloomMembershipRule.js';
 import { BooleanRule } from './BooleanRule.js';
@@ -67,24 +68,29 @@ export function numCompare(
 	return new NumericComparisonRule(field, config);
 }
 
-/** Create an `InSetRule` — value must be in a configured set. */
+/**
+ * Create an `InSetRule` — value must be in a configured set. Pass the config form
+ * (`{ set, arrayMatch }`) to choose how an array-valued field matches.
+ */
 export function inSet<V>(
 	field: FieldExtractor,
 	initialSetOrConfig: InSetRuleConfig<V> | readonly V[],
 ): InSetRule<V> {
-	const initialSet = Array.isArray(initialSetOrConfig)
-		? initialSetOrConfig
-		: (initialSetOrConfig as InSetRuleConfig<V>).set;
+	if (Array.isArray(initialSetOrConfig)) {
+		return new InSetRule<V>(field, initialSetOrConfig);
+	}
+	const { set, ...options } = initialSetOrConfig as InSetRuleConfig<V>;
 
-	return new InSetRule<V>(field, initialSet);
+	return new InSetRule<V>(field, set, options);
 }
 
 /** Create an `InSetofSetsRule` — value must be in any of the configured subsets. */
 export function inSetofSets<V>(
 	field: FieldExtractor,
 	initialSets: readonly (readonly V[])[] = [],
+	options: ArrayMatchOptions = {},
 ): InSetofSetsRule<V> {
-	return new InSetofSetsRule<V>(field, initialSets);
+	return new InSetofSetsRule<V>(field, initialSets, options);
 }
 // #endregion docs:rule-factories
 

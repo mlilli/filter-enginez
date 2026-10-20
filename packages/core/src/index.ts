@@ -28,6 +28,8 @@
 // #region docs:public-surface
 // ─── Rule catalog (15 rules + composite + registry + factories) ────────────
 export {
+	type ArrayMatch,
+	type ArrayMatchOptions,
 	bloomMembership,
 	BloomMembershipRule,
 	type BloomMembershipRuleConfig,

@@ -77,6 +77,20 @@ describe('compileTextPlan — FuzzySearchRule', () => {
 		expect(plan.strategy).toBe('bypass');
 	});
 
+	it.each([
+		['ignoreDiacritics', { ignoreDiacritics: true }],
+		['useExtendedSearch', { useExtendedSearch: true }],
+		['useTokenSearch', { useTokenSearch: true }],
+	] as const)('bypasses fuzzy with %s, which changes what the query means', (_name, options) => {
+		expect(compileTextPlan(new FuzzySearchRule('desc', { ...options, query: 'blackberry', threshold: 0.2 })).strategy).toBe('bypass');
+	});
+
+	it('keeps the candidate plan for the options that leave the bound sound', () => {
+		const options = { findAllMatches: true, ignoreDiacritics: false, ignoreLocation: true, isCaseSensitive: true, minMatchCharLength: 2 };
+
+		expect(compileTextPlan(new FuzzySearchRule('desc', { ...options, query: 'blackberry', threshold: 0.2 })).strategy).toBe('candidate');
+	});
+
 	it('bypasses a pattern shorter than a trigram', () => {
 		expect(compileTextPlan(new FuzzySearchRule('desc', { query: 'ab', threshold: 0.1 })).strategy).toBe('bypass');
 	});

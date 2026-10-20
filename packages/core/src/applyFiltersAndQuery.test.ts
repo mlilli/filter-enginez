@@ -17,6 +17,9 @@
  *     attributing to multiple candidates; projectedCount + wouldBeEmpty (count 0); non-string
  *     itemValue skip; attribution-miss skip; undefined candidate skip in the inverted index +
  *     the packaged output's '' fallback.
+ *   - array-valued fields under the disjunctive kinds: one count per item per candidate, however
+ *     many elements attribute to it; a rule with `arrayMatch: 'all'` projected conjunctively, and
+ *     the configs that are not (`'any'`, absent, a non-object or `null` config, no rule).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,7 +28,8 @@ import type { FilterRule } from './rules/FilterRule.js';
 import type { RuleId } from './types.js';
 
 import { runFilterBundleQuery } from './applyFiltersAndQuery.js';
-import { range, value } from './rules/factories.js';
+import { inSet, inSetofSets, range, value } from './rules/factories.js';
+import { HierarchicalRule } from './rules/HierarchicalRule.js';
 
 interface Item {
 	readonly color: string;
@@ -493,5 +497,121 @@ describe('runFilterBundleQuery — containsAll chip groups', () => {
 			value: 'pool',
 			wouldBeEmpty: false,
 		});
+	});
+});
+
+/**
+ * Array-valued fields under the disjunctive kinds (`'inSet'`, `'inSetOfSets'`).
+ *
+ * @remarks
+ * A projected count is a number of ITEMS, so an item counts once toward each candidate some element
+ * attributes to. And the projection follows the rule: `arrayMatch: 'any'` widens as candidates are
+ * added (the rule is dropped and each candidate tested alone), `arrayMatch: 'all'` narrows (the rule
+ * stays active and the candidate is required on top of it).
+ */
+describe('runFilterBundleQuery — array-valued fields', () => {
+	interface Venue {
+		readonly kind: string;
+		readonly payment: string | readonly unknown[];
+		readonly regions?: readonly string[];
+	}
+
+	const venues: readonly Venue[] = [
+		{ kind: 'cafe', payment: ['card', 'cash'], regions: ['it-pie', 'it-ven']},
+		{ kind: 'bar', payment: ['card'], regions: ['fr-bdx']},
+		{ kind: 'cafe', payment: ['cash', 'cash', 7, null], regions: ['it-pie', 'fr-bdx']},
+		{ kind: 'bar', payment: [], regions: []},
+		{ kind: 'cafe', payment: 'cash' },
+	];
+
+	const paymentGroup = {
+		candidates: ['card', 'cash', 'voucher'],
+		field: 'payment',
+		kind: 'inSet' as const,
+		ruleId: 'payment',
+	};
+
+	/**
+	 * Project the payment group over the venues.
+	 *
+	 * @param rules - The active rules
+	 * @returns Candidate value → projected count
+	 */
+	function projectPayment(rules: ReadonlyMap<RuleId, FilterRule>): Map<string, number> {
+		const bundle = runFilterBundleQuery(venues, rules, { chipGroups: [paymentGroup]});
+
+		return new Map((bundle.chipGroups[0]?.candidates ?? []).map((c) => [c.value, c.projectedCount]));
+	}
+
+	it('counts an item once per candidate its array holds, and still reads a string field', () => {
+		// card: venues 0, 1. cash: venues 0, 2 (repeated, counted once) and 4 (a string field).
+		expect(projectPayment(ruleMap())).toEqual(new Map([['card', 2], ['cash', 3], ['voucher', 0]]));
+	});
+
+	it('projects an arrayMatch "any" rule disjunctively: each candidate alone', () => {
+		const rules = ruleMap(['payment', inSet('payment', { arrayMatch: 'any', set: ['card']})]);
+
+		expect(projectPayment(rules)).toEqual(new Map([['card', 2], ['cash', 3], ['voucher', 0]]));
+	});
+
+	it('projects an arrayMatch "all" rule conjunctively: on top of what it already requires', () => {
+		// Requiring card leaves venues 0 and 1; adding cash leaves venue 0 alone.
+		const rules = ruleMap(['payment', inSet('payment', { arrayMatch: 'all', set: ['card']})]);
+		const bundle = runFilterBundleQuery(venues, rules, { chipGroups: [paymentGroup]});
+
+		expect(projectPayment(rules)).toEqual(new Map([['card', 2], ['cash', 1], ['voucher', 0]]));
+		expect(bundle.chipGroups[0]?.candidates[0]?.projectedCount).toBe(bundle.resultCount);
+	});
+
+	it('projects disjunctively for a rule whose config is not an arrayMatch object', () => {
+		const withNull = ruleMap(['payment', value('payment', null)]);
+		const withString = ruleMap(['payment', value('payment', 'cash')]);
+
+		expect(projectPayment(withNull)).toEqual(projectPayment(ruleMap()));
+		expect(projectPayment(withString)).toEqual(projectPayment(ruleMap()));
+	});
+
+	it('honors other active rules while projecting', () => {
+		expect(projectPayment(ruleMap(['kind', value('kind', 'bar')]))).toEqual(
+			new Map([['card', 1], ['cash', 0], ['voucher', 0]]),
+		);
+	});
+
+	it('credits an inSetOfSets candidate once even when two of its leaves are present', () => {
+		const regionGroup = {
+			candidates: [
+				{ leafIds: ['it-pie', 'it-ven'], value: 'italy' },
+				{ leafIds: ['fr-bdx'], value: 'france' },
+			],
+			field: 'regions',
+			kind: 'inSetOfSets' as const,
+			ruleId: 'origin',
+		};
+		const counts = (rules: ReadonlyMap<RuleId, FilterRule>): readonly number[] =>
+			(runFilterBundleQuery(venues, rules, { chipGroups: [regionGroup]}).chipGroups[0]?.candidates ?? [])
+				.map((c) => c.projectedCount);
+
+		// Venue 0 holds both Italian leaves and counts once toward Italy.
+		expect(counts(ruleMap())).toEqual([2, 2]);
+		// A rule requiring Italy AND France keeps only venue 2: conjunctive projection.
+		expect(counts(ruleMap(['origin', inSetofSets('regions', [['it-pie', 'it-ven'], ['fr-bdx']], { arrayMatch: 'all' })])))
+			.toEqual([1, 1]);
+		// The same subsets under 'any' are projected per candidate.
+		expect(counts(ruleMap(['origin', inSetofSets('regions', [['fr-bdx']])]))).toEqual([2, 2]);
+	});
+
+	it('projects a HierarchicalRule with arrayMatch "all" conjunctively', () => {
+		const tree = { children: [{ children: [{ id: 'it-pie' }, { id: 'it-ven' }], id: 'it' }, { children: [{ id: 'fr-bdx' }], id: 'fr' }], id: 'world' };
+		const regionGroup = {
+			candidates: [{ leafIds: ['it-pie', 'it-ven'], value: 'it' }, { leafIds: ['fr-bdx'], value: 'fr' }],
+			field: 'regions',
+			kind: 'inSetOfSets' as const,
+			ruleId: 'origin',
+		};
+		const rules = ruleMap(['origin', new HierarchicalRule('regions', { arrayMatch: 'all', selected: ['it'], tree })]);
+		const bundle = runFilterBundleQuery(venues, rules, { chipGroups: [regionGroup]});
+
+		// Italy is required (venues 0 and 2); France on top of it leaves venue 2.
+		expect(bundle.chipGroups[0]?.candidates.map((c) => c.projectedCount)).toEqual([2, 1]);
 	});
 });

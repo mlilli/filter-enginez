@@ -25,12 +25,12 @@ import { computed, type ReadonlySignal, type Signal, signal } from '@preact/sign
 
 import type { FilterGroup } from '../composition/FilterGroup.js';
 import type { CompositeRule } from '../rules/CompositeRule.js';
-import type { FilterRule } from '../rules/FilterRule.js';
 import type { RuleId } from '../types.js';
 
 import { composeFlatExpression } from '../composition/composeFlatExpression.js';
 import { evaluateExpression } from '../composition/ExpressionEvaluator.js';
 import { simplify } from '../composition/simplify.js';
+import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 
 /**
  * Engine evaluation mode.
@@ -203,6 +203,8 @@ export class InternalStore<T> {
 			// regular array then converting: stage matches in a plain number[] (V8's growth
 			// strategy is fast), then snapshot into the right-sized Uint32Array at the end.
 			const matched: number[] = [];
+
+			prepareRuleForCollection(expr, ws);
 
 			for (let i = 0; i < ws.length; i++) {
 				if (evaluateExpression(expr, ws[i])) {

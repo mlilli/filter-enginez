@@ -22,8 +22,9 @@ import type {
 	FilterBundleFieldQuery,
 	FilterBundleQuery,
 } from './queryBundle.js';
-import type { FilterRule } from './rules/FilterRule.js';
 import type { RuleId } from './types.js';
+
+import { type FilterRule, prepareRuleForCollection } from './rules/FilterRule.js';
 
 /** An active rule paired with its registry id, in evaluation order. */
 interface RuleEntry {
@@ -149,32 +150,24 @@ function recordFieldValue(field: FieldAccumulator, item: object): void {
 /**
  * Increment per-candidate counts for one chip group, attributing the item via the inverted
  * index keyed on its `field` value.
+ *
+ * @remarks
+ * A string field credits the candidates its value attributes to. An ARRAY field credits every
+ * candidate any of its string elements attributes to, each candidate at most once per item: a
+ * projected count is a number of items, so a listing with `['pool', 'garage']` counts once toward
+ * both `pool` and `garage`, and a wine whose `regions` hold two Italian ids counts once toward
+ * Italy. Repeated values within one array never double-count. `'containsAll'` reads arrays only;
+ * the disjunctive kinds read both shapes.
  */
 function accumulateChip(chip: ChipAccumulator, item: object): void {
 	const itemValue = (item as Record<string, unknown>)[chip.query.field];
 
-	// Conjunctive groups read an ARRAY field and attribute the item once per value it contains,
-	// so a listing with ['pool','garage'] counts toward both candidates. Deduplicated because a
-	// corpus is free to repeat a value within one array and a double count would overstate the
-	// projection.
-	if (chip.query.kind === 'containsAll') {
-		if (!Array.isArray(itemValue)) {
-			return;
-		}
-		const seen = new Set<string>();
-
-		for (const entry of itemValue) {
-			if (typeof entry !== 'string' || seen.has(entry)) {
-				continue;
-			}
-			seen.add(entry);
-			creditCandidates(chip, entry);
-		}
+	if (Array.isArray(itemValue)) {
+		creditDistinctCandidates(chip, itemValue);
 
 		return;
 	}
-
-	if (typeof itemValue !== 'string') {
+	if (chip.query.kind === 'containsAll' || typeof itemValue !== 'string') {
 		return;
 	}
 	creditCandidates(chip, itemValue);
@@ -191,6 +184,40 @@ function creditCandidates(chip: ChipAccumulator, value: string): void {
 		/* v8 ignore next -- defensive: noUncheckedIndexedAccess fallback; chip.counts is a dense Uint32Array */
 		chip.counts[c] = (chip.counts[c] ?? 0) + 1;
 	}
+}
+
+/** Increment, once each, every candidate some string element of `elements` attributes to. */
+function creditDistinctCandidates(chip: ChipAccumulator, elements: readonly unknown[]): void {
+	const credited = new Set<number>();
+
+	for (const element of elements) {
+		const attributions = typeof element === 'string' ? chip.invertedIndex.get(element) : undefined;
+
+		if (attributions !== undefined) {
+			for (const c of attributions) {
+				credited.add(c);
+			}
+		}
+	}
+	for (const c of credited) {
+		/* v8 ignore next -- defensive: noUncheckedIndexedAccess fallback; chip.counts is a dense Uint32Array */
+		chip.counts[c] = (chip.counts[c] ?? 0) + 1;
+	}
+}
+
+/**
+ * Whether a chip group NARROWS its rule as candidates are selected, so the projection keeps that
+ * rule active: the `'containsAll'` kind, or a rule configured with `arrayMatch: 'all'` (an
+ * `InSetRule`, `InSetofSetsRule` or `HierarchicalRule`, or a custom rule using the same key), which
+ * requires every selected value of an array field.
+ */
+function isConjunctiveChip(query: FilterBundleChipGroupQuery, rules: ReadonlyMap<RuleId, FilterRule>): boolean {
+	if (query.kind === 'containsAll') {
+		return true;
+	}
+	const config = rules.get(query.ruleId)?.config;
+
+	return typeof config === 'object' && config !== null && (config as { arrayMatch?: unknown }).arrayMatch === 'all';
 }
 
 /** Package one field accumulator into its returned `FilterBundleFieldMeta` (with histogram). */
@@ -279,6 +306,7 @@ export function runFilterBundleQuery<T>(
 
 	for (const [id, rule] of ruleEntries) {
 		allRules.push({ id, rule });
+		prepareRuleForCollection(rule, workingSet);
 	}
 
 	const fieldsQuery: readonly FilterBundleFieldQuery[] = query.fields ?? [];
@@ -299,7 +327,7 @@ export function runFilterBundleQuery<T>(
 		// NARROWS it, so the rule stays active (-1 excludes nothing) and the candidate is required
 		// on top of whatever is already selected — otherwise every value would be projected in
 		// isolation and report reachable when combining it with the live selection matches nothing.
-		excludeIdx: cq.kind === 'containsAll' ? -1 : findRuleIndex(allRules, cq.ruleId),
+		excludeIdx: isConjunctiveChip(cq, ruleEntries) ? -1 : findRuleIndex(allRules, cq.ruleId),
 		invertedIndex: buildInvertedIndex(cq),
 		query: cq,
 	}));

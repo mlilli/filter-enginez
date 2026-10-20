@@ -110,11 +110,14 @@ The two fuzzy rows are the interesting pair. At threshold **0.2** the index is w
 
 That is the trigram bound proving nothing. The index prunes fuzzy candidates by a _sound_ lower bound on trigram overlap
 before the exact Fuse confirm, and at a loose threshold the bound is zero, so the query plan bypasses the index and runs
-the same per-item scan as `'off'`. That row is the guardrail that the bypass costs nothing: about 271 ms at 150k is the
-cost of a loose fuzzy search however you index it, and the setting that changes it is the threshold.
+the same scan as `'off'`: one Fuse search over the whole collection, its index built once per collection and reused for
+every later query. That row is the guardrail that the bypass costs nothing: about 271 ms at 150k is the cost of a loose
+fuzzy search however you index it, and the setting that changes it is the threshold.
 
 Substring and `'tokenized'` text matching are **never** index-served, by design — native `String.includes` already wins.
-Only `TextSearchRule` in case-insensitive `'allWords'` mode and `FuzzySearchRule` consult the index.
+Only `TextSearchRule` in case-insensitive `'allWords'` mode and `FuzzySearchRule` consult the index, and a fuzzy rule
+bypasses it whenever its options change what the query means (`ignoreDiacritics`, `useExtendedSearch`, `useTokenSearch`)
+or it searches several `keys`.
 
 ---
 

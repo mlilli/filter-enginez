@@ -24,7 +24,13 @@
  *   is what URL state, devtools persistence over `localStorage` and an HTTP body use; and
  *   `structuredClone`, which is what the worker bridge uses.
  * - **Two evaluation paths**: the per-item predicates, and the bitmap layer forced on (with the text
- *   index), whose spatial and trigram paths read the same revived configs.
+ *   index), whose spatial and trigram paths read the same revived configs. The two paths must also
+ *   agree with each other for every case, which is the acceleration-equivalence guard for each rule
+ *   type, array-valued fields included.
+ *
+ * - **An expression's inline rules** stay inline: export → load → export reproduces the document,
+ *   the loaded engine registers exactly the rules the original did, and clearing the expression
+ *   on both leaves the same items passing (a restored link once left its leaves filtering).
  *
  * Out of scope, by design: a bound on the wrong side (`min: Infinity`, a range that is empty
  * whatever its `max`) and a `NaN` bound. JSON writes both as `null`, which revives as the open bound
@@ -63,6 +69,8 @@ import { type FilterEngineConfig } from './FilterEngineConfig.js';
 interface Listing {
 	readonly coords?: { readonly lat: number; readonly lng: number };
 	readonly inStock?: boolean;
+	/** An array field, for the membership rules' `arrayMatch` cases. */
+	readonly payment?: readonly string[];
 	readonly price?: number | null;
 	readonly region?: string;
 	readonly sku: string;
@@ -72,10 +80,10 @@ interface Listing {
 
 /** Items spanning negative, zero, fractional, large, `null` and absent values. */
 const LISTINGS: readonly Listing[] = [
-	{ coords: { lat: 37.7749, lng: -122.4194 }, inStock: true, listedAt: '2024-01-15T00:00:00.000Z', price: -50, region: 'ca', sku: 'a1', title: 'cabernet sauvignon' },
-	{ coords: { lat: 37.8044, lng: -122.2712 }, inStock: false, listedAt: '2024-06-01T00:00:00.000Z', price: -0, region: 'or', sku: 'a2', title: 'pinot noir' },
-	{ coords: { lat: 40.7128, lng: -74.006 }, inStock: true, listedAt: '2025-03-10T00:00:00.000Z', price: 0, region: 'bordeaux', sku: 'b1', title: 'merlot blend, cabernay style' },
-	{ coords: { lat: 48.8566, lng: 2.3522 }, listedAt: '2025-12-31T23:59:59.000Z', price: 0.5, region: 'fr', sku: 'b2', title: 'zinfandel' },
+	{ coords: { lat: 37.7749, lng: -122.4194 }, inStock: true, listedAt: '2024-01-15T00:00:00.000Z', payment: ['card', 'cash'], price: -50, region: 'ca', sku: 'a1', title: 'cabernet sauvignon' },
+	{ coords: { lat: 37.8044, lng: -122.2712 }, inStock: false, listedAt: '2024-06-01T00:00:00.000Z', payment: ['card'], price: -0, region: 'or', sku: 'a2', title: 'pinot noir' },
+	{ coords: { lat: 40.7128, lng: -74.006 }, inStock: true, listedAt: '2025-03-10T00:00:00.000Z', payment: [], price: 0, region: 'bordeaux', sku: 'b1', title: 'merlot blend, cabernay style' },
+	{ coords: { lat: 48.8566, lng: 2.3522 }, listedAt: '2025-12-31T23:59:59.000Z', payment: ['ca', 'bordeaux', 'cash'], price: 0.5, region: 'fr', sku: 'b2', title: 'zinfandel' },
 	{ coords: { lat: -33.8688, lng: 151.2093 }, inStock: true, price: 60, region: 'us', sku: 'c1', title: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx cabernet' },
 	{ inStock: false, listedAt: '2023-07-04T00:00:00.000Z', price: 100, region: 'ca', sku: 'c2', title: 'syrah' },
 	{ coords: { lat: 35.6762, lng: 139.6503 }, price: 1_000_000, sku: 'd1' },
@@ -212,15 +220,23 @@ const CASES_BY_TYPE: ReadonlyMap<string, readonly RoundTripCase[]> = new Map<str
 	['HierarchicalRule', [
 		{ label: 'one subtree', rule: () => new HierarchicalRule('region', { selected: ['us'], tree: REGION_TREE }) },
 		{ label: 'nothing selected', rule: () => new HierarchicalRule('region', { selected: [], tree: REGION_TREE }) },
+		{ label: 'array field, any', rule: () => new HierarchicalRule('payment', { selected: ['us'], tree: REGION_TREE }) },
+		{ label: 'array field, all', rule: () => new HierarchicalRule('payment', { arrayMatch: 'all', selected: ['us', 'fr'], tree: REGION_TREE }) },
 	]],
 	['InSetofSetsRule', [
 		{ label: 'numeric subsets', rule: () => new InSetofSetsRule<number>('price', [[0, 60], [100]]) },
 		{ label: 'a null member', rule: () => new InSetofSetsRule<number | null>('price', [[null]]) },
+		{ label: 'array field, any', rule: () => new InSetofSetsRule<string>('payment', [['cash', 'voucher']]) },
+		{ label: 'array field, all', rule: () => new InSetofSetsRule<string>('payment', [['card'], ['cash', 'voucher']], { arrayMatch: 'all' }) },
 	]],
 	['InSetRule', [
 		{ label: 'numeric members', rule: () => new InSetRule<number>('price', [0, 60, 100]) },
 		{ label: 'a null member', rule: () => new InSetRule<number | null>('price', [null]) },
 		{ label: 'empty (no-op)', rule: () => new InSetRule<number>('price', []) },
+		{ label: 'array field, any', rule: () => new InSetRule<string>('payment', ['cash']) },
+		{ label: 'array field, explicit any', rule: () => new InSetRule<string>('payment', ['cash'], { arrayMatch: 'any' }) },
+		{ label: 'array field, all', rule: () => new InSetRule<string>('payment', ['card', 'cash'], { arrayMatch: 'all' }) },
+		{ label: 'array field, all, empty set', rule: () => new InSetRule<string>('payment', [], { arrayMatch: 'all' }) },
 	]],
 	['NumericComparisonRule', numericComparisonCases()],
 	['RangeRule', [
@@ -310,6 +326,32 @@ describe('config round trip keeps behavior', () => {
 		}
 	});
 
+	it('matches the same items with and without bitmap acceleration, for every case', () => {
+		let checked = 0;
+
+		for (const [typeName, cases] of CASES_BY_TYPE) {
+			for (const { label, rule } of cases) {
+				const [predicates, bitmaps] = ACCELERATIONS.map((acceleration) => matchSet(acceleration.options, (engine) => {
+					engine.addRule('rule', rule());
+				}));
+
+				expect(bitmaps, `${typeName} ${label}: the bitmap path disagrees with the predicates`).toEqual(predicates);
+				checked++;
+			}
+		}
+		expect(checked).toBeGreaterThan(50);
+	});
+
+	it('reads array fields per arrayMatch, so the array cases are not vacuous', () => {
+		const passing = (rule: FilterRule): number[] => matchSet({ bitmap: 'on' }, (engine) => {
+			engine.addRule('rule', rule);
+		});
+
+		expect(passing(new InSetRule<string>('payment', ['cash']))).toEqual([0, 3]);
+		expect(passing(new InSetRule<string>('payment', ['card', 'cash'], { arrayMatch: 'all' }))).toEqual([0]);
+		expect(passing(new HierarchicalRule('payment', { arrayMatch: 'all', selected: ['us', 'fr'], tree: REGION_TREE }))).toEqual([3]);
+	});
+
 	it('lists only registered types as unserializable, and they cannot export', () => {
 		for (const typeName of UNSERIALIZABLE_TYPES.keys()) {
 			expect(ruleRegistry.has(typeName)).toBe(true);
@@ -378,3 +420,77 @@ describe('config round trip keeps behavior', () => {
 		expect(restored).toEqual(original);
 	});
 });
+
+describe('an expression\'s inline rules survive a round trip as inline', () => {
+	/**
+	 * An engine with two registered rules (one also used by the expression, one dormant under it) and
+	 * an expression whose other leaves were never registered, one of them used twice.
+	 *
+	 * @param acceleration - The engine's acceleration options
+	 * @returns The engine
+	 */
+	function original(acceleration: AccelerationOptions): FilterEngine<Listing> {
+		const engine = createFilterEngine<Listing>({ acceleration, sourceData: LISTINGS });
+		const region = new InSetRule<string>('region', ['ca', 'fr']);
+		const shared = new RangeRule('price', { max: Number.POSITIVE_INFINITY, min: 60 });
+
+		engine.addRule('region', region);
+		engine.addRule('stock', new BooleanRule('inStock', true));
+		engine.addGroup({ composition: 'and', filterIds: ['region', 'stock'], id: 'g' });
+		engine.setExpression(new CompositeRule('or', [
+			region,
+			shared,
+			new CompositeRule('and', [new InSetRule<string>('payment', ['card']), new CompositeRule('not', [shared])]),
+		]));
+
+		return engine;
+	}
+
+	/**
+	 * What an engine holds: its registered rule ids, the items passing, and the items passing once
+	 * its expression is cleared.
+	 *
+	 * @param engine - The engine; its expression is cleared
+	 * @returns The three, for a single comparison
+	 */
+	function state(engine: FilterEngine<Listing>): { flat: number[]; ruleIds: string[]; withExpression: number[] } {
+		const ruleIds = [...engine.getRules().keys()];
+		const withExpression = [...engine.getResultIndices()];
+
+		engine.setExpression(null);
+
+		return { flat: [...engine.getResultIndices()], ruleIds, withExpression };
+	}
+
+	for (const channel of CHANNELS) {
+		for (const acceleration of ACCELERATIONS) {
+			it(`reproduces the document and the engine — ${channel.name}, ${acceleration.name}`, () => {
+				const source = original(acceleration.options);
+				const exported = channel.transfer(source.exportConfig());
+				const restored = createFilterEngine<Listing>({ acceleration: acceleration.options, sourceData: LISTINGS });
+
+				restored.loadConfig(exported);
+
+				expect(channel.transfer(restored.exportConfig())).toEqual(exported);
+				expect(exported.rules.filter((entry) => entry.inline === true).map((entry) => entry.id)).toEqual(['__inline_0', '__inline_1']);
+
+				const expected = state(source);
+
+				expect(expected.ruleIds).toEqual(['region', 'stock']);
+				expect(expected.withExpression).not.toEqual(expected.flat);
+				expect(state(restored)).toEqual(expected);
+			});
+		}
+	}
+
+	it('keeps a document without inline marks inline through its reserved ids', () => {
+		const exported = JSON.parse(JSON.stringify(original({ bitmap: 'off' }).exportConfig())) as FilterEngineConfig;
+		const unmarked: FilterEngineConfig = { ...exported, rules: exported.rules.map(({ id, rule }) => ({ id, rule })) };
+		const restored = createFilterEngine<Listing>({ acceleration: { bitmap: 'off' }, sourceData: LISTINGS });
+
+		restored.loadConfig(unmarked);
+
+		expect(state(restored)).toEqual(state(original({ bitmap: 'off' })));
+	});
+});
+

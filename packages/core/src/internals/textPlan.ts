@@ -14,7 +14,16 @@
  *   - **everything else** → `bypass`. Substring / exact / startsWith / endsWith / `tokenized`
  *     (native `String.includes` already wins), case-sensitive `'allWords'` (the lowercase index
  *     can't serve it), empty-query no-ops, multi-key fuzzy (searches the whole item, not one
- *     field), and default-threshold (0.4) fuzzy where the edit budget dissolves the bound.
+ *     field), default-threshold (0.4) fuzzy where the edit budget dissolves the bound, and fuzzy
+ *     with an option that changes what the query means, so the whole-pattern bound no longer
+ *     describes a match: `ignoreDiacritics` (`café` matches `cafe`, which shares none of its
+ *     accented trigrams), `useExtendedSearch` (operators, negation, OR) and `useTokenSearch`
+ *     (each word matched on its own, anywhere).
+ *
+ * The other Fuse options keep the bound sound: `ignoreLocation`, `location` and `distance` only
+ * add a non-negative location term to the score, `minMatchCharLength` only rejects matches,
+ * `isCaseSensitive` matches a subset of what the lowercased comparison matches, and the norm and
+ * `findAllMatches` options never change which items match.
  *
  * All normalization is to lowercase — matching the index (which lowercases field text) and Fuse's
  * case-insensitive default — so `authoritative` query words and `candidate` pattern trigrams are
@@ -26,12 +35,10 @@
 import type { FilterRule } from '../rules/FilterRule.js';
 
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
+import { FUSE_DEFAULT_THRESHOLD } from '../rules/fuseOptions.js';
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
 import { TextSearchRule } from '../rules/TextSearchRule.js';
 import { computeFuzzyTrigramBound } from './fuzzyTrigramBound.js';
-
-/** Fuse.js default `threshold` — mirrors `FuzzySearchRule`'s `?? 0.4`; used when a rule omits it. */
-const FUSE_DEFAULT_THRESHOLD = 0.4;
 
 /** The index can't help — evaluate the rule by the per-item predicate scan. */
 export interface TextBypassPlan {
@@ -97,13 +104,21 @@ function planTextSearch(rule: TextSearchRule): TextPlan {
 	return { queryWords, strategy: 'authoritative' };
 }
 
-/** Plan a `FuzzySearchRule`: single-field, non-empty, with a bound that actually prunes. */
+/**
+ * Plan a `FuzzySearchRule`: single-field, non-empty, read as one Bitap pattern, with a bound that
+ * actually prunes.
+ */
 function planFuzzySearch(rule: FuzzySearchRule): TextPlan {
-	const { keys, query, threshold } = rule.config;
+	const { config } = rule;
+	const { keys, query, threshold } = config;
 
 	// Empty query matches everything (the rule short-circuits to `true`); multi-key mode searches
-	// the whole item rather than one field — neither is served by a single-field index.
+	// the whole item rather than one field — neither is served by a single-field index. The three
+	// options that change what the query means void the bound.
 	if (query.length === 0 || (keys !== undefined && keys.length > 0)) {
+		return BYPASS_PLAN;
+	}
+	if (config.ignoreDiacritics === true || config.useExtendedSearch === true || config.useTokenSearch === true) {
 		return BYPASS_PLAN;
 	}
 	const normalizedPattern = query.toLowerCase();

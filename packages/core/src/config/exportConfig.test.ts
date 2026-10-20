@@ -178,6 +178,47 @@ describe('exportConfig', () => {
 		});
 	});
 
+	it('marks minted entries inline and leaves registered ones unmarked', () => {
+		const engine = new SourceEngine();
+		const registered = new ValueRule('color', 'red');
+
+		engine.rules.set('color', registered);
+		engine.expression = new CompositeRule('and', [registered, new ValueRule('shape', 'round')]);
+
+		expect(exportConfig(engine).rules).toEqual([
+			{ id: 'color', rule: registered.serialize() },
+			{ id: '__inline_0', inline: true, rule: { config: 'round', field: 'shape', type: 'ValueRule' }},
+		]);
+	});
+
+	it('mints one id per inline instance, however often the expression uses it', () => {
+		const engine = new SourceEngine();
+		const shared = new ValueRule('shape', 'round');
+
+		engine.expression = new CompositeRule('or', [shared, new CompositeRule('not', [shared])]);
+
+		const config = exportConfig(engine);
+
+		expect(config.rules.map((entry) => entry.id)).toEqual(['__inline_0']);
+		expect(config.expression).toEqual({
+			children: [
+				{ ruleId: '__inline_0', type: 'rule' },
+				{ children: [{ ruleId: '__inline_0', type: 'rule' }], op: 'not', type: 'composite' },
+			],
+			op: 'or',
+			type: 'composite',
+		});
+	});
+
+	it('never mints an id a registered rule or an earlier inline rule holds', () => {
+		const engine = new SourceEngine();
+
+		engine.rules.set('__inline_0', new ValueRule('color', 'red'));
+		engine.expression = new CompositeRule('and', [new ValueRule('a', 1), new ValueRule('b', 2)]);
+
+		expect(exportConfig(engine).rules.map((entry) => entry.id)).toEqual(['__inline_0', '__inline_1', '__inline_2']);
+	});
+
 	it('produces no groups key when the groups array is empty', () => {
 		const engine = new SourceEngine();
 

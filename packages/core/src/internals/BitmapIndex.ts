@@ -25,13 +25,13 @@
  * @packageDocumentation
  */
 
-import type { FilterRule } from '../rules/FilterRule.js';
 import type { InternalStore } from '../store/InternalStore.js';
 import type { FieldExtractor, RuleId, SimulationModification } from '../types.js';
 
 import { isConjunctive } from '../composition/composeFlatExpression.js';
 import { FilterEngineRuleError } from '../errors/index.js';
 import { CompositeRule } from '../rules/CompositeRule.js';
+import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
 import { GeoProximityRule } from '../rules/GeoProximityRule.js';
 import { TextSearchRule } from '../rules/TextSearchRule.js';
@@ -454,6 +454,7 @@ export class BitmapIndex<T> {
 		const items = this._store.sourceData.value;
 		const bitmap = new RoaringBitmap32();
 
+		prepareRuleForCollection(rule, items);
 		if (rule instanceof CompositeRule) {
 			// Composite — defer to predicate evaluation per item. Rare in flat-map mode; the
 			// normal arrival path for composites is `engine.setExpression(...)` which short-

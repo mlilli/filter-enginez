@@ -123,6 +123,20 @@ export interface FilterBundleFieldQuery {
  * requirement, so every current result contains it and its projected count equals the current
  * result count. A user can always uncheck.
  *
+ * The rule decides as well as the kind: an `'inSet'` or `'inSetOfSets'` group whose rule is
+ * configured with `arrayMatch: 'all'` (an `InSetRule`, `InSetofSetsRule` or `HierarchicalRule`
+ * that requires every selected value of an array field) narrows as candidates are added, so it is
+ * projected conjunctively too, with its rule kept active.
+ *
+ * ### Array-valued fields
+ *
+ * Every kind reads an array field as the set of values it holds, and an item counts **once toward
+ * each candidate** some element attributes to, however many of its elements do: a listing
+ * `features: ['pool', 'garage']` adds one to `pool` and one to `garage`, and a wine whose
+ * `regions` hold two Italian region ids adds one to Italy. A projected count is a number of items,
+ * so repeated values within one array never count twice. The disjunctive kinds also read a single
+ * string; `'containsAll'` reads arrays only.
+ *
  * **Computed in the same single pass as field metadata.** The engine evaluates each chip's
  * hypothetical rule against the relevant subset of items in the same workingSet iteration
  * that produces results + field bounds + histograms. No additional Comlink round-trips, no
@@ -140,9 +154,9 @@ export type FilterBundleChipGroupQuery =
 		 * Top-level ARRAY field the constructed rule tests. Items pass when `item[field]` is an
 		 * array containing the candidate — alongside everything the rule already requires.
 		 *
-		 * Unlike the disjunctive kinds, which read a single string, this reads a `string[]` and
-		 * attributes the item to EVERY value it contains. Non-array values are skipped, matching
-		 * how the disjunctive kinds skip non-strings.
+		 * This reads a `string[]` and attributes the item once to EVERY value it contains.
+		 * Non-array values are skipped, as the disjunctive kinds skip values that are neither a
+		 * string nor an array.
 		 */
 		readonly field: string;
 		/**
@@ -163,7 +177,7 @@ export type FilterBundleChipGroupQuery =
 		readonly ruleId: RuleId;
 		/**
 		 * Top-level field the constructed rule should test against. Items pass when
-		 * `item[field] === candidate`.
+		 * `item[field] === candidate`, or, for an array field, when the array contains it.
 		 */
 		readonly field: string;
 		/**
@@ -179,7 +193,8 @@ export type FilterBundleChipGroupQuery =
 		readonly ruleId: RuleId;
 		/**
 		 * Top-level field the constructed rule should test against. Items pass when
-		 * `item[field]` is in the candidate's `leafIds` set.
+		 * `item[field]` is in the candidate's `leafIds` set, or, for an array field, when any of
+		 * its elements is.
 		 */
 		readonly field: string;
 		/**

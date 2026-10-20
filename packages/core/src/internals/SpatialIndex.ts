@@ -10,19 +10,24 @@
  *
  * **Two-phase query.**
  *
- *   1. **Bounding-box prune** — convert `(center, radiusKm)` into a square lat/lng bbox,
- *      query the R-tree, get a superset of candidates whose AABB intersects the bbox.
+ *   1. **Bounding-box prune** — convert `(center, radiusKm)` into the lat/lng bbox of the
+ *      spherical cap, query the R-tree, get a superset of candidates whose AABB intersects it.
+ *      A cap that crosses ±180° is searched as two boxes, one on each side.
  *   2. **Exact haversine refinement** — for each candidate, compute the true great-circle
- *      distance and filter by `radiusKm`. The square bbox over-includes by a factor of `4/π`
- *      (the corners), so the refinement step typically discards ~21% of candidates.
+ *      distance and filter by `radiusKm`. A box over-includes a small cap by about `4/π` (its
+ *      corners), so the refinement step typically discards ~21% of candidates.
  *
- * **Bbox geometry.** A radius of `r` km from latitude `centerLat` covers
- *   - `r / 111` degrees of latitude (1° lat ≈ 111 km everywhere on Earth), and
- *   - `r / (111 * cos(centerLat))` degrees of longitude (1° lng narrows toward the poles).
+ * **Bbox geometry.** A radius of `r` km is an angular radius `d = r / R` on the sphere (`R` is
+ * {@link EARTH_RADIUS_KM}). From latitude `φ` the cap covers
+ *   - `d` of latitude either side (1° lat ≈ 111 km everywhere on Earth), and
+ *   - `asin(sin d / cos φ)` of longitude either side, the cap's widest point (which lies poleward
+ *     of `φ`, so `d / cos φ` would cut its flanks off).
  *
- * The `cos(centerLat)` factor is clamped to a small floor (0.01) so polar-region queries
- * don't divide by zero. Date-line-spanning queries are NOT supported — the bbox assumes
- * contiguous longitude, so items on the far side of ±180° are pruned before the exact check.
+ * When the cap reaches a pole (`φ + d ≥ 90°` or `φ − d ≤ −90°`) it covers every longitude, and the
+ * box spans them all. Both extents carry a small margin so floating-point rounding can never prune
+ * an item the exact check would keep: the bitmap answer equals the per-item `GeoProximityRule`
+ * scan for every center and radius. Coordinates follow the `GeoCoords` convention, `lng` in
+ * [-180, 180].
  *
  * **Lazy build + version invalidation.** The R-tree is built on first `queryRadius()` call
  * and rebuilt automatically when the store's `sourceDataVersion` advances. Items whose
@@ -67,12 +72,51 @@ interface SpatialIndexEntry {
 const DEGREES_PER_KM_LAT = 1 / (EARTH_RADIUS_KM * Math.PI / 180);
 
 /**
- * Minimum value used for `cos(lat)` when computing the longitudinal degree spread. Prevents
- * divide-by-zero at the poles. At `cos(lat) = 0.01` the bbox spans ~100°, large enough that
- * any meaningful query degenerates to a near-global scan — acceptable since polar regions
- * are a rare query target.
+ * Degrees added to each bbox extent so rounding in the bbox math can never prune an item the exact
+ * haversine check keeps. About 0.1 m — far below anything the refinement step would notice.
  */
-const COS_LAT_FLOOR = 0.01;
+const BBOX_MARGIN_DEGREES = 1e-6;
+
+/** One axis-aligned search box, in the R-tree's `minX`/`maxX` (lng), `minY`/`maxY` (lat) terms. */
+interface SearchBox {
+	readonly maxX: number;
+	readonly maxY: number;
+	readonly minX: number;
+	readonly minY: number;
+}
+
+/**
+ * The boxes covering the spherical cap of `radiusKm` around `center`: one box, or two when the cap
+ * crosses ±180°, or one full longitude band when it reaches a pole.
+ *
+ * @param center - The cap's center
+ * @param radiusKm - Its radius, positive
+ * @returns Boxes whose union holds every point within `radiusKm` of `center`
+ */
+function capSearchBoxes(center: GeoCoords, radiusKm: number): readonly SearchBox[] {
+	const angularRadius = radiusKm / EARTH_RADIUS_KM;
+	const deltaLat = radiusKm * DEGREES_PER_KM_LAT + BBOX_MARGIN_DEGREES;
+	const minY = center.lat - deltaLat;
+	const maxY = center.lat + deltaLat;
+
+	// The cap holds a pole: every longitude. Otherwise `d < 90° − |φ|`, so `sinRatio < 1`.
+	if (maxY >= 90 || minY <= -90) {
+		return [{ maxX: Number.POSITIVE_INFINITY, maxY, minX: Number.NEGATIVE_INFINITY, minY }];
+	}
+	const sinRatio = Math.sin(angularRadius) / Math.cos(toRadians(center.lat));
+	const deltaLng = Math.asin(sinRatio) * 180 / Math.PI + BBOX_MARGIN_DEGREES;
+	const minX = center.lng - deltaLng;
+	const maxX = center.lng + deltaLng;
+
+	if (minX < -180) {
+		return [{ maxX, maxY, minX: -180, minY }, { maxX: 180, maxY, minX: minX + 360, minY }];
+	}
+	if (maxX > 180) {
+		return [{ maxX: 180, maxY, minX, minY }, { maxX: maxX - 360, maxY, minX: -180, minY }];
+	}
+
+	return [{ maxX, maxY, minX, minY }];
+}
 
 /**
  * R-tree spatial index for radius queries.
@@ -113,29 +157,15 @@ export class SpatialIndex<T> {
 			return [];
 		}
 
-		// Compute the lat/lng bbox.
-		const deltaLat = radiusKm * DEGREES_PER_KM_LAT;
-		const cosLat = Math.max(Math.cos(toRadians(center.lat)), COS_LAT_FLOOR);
-		const deltaLng = radiusKm * DEGREES_PER_KM_LAT / cosLat;
-
-		const bbox = {
-			maxX: center.lng + deltaLng,
-			maxY: center.lat + deltaLat,
-			minX: center.lng - deltaLng,
-			minY: center.lat - deltaLat,
-		};
-
-		// Bounding-box prune via the R-tree.
-		const candidates = this._tree.search(bbox);
-
-		// Exact haversine refinement.
+		// Bounding-box prune via the R-tree, then exact haversine refinement. The two boxes of a cap
+		// that crosses ±180° are disjoint, so no index is reported twice.
 		const result: number[] = [];
 
-		for (const entry of candidates) {
-			const distance = haversineKm({ lat: entry.lat, lng: entry.lng }, center);
-
-			if (distance <= radiusKm) {
-				result.push(entry.idx);
+		for (const box of capSearchBoxes(center, radiusKm)) {
+			for (const entry of this._tree.search(box)) {
+				if (haversineKm({ lat: entry.lat, lng: entry.lng }, center) <= radiusKm) {
+					result.push(entry.idx);
+				}
 			}
 		}
 

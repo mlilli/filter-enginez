@@ -10,6 +10,12 @@
  * the engine; only then does `loadConfig` apply it through the engine's public methods (clear
  * existing state unless `clearExisting: false` → add rules → add groups → set expression).
  *
+ * **Inline rules stay inline.** An expression leaf that was never registered on the exporting
+ * engine travels as a `rules` entry marked `inline: true` (or, unmarked, under a reserved
+ * `__inline_<n>` id the expression references). It is revived so the expression can reference it,
+ * and never registered, so the loaded engine holds exactly the registered rules the exporting one
+ * did, and clearing the expression leaves nothing behind that still filters.
+ *
  * **Migration handling.** If `rawConfig.version !== CURRENT_CONFIG_VERSION`, the function
  * runs the config through `defaultMigrator.migrate()` first. Consumers needing custom migration
  * steps should register them on `defaultMigrator` before calling `loadConfig`, or pass a custom
@@ -74,7 +80,33 @@ export interface LoadConfigEngineTarget {
 export interface ResolvedConfig {
 	readonly expression: CompositeRule | null;
 	readonly groups: readonly FilterGroup[];
+	/**
+	 * The rules to register, by id. An expression's inline rules are not among them; they live
+	 * only inside `expression`.
+	 */
 	readonly rules: ReadonlyMap<string, FilterRule>;
+}
+
+/** The reserved id form `exportConfig` mints for an expression's inline rules. */
+const INLINE_RULE_ID = /^__inline_\d+$/u;
+
+/**
+ * Collect every rule id an expression node references.
+ *
+ * @param node - The serialized expression, or `undefined` for none
+ * @param into - The set to add the ids to
+ * @returns `into`
+ */
+function referencedRuleIds(node: SerializedExpressionNode | undefined, into: Set<string>): Set<string> {
+	if (node?.type === 'rule') {
+		into.add(node.ruleId);
+	} else if (node !== undefined) {
+		for (const child of node.children) {
+			referencedRuleIds(child, into);
+		}
+	}
+
+	return into;
 }
 
 /**
@@ -124,11 +156,20 @@ export function resolveConfig(
 		? (rawConfig as FilterEngineConfig)
 		: migrator.migrate(rawConfig as Record<string, unknown>);
 
-	// Rebuild rules first — expression nodes reference these by id.
+	// Rebuild rules first — expression nodes reference these by id. Inline entries are revived for
+	// the expression but kept out of the rules to register.
 	const rulesById = new Map<string, FilterRule>();
+	const registeredRules = new Map<string, FilterRule>();
+	const expressionRuleIds = referencedRuleIds(migrated.expression, new Set());
 
 	for (const entry of migrated.rules) {
-		rulesById.set(entry.id, registry.deserialize(entry.rule));
+		const rule = registry.deserialize(entry.rule);
+		const isInline = entry.inline === true || (INLINE_RULE_ID.test(entry.id) && expressionRuleIds.has(entry.id));
+
+		rulesById.set(entry.id, rule);
+		if (!isInline) {
+			registeredRules.set(entry.id, rule);
+		}
 	}
 
 	const groups: FilterGroup[] = (migrated.groups ?? []).map((sg) => ({
@@ -148,7 +189,7 @@ export function resolveConfig(
 		expression = built instanceof CompositeRule ? built : new CompositeRule('and', [built]);
 	}
 
-	return { expression, groups, rules: rulesById };
+	return { expression, groups, rules: registeredRules };
 }
 
 /**

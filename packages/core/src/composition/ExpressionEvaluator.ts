@@ -20,9 +20,8 @@
  * @packageDocumentation
  */
 
-import type { FilterRule } from '../rules/FilterRule.js';
-
 import { CompositeRule } from '../rules/CompositeRule.js';
+import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 
 // #region docs:evaluate-expression
 /**
@@ -63,5 +62,7 @@ export function evaluateExpression(rule: FilterRule, item: unknown): boolean {
  * @returns A new array of items that pass the rule
  */
 export function applyExpression<T>(rule: FilterRule, items: readonly T[]): readonly T[] {
+	prepareRuleForCollection(rule, items);
+
 	return items.filter((item) => evaluateExpression(rule, item));
 }
