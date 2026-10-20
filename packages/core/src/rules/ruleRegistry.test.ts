@@ -8,7 +8,8 @@
  *   1. per-class `static deserialize` hook (`RegexRule`, `DateRangeRule`, `RangeRule`), called
  *      with the registered class as `this`
  *   2. generic two-arg construction (`TextSearchRule`, `ValueRule`)
- *   3. single-arg fallback when the two-arg call throws (`InSetRule`)
+ *   3. single-arg fallback when the two-arg call throws (a consumer rule that spreads its array
+ *      argument; the built-ins with such constructors have hooks)
  * plus the `<function>` → `undefined` field normalization and the unknown-type throw.
  *
  * Each test builds its own fresh `RuleRegistry` so the module-level singleton is never mutated;
@@ -17,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { SerializedRule } from '../types.js';
+import type { FieldExtractor, FilterRuleAction, SerializedRule } from '../types.js';
 
 import { FilterEngineError, FilterEngineRuleError } from '../errors/index.js';
 import { CompositeRule } from './CompositeRule.js';
@@ -30,15 +31,33 @@ import { type RuleClass, ruleRegistry, RuleRegistry, RuleRegistryError } from '.
 import { TextSearchRule } from './TextSearchRule.js';
 import { ValueRule } from './ValueRule.js';
 
-/** A trivial registrable subclass that does NOT collide with the built-in names. */
+/**
+ * A registrable consumer rule that does NOT collide with the built-in names. It has no
+ * `static deserialize` hook, and its constructor takes an ARRAY as its second
+ * argument and spreads it, so the serialized `{ values: [...] }` object makes the two-argument
+ * construction throw ("not iterable").
+ *
+ * @remarks
+ * This is the shape the registry's single-argument fallback exists for. Every built-in rule with such
+ * a constructor (`InSetRule`, `InSetofSetsRule`, …) now has its own hook, so a consumer rule like this
+ * one is what reaches the fallback.
+ */
 class CustomRule extends FilterRule {
 	static override readonly ruleTypeName = 'CustomRule';
 
-	config: { readonly tag: string };
+	config: { readonly values: readonly string[] };
 
-	constructor(field: undefined, config: { readonly tag: string }) {
+	/** Passes when the field value is one of `config.values`. */
+	override action: FilterRuleAction = (item, rule): boolean =>
+		(rule as CustomRule).config.values.includes(this.getFieldValue(item) as string);
+
+	/**
+	 * @param field - How to pull the value from each item
+	 * @param values - The accepted values, spread into the config
+	 */
+	constructor(field?: FieldExtractor, values: readonly string[] = []) {
 		super(field);
-		this.config = config;
+		this.config = { values: [...values]};
 	}
 }
 
@@ -291,10 +310,23 @@ describe('RuleRegistry', () => {
 			expect(restored.action({ category: 'wine' }, restored)).toBe(true);
 		});
 
-		it('uses the single-arg fallback when the two-arg constructor throws (InSetRule)', () => {
+		it('uses the single-arg fallback when the two-arg constructor throws (a consumer rule)', () => {
 			const registry = new RuleRegistry();
-			// InSetRule's constructor spreads its second arg as an iterable; passing the
-			// serialized `{ set: [...] }` object throws, exercising the catch branch.
+
+			registry.register('CustomRule', CustomRule);
+			// The constructor spreads its second argument; the serialized `{ values: [...] }` object is
+			// not iterable, so the two-argument call throws and the catch branch rebuilds the rule.
+			const original = new CustomRule('varietal', ['pinot', 'merlot']);
+			const restored = registry.deserialize(original.serialize());
+
+			expect(restored).toBeInstanceOf(CustomRule);
+			expect(restored.config).toEqual({ values: ['pinot', 'merlot']});
+			expect(restored.action({ varietal: 'merlot' }, restored)).toBe(true);
+			expect(restored.action({ varietal: 'syrah' }, restored)).toBe(false);
+		});
+
+		it('revives an InSetRule through its own hook', () => {
+			const registry = new RuleRegistry();
 			const original = new InSetRule<string>('varietal', ['pinot', 'merlot']);
 			const restored = registry.deserialize(original.serialize());
 
