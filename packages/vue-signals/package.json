@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/vue-signals",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Vue 3 composables for faceted search and filtering: reactive results, counts and filter state from the Filter EngineZ engine.",
   "keywords": [
     "filter-enginez",

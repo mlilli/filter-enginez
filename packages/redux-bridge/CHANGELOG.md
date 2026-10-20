@@ -1,5 +1,15 @@
 # @filter-enginez/redux-bridge
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+- Updated dependencies [d4ea599]
+  - @filter-enginez/core@0.1.0
+
 ## 0.0.3
 
 ### Patch Changes
