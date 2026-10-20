@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/worker-bridge",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Run the Filter EngineZ filtering engine in a Web Worker, off the main thread, via Comlink. Engages automatically above 50k items by default.",
   "keywords": [
     "filter-enginez",

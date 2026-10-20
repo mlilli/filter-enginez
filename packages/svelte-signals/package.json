@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/svelte-signals",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Svelte stores for faceted search and filtering: reactive results, counts and filter state from the Filter EngineZ engine.",
   "keywords": [
     "filter-enginez",

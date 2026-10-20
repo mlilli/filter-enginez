@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/eslint",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "ESLint rules and flat-config presets for Filter EngineZ projects: keep isomorphic code free of browser APIs and the Redux mirror read-only.",
   "keywords": [
     "filter-enginez",

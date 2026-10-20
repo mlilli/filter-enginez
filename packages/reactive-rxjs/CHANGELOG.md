@@ -1,5 +1,22 @@
 # @filter-enginez/reactive-rxjs
 
+## 0.0.3
+
+### Patch Changes
+
+- c582292: Every package declares `"sideEffects": false`, so bundlers drop the parts of a package an app does not
+  import. An app that imports only `FilterEngineConfigError` from `@filter-enginez/core` bundles under 1 kB of it: the
+  roaring-wasm WebAssembly, fuse.js and rbush come in only with the engine code that uses them. A bundler setting that
+  marks these packages side-effect-free by hand, such as a `treeshake.moduleSideEffects` rule, has nothing left to do
+  and can go.
+
+  <!-- markdownlint-disable-file MD041 -->
+
+- Updated dependencies [c582292]
+- Updated dependencies [c582292]
+  - @filter-enginez/core@0.0.3
+  - @filter-enginez/worker-bridge@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes

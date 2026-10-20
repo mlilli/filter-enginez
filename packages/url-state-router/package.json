@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/url-state-router",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Keep faceted-search filter state in the URL with React Router: shareable, bookmarkable filter links for the Filter EngineZ engine.",
   "keywords": [
     "filter-enginez",
