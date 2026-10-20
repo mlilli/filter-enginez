@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/mock-data",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Mock datasets for testing filter and faceted-search UIs: about 10k synthetic real-estate, wine and book records each, with MSW request handlers.",
   "keywords": [
     "filter-enginez",

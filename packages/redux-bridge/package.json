@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/redux-bridge",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Mirror Filter EngineZ filter state into a Redux store: a read-only slice plus middleware, with the engine as the single source of truth. Works with Redux Toolkit.",
   "keywords": [
     "filter-enginez",

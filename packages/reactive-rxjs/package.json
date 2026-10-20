@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/reactive-rxjs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "RxJS Observables for faceted search: results, counts and filter state from the Filter EngineZ engine as streams. Works in the browser, Node and Web Workers.",
   "keywords": [
     "filter-enginez",

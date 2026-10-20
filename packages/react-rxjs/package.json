@@ -1,6 +1,6 @@
 {
   "name": "@filter-enginez/react-rxjs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "React hooks for faceted search and filtering over RxJS: results, counts and filter state from the Filter EngineZ engine as hooks.",
   "keywords": [
     "filter-enginez",
