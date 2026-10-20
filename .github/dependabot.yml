@@ -22,26 +22,34 @@
 #
 # ── ⚠ COOLDOWN MUST NOT UNDERCUT pnpm's minimumReleaseAge ────────────────────
 #
-# `pnpm-workspace.yaml` relies on pnpm's `minimumReleaseAge` (default 1440
-# minutes = 24h): a version younger than that cannot be installed, on the theory
-# that malicious releases are usually yanked within the hour.
+# `pnpm-workspace.yaml` sets pnpm's `minimumReleaseAge` to 10080 minutes (7
+# days): a version younger than that cannot be installed, and because the value
+# is set explicitly, pnpm fails the install rather than exempting the version.
 #
-# Dependabot has its own, separate delay — `cooldown` — defaulting to 3 days
-# since 2026-07. The two do not know about each other, and the interaction has a
-# sharp edge: if Dependabot proposes a release that pnpm's quarantine still
-# refuses, the `pnpm install` inside Dependabot's lockfile step FAILS, and the PR
-# never opens. Same silence as above, different cause.
+# Dependabot has its own, separate delay — `cooldown`, 3 days when unset — which
+# keeps a new release out of version updates until it is that many days old. The
+# two do not know about each other, and the interaction has a sharp edge: if
+# Dependabot proposes a release that pnpm's quarantine still refuses, the
+# `pnpm install` inside Dependabot's lockfile step FAILS, and the PR never opens.
+# Same silence as above, different cause.
 #
-# So `cooldown.default-days: 3` is set EXPLICITLY rather than inherited. It is
-# already comfortably above the 24h quarantine; writing it down is what makes the
-# ordering visible, so that raising `minimumReleaseAge` past 3 days becomes an
-# obvious edit here rather than a mystery about missing PRs.
+# So every ecosystem sets `cooldown.default-days: 7` EXPLICITLY, the same 7 days
+# as the quarantine. Dependabot proposes a release only after its cooldown has
+# passed, and pnpm runs after that, so a cooldown at least as long as the
+# quarantine never proposes a version pnpm refuses.
+# `tests/tooling/releaseAgeCooldown.test.ts` fails if any cooldown here drops
+# below `minimumReleaseAge`, so raising the quarantine means raising these in the
+# same change.
 #
-# ⚠ SECURITY updates bypass cooldown on Dependabot's side but NOT pnpm's. A
-# young security release can therefore still be refused by the quarantine. The
-# escape hatch is `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`: add the
-# exact version, pinned to the one version rather than the package, and delete it
-# once the lockfile moves past it.
+# ⚠ SECURITY updates are not subject to `cooldown`. GitHub's options reference:
+# "The `cooldown` option is only available for version updates, not security
+# updates", and the 3-day default "does not apply to security updates"
+# (https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#cooldown-).
+# pnpm's quarantine still applies to them, so a security fix younger than 7 days
+# fails the lockfile step like any other young version. The way through is
+# `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`, pinned to the exact
+# patched version and deleted once the lockfile has moved past it or the version
+# is older than 7 days. SECURITY.md → "Dependency release age" has the procedure.
 #
 # ── ⚠ AND A MAJOR BUMP WILL FIGHT THE OVERRIDE CAPS, BY DESIGN ───────────────
 #
@@ -74,8 +82,8 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     cooldown:
-      # See the header: must stay >= pnpm's `minimumReleaseAge` (24h).
-      default-days: 3
+      # See the header: must stay >= pnpm's `minimumReleaseAge` (7 days).
+      default-days: 7
     commit-message:
       # Matches the repo's Conventional Commits history (`chore(deps): …`).
       prefix: chore
@@ -133,7 +141,9 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     cooldown:
-      default-days: 3
+      # The same 7 days as the npm half. No pnpm install runs for an action
+      # update, so this one is the quarantine itself rather than an ordering.
+      default-days: 7
     commit-message:
       prefix: ci
       include: scope

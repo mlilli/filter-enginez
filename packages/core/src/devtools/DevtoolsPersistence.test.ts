@@ -3,9 +3,10 @@
  * Tests for `DevtoolsPersistence` — cross-reload action-log persistence over a `StorageAdapter`.
  * Covers `load` (empty/null storage → [], non-object → [], non-array `entries` → [], valid
  * encoded entries revived, undecodable entries skipped), the JSON round-trip of real rules and
- * expressions, `scheduleSave` debounce (collapsing rapid calls; fake timers), `flushNow` (clears
- * a pending timer, truncates to `maxPersistedEntries`, skips entries it cannot store, calls
- * `adapter.save`), config defaults vs overrides, and `clear` (delegates to `adapter.remove`).
+ * expressions (an open `RangeRule` bound included), `scheduleSave` debounce (collapsing rapid
+ * calls; fake timers), `flushNow` (clears a pending timer, truncates to `maxPersistedEntries`,
+ * skips entries it cannot store, calls `adapter.save`), config defaults vs overrides, and `clear`
+ * (delegates to `adapter.remove`).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ import type { ActionLogEntry } from './ActionLog.js';
 
 import { and } from '../composition/factories.js';
 import { PredicateRule } from '../rules/PredicateRule.js';
+import { RangeRule } from '../rules/RangeRule.js';
 import { ValueRule } from '../rules/ValueRule.js';
 import { DevtoolsPersistence } from './DevtoolsPersistence.js';
 import { serializeEntry } from './snapshotCodec.js';
@@ -117,6 +119,25 @@ describe('DevtoolsPersistence', () => {
 			const loaded = await new DevtoolsPersistence({ adapter, key: 'k' }).load();
 
 			expect(loaded.map((e) => e.timestamp)).toEqual([4]);
+		});
+
+		it('keeps an open range bound through JSON, which writes it as null', async () => {
+			const adapter = new RecordingAdapter();
+			const persistence = new DevtoolsPersistence({ adapter, key: 'k' });
+			const price = new RangeRule('price', { max: Number.POSITIVE_INFINITY, min: 60 });
+			const withRange: ActionLogEntry = {
+				...entry(7),
+				action: { payload: { rule: price, ruleId: 'price' }, type: 'RULE_ADDED' },
+				nextStateSnapshot: { ...entry(7).nextStateSnapshot, rules: new Map([['price', price]]) },
+			};
+
+			await persistence.flushNow([withRange]);
+			adapter.store = JSON.parse(JSON.stringify(adapter.store));
+			const [loaded] = await persistence.load();
+			const revived = loaded?.nextStateSnapshot.rules.get('price');
+
+			expect(revived?.config).toEqual({ max: Number.POSITIVE_INFINITY, min: 60 });
+			expect(revived?.action({ price: 1e9 }, revived)).toBe(true);
 		});
 
 		it('round-trips real rules and expressions through JSON', async () => {

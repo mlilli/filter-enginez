@@ -251,9 +251,10 @@ describe.each(ENGINE_PACKAGES)('publish surface — %s', (name) => {
 	});
 
 	it('carries the registry metadata a package page shows', () => {
-		// `repository` / `bugs` are asserted above. `sideEffects` and `engines` are absent on purpose —
-		// both are compatibility CLAIMS, and asserting one without measuring it is exactly the failure
-		// these guards exist to stop. Left open rather than guessed.
+		// `repository` / `bugs` are asserted above. `sideEffects` is a claim about every module of the
+		// package, so `sideEffectFreePackages.test.ts` asserts it together with the code it describes.
+		// `engines` is absent on purpose: it is a compatibility CLAIM, and asserting one without measuring
+		// it is exactly the failure these guards exist to stop. Left open rather than guessed.
 		expect(manifest.author).toBe('Michael Lilli');
 		expect(manifest.homepage).toBe('https://filterenginez.com');
 		expect(manifest.keywords?.length ?? 0).toBeGreaterThan(2);

@@ -6,12 +6,19 @@
  * boundary / outside radius outcomes, the public `extractCoords` (which `action` and the engine's
  * `SpatialIndex` share), plus the exported `haversineKm` helper directly: a known distance, the
  * zero-distance identity, and symmetry. The boundary case uses a point placed at exactly the
- * configured radius via `haversineKm` so the `<=` comparison's equality edge is hit.
+ * configured radius via `haversineKm` so the `<=` comparison's equality edge is hit. The
+ * `static deserialize` hook: a `null` radius (what JSON writes for `Infinity`) revives as unlimited,
+ * extra keys carry over in the config and the center, a registered subclass revives as itself, and a
+ * center that is not an object, a non-finite coordinate, or a radius that is not a number throws.
  */
 
 import { describe, expect, it } from 'vitest';
 
+import type { SerializedRule } from '../types.js';
+
+import { FilterEngineRuleError } from '../errors/index.js';
 import { GeoProximityRule, haversineKm } from './GeoProximityRule.js';
+import { RuleRegistry } from './ruleRegistry.js';
 
 const ferryBuilding = { lat: 37.7955, lng: -122.3937 };
 
@@ -110,6 +117,50 @@ describe('GeoProximityRule', () => {
 			config: { center: ferryBuilding, radiusKm: 5 },
 			field: 'location',
 			type: 'GeoProximityRule',
+		});
+	});
+
+	describe('deserialize', () => {
+		it('revives a null radius — what JSON writes for Infinity — as unlimited', () => {
+			const original = new GeoProximityRule('location', { center: ferryBuilding, radiusKm: Number.POSITIVE_INFINITY });
+			const rule = GeoProximityRule.deserialize(JSON.parse(JSON.stringify(original.serialize())) as SerializedRule);
+
+			expect(rule.config).toEqual({ center: ferryBuilding, radiusKm: Number.POSITIVE_INFINITY });
+			expect(rule.action({ location: { lat: -33.8688, lng: 151.2093 }}, rule)).toBe(true);
+		});
+
+		it('carries extra keys over, in the config and in the center', () => {
+			const rule = GeoProximityRule.deserialize({
+				config: { center: { ...ferryBuilding, label: 'Ferry Building' }, radiusKm: 5, unit: 'km' },
+				field: 'location',
+				type: 'GeoProximityRule',
+			});
+
+			expect(rule.config).toEqual({ center: { ...ferryBuilding, label: 'Ferry Building' }, radiusKm: 5, unit: 'km' });
+		});
+
+		it('revives as the class registered under its name, so a replacing subclass revives as itself', () => {
+			/** A subclass registered in place of the built-in. */
+			class AuditedProximity extends GeoProximityRule {
+				readonly isAudited = true;
+			}
+			const registry = new RuleRegistry();
+
+			registry.unregister('GeoProximityRule');
+			registry.register('GeoProximityRule', AuditedProximity);
+
+			expect(registry.deserialize({ config: { center: ferryBuilding, radiusKm: 1 }, field: 'location', type: 'GeoProximityRule' }))
+				.toBeInstanceOf(AuditedProximity);
+		});
+
+		it.each([
+			[{ radiusKm: 5 }, 'GeoProximityRule config.center must be an object; got undefined.'],
+			[{ center: { lat: null, lng: 0 }, radiusKm: 5 }, 'GeoProximityRule config.center.lat must be a finite number; got null.'],
+			[{ center: { lat: 0, lng: Number.NaN }, radiusKm: 5 }, 'GeoProximityRule config.center.lng must be a finite number; got NaN.'],
+			[{ center: ferryBuilding, radiusKm: '5' }, 'GeoProximityRule config.radiusKm must be a number, or null for an open bound; got "5".'],
+		])('rejects the config %o', (config, message) => {
+			expect(() => GeoProximityRule.deserialize({ config, field: 'location', type: 'GeoProximityRule' })).toThrowError(FilterEngineRuleError);
+			expect(() => GeoProximityRule.deserialize({ config, field: 'location', type: 'GeoProximityRule' })).toThrowError(message);
 		});
 	});
 });

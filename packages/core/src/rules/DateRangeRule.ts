@@ -16,6 +16,7 @@
 import type { FieldExtractor, FilterRuleAction, SerializedRule } from '../types.js';
 
 import { FilterRule } from './FilterRule.js';
+import { invalidConfig } from './serializedConfig.js';
 
 // #region docs:date-range-config
 /**
@@ -114,24 +115,54 @@ export class DateRangeRule extends FilterRule {
 	 * helper would still work (it accepts ISO strings), but the type contract documented
 	 * elsewhere assumes Dates, so we reconstruct them here for round-trip honesty.
 	 *
+	 * A `start` or `end` that is absent or `null` is an open bound and revives as absent; `new
+	 * Date(null)` would otherwise read it as 1970-01-01.
+	 *
 	 * @param json - The serialized rule (must be a `DateRangeRule` shape)
 	 * @returns A reconstituted `DateRangeRule` instance with `Date` instances restored
+	 * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `start` or `end`
+	 *   is present but is not a string or number that parses as a date
 	 */
 	static deserialize(json: SerializedRule): DateRangeRule {
 		const serializedConfig = json.config as {
-			end?: string;
+			end?: unknown;
 			preset?: DateRangePreset;
-			start?: string;
+			start?: unknown;
 		};
+		const start = reviveDateBound(serializedConfig.start, 'start');
+		const end = reviveDateBound(serializedConfig.end, 'end');
 		const config: DateRangeRuleConfig = {
-			...(serializedConfig.start !== undefined ? { start: new Date(serializedConfig.start) } : {}),
-			...(serializedConfig.end !== undefined ? { end: new Date(serializedConfig.end) } : {}),
+			...(start !== undefined ? { start } : {}),
+			...(end !== undefined ? { end } : {}),
 			...(serializedConfig.preset !== undefined ? { preset: serializedConfig.preset } : {}),
 		};
 		const field = json.field === '<function>' ? undefined : (json.field);
 
 		return new DateRangeRule(field, config);
 	}
+}
+
+/**
+ * Revive one serialized `DateRangeRule` bound: absent or `null` is open (`undefined`); an ISO string
+ * or a Unix-ms number becomes a `Date`.
+ *
+ * @param value - The serialized `start` or `end`
+ * @param key - Which bound it is, for the error message
+ * @returns The bound as a `Date`, or `undefined` for an open bound
+ * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `value` is neither
+ *   a string nor a number, or does not parse as a date
+ */
+function reviveDateBound(value: unknown, key: 'end' | 'start'): Date | undefined {
+	if (value === undefined || value === null) {
+		return undefined;
+	}
+	const date = typeof value === 'string' || typeof value === 'number' ? new Date(value) : null;
+
+	if (date === null || Number.isNaN(date.getTime())) {
+		throw invalidConfig(`DateRangeRule config.${key}`, 'a date string, a Unix-ms number, or null for an open bound', value);
+	}
+
+	return date;
 }
 
 /**

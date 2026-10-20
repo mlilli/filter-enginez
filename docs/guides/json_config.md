@@ -40,6 +40,33 @@ Each `rule` entry is a `SerializedRule`: `{ config, field, type }`.
 
 `CURRENT_CONFIG_VERSION` is `1`.
 
+### Open bounds are `null`
+
+JSON has no `Infinity`, `-Infinity` or `NaN`; `JSON.stringify` writes each of them as `null`. So "no upper limit" is
+written like this, whether you write it by hand or it comes out of `exportConfig` and a `JSON.stringify`:
+
+```jsonc
+{ "id": "price", "rule": { "config": { "max": null, "min": 60 }, "field": "priceUsd", "type": "RangeRule" } }
+```
+
+Each rule with a numeric bound reads `null` as the open bound for that position:
+
+| Rule                    | Key                     | `null` loads as                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------- |
+| `RangeRule`             | `min` / `max`           | `-Infinity` / `Infinity`                                            |
+| `NumericComparisonRule` | `value`                 | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>`, `>=` |
+| `GeoProximityRule`      | `radiusKm`              | `Infinity` (no radius limit)                                        |
+| `FuzzySearchRule`       | `threshold`, `distance` | `Infinity` (no limit)                                               |
+| `DateRangeRule`         | `start` / `end`         | no bound on that side                                               |
+
+That is what lets an open range survive every JSON path — `exportConfig` → `loadConfig`, a `url-state-router` link, a
+saved view, a request body — with the same matches it had before. Two consequences of `null` standing for "open":
+
+- **A bound on the wrong side does not survive JSON.** `{ min: Infinity }` (a range that is empty whatever its `max`)
+  and a `NaN` bound are both written as `null`, and load as the open bound for their position.
+- **Equality values stay values.** `ValueRule`, `InSetRule` and `InSetofSetsRule` compare their configured values as
+  written, so a `null` there means the value `null`, and an infinite equality value cannot be written to JSON at all.
+
 ---
 
 ## The three functions
@@ -156,16 +183,19 @@ So the trust boundary is the registry, and it is small enough to reason about:
 | A `field` path that is absent | Resolves to `undefined`; the rule decides (built-ins fail the item, except at a neutral config)         |
 | A malformed `config`          | The rule's own `action` sees it — validate per type if you accept it raw                                |
 | A malformed revival payload   | `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` (`RegexRule`, `BloomMembershipRule`) |
+| A bound that is not a number  | `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG`, naming the rule type and the key    |
 | An expression citing a bad id | `FilterEngineConfigError` with code `CONFIG_UNKNOWN_RULE_ID`, naming the `ruleId`                       |
 | A version from the future     | `FilterEngineConfigError` with code `CONFIG_VERSION_UNSUPPORTED`                                        |
 
 That last column is why `resolveConfig` exists: run an untrusted config through it first, catch, reject. Every row that
 throws throws a `FilterEngineError`, so one `instanceof` check separates a bad document from a bug in your own code.
 
-**Malformed `config` payloads are not validated by the engine.** `config` is typed `unknown` on the base class and the
-rule casts it. If configs arrive from outside your own code, validate them against the rule types you allow — a schema
-validator at the edge, or a hand-written allowlist. The engine will not do it for you, and nothing in the format implies
-it has.
+**Beyond the numeric bounds, `config` payloads are not validated by the engine.** `config` is typed `unknown` on the
+base class and the rule casts it. The rules with numeric bounds (`RangeRule`, `NumericComparisonRule`,
+`GeoProximityRule`, `FuzzySearchRule`, `DateRangeRule`) check each bound as they revive it, accepting a number or `null`
+and rejecting anything else, so a string or a missing key never compares as `0`; nothing else is checked. If configs
+arrive from outside your own code, validate them against the rule types you allow — a schema validator at the edge, or a
+hand-written allowlist.
 
 ---
 
@@ -219,3 +249,7 @@ that omitted `composition` comes back with `'or'`, a lone-leaf expression comes 
 document comes back as version 1, and a rule that appeared only inside the expression comes back as a top-level
 `__inline_{n}` rule. Write your configs in the normalized form and the check is exact; this is the two-line test that
 tells you before a shareable link does.
+
+Run the check on the parsed JSON rather than on the object `exportConfig` returned when your rules hold open bounds:
+`JSON.stringify` turns their infinities into `null`, so compare what the engine matches before and after the trip (its
+result indices), which `null` keeps, rather than the documents themselves.

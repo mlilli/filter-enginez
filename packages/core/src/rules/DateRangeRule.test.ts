@@ -8,12 +8,14 @@
  * invalid-date and non-coercible fail paths. The overridden `serialize()` is asserted with start
  * and end both present and both absent (the optional-chaining branches), plus the function-field
  * placeholder. The static `deserialize` is exercised across each spread branch (start/end/preset
- * present vs absent) and the `'<function>'` field branch. Every `resolvePreset` case is checked
- * via the exported helper.
+ * present vs absent), a `null` bound reviving as open, a Unix-ms bound, the rejection of a bound
+ * that is not a date (unparseable string, wrong type), and the `'<function>'` field branch. Every
+ * `resolvePreset` case is checked via the exported helper.
  */
 
 import { describe, expect, it } from 'vitest';
 
+import { FilterEngineRuleError } from '../errors/index.js';
 import { DateRangeRule, resolvePreset } from './DateRangeRule.js';
 
 describe('DateRangeRule', () => {
@@ -167,6 +169,31 @@ describe('DateRangeRule', () => {
 			});
 
 			expect(restored.config).toEqual({});
+		});
+
+		it('revives null bounds as open, never as 1970-01-01', () => {
+			const restored = DateRangeRule.deserialize({
+				config: { end: null, start: null },
+				field: 'at',
+				type: 'DateRangeRule',
+			});
+
+			expect(restored.config).toEqual({});
+			expect(restored.action({ at: '1969-12-31T00:00:00.000Z' }, restored)).toBe(true);
+		});
+
+		it('reconstructs a Unix-ms bound', () => {
+			const restored = DateRangeRule.deserialize({ config: { start: 0 }, field: 'at', type: 'DateRangeRule' });
+
+			expect(restored.config.start?.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+		});
+
+		it.each([
+			[{ start: 'not a date' }, 'DateRangeRule config.start must be a date string, a Unix-ms number, or null for an open bound; got "not a date".'],
+			[{ end: true }, 'DateRangeRule config.end must be a date string, a Unix-ms number, or null for an open bound; got true.'],
+		])('rejects the config %o', (config, message) => {
+			expect(() => DateRangeRule.deserialize({ config, field: 'at', type: 'DateRangeRule' })).toThrowError(FilterEngineRuleError);
+			expect(() => DateRangeRule.deserialize({ config, field: 'at', type: 'DateRangeRule' })).toThrowError(message);
 		});
 
 		it('restores a <function> field placeholder to undefined', () => {

@@ -12,13 +12,17 @@
  * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries on 2026-10-15
  * over the synthetic wine tiers: 298.5× faster than the scan at 10k items and 290.9× at 150k.
  *
+ * An unlimited radius survives JSON: `JSON.stringify` writes `radiusKm: Infinity` as `null`, and
+ * {@link GeoProximityRule.deserialize} reads a `null` radius back as `Infinity`.
+ *
  * @packageDocumentation
  */
 
-import type { FieldExtractor, FilterRuleAction } from '../types.js';
+import type { FieldExtractor, FilterRuleAction, SerializedRule } from '../types.js';
 
 import { type GeoCoords, haversineKm } from '../lib/geo.js';
 import { FilterRule } from './FilterRule.js';
+import { readRecord, reviveBounds, revivedField, reviveFiniteNumber } from './serializedConfig.js';
 
 // Re-export the shared geo primitives from this rule's public surface so importers
 // (`@filter-enginez/core`'s barrel, consumer code) resolve `GeoCoords` / `haversineKm` here;
@@ -31,7 +35,7 @@ export { type GeoCoords, haversineKm };
  */
 export interface GeoProximityRuleConfig {
 	readonly center: GeoCoords;
-	/** Radius in kilometers. */
+	/** Radius in kilometers. `Infinity` for no limit; JSON writes it as `null`. */
 	readonly radiusKm: number;
 }
 
@@ -105,4 +109,40 @@ export class GeoProximityRule extends FilterRule {
 
 		return fieldValue as GeoCoords;
 	}
+
+	/**
+	 * Revive a `GeoProximityRule` from its serialized form. `ruleRegistry.deserialize` calls this hook
+	 * with the registered class as `this`, so a subclass registered in its place revives as
+	 * itself.
+	 *
+	 * @remarks
+	 * A `null` radius is an unlimited one (`Infinity`), which is what `JSON.stringify` writes for
+	 * `Infinity`. The center has no open form, so its `lat` and `lng` must be finite numbers: a `null`
+	 * coordinate would otherwise compute distances from `0`. Any other config keys are carried over
+	 * unchanged.
+	 *
+	 * @param json - The serialized rule
+	 * @returns The revived rule
+	 * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `config` or
+	 *   `config.center` is not an object, a center coordinate is not a finite number, or `radiusKm` is
+	 *   neither a number nor `null`
+	 */
+	static deserialize(this: GeoProximityRuleClass, json: SerializedRule): GeoProximityRule {
+		const config = reviveBounds(json, { radiusKm: Number.POSITIVE_INFINITY });
+		const { center: serializedCenter } = config;
+		const center = readRecord(serializedCenter, `${json.type} config.center`);
+		const { lat, lng } = center;
+
+		return new this(revivedField(json), {
+			...config,
+			center: {
+				...center,
+				lat: reviveFiniteNumber(lat, `${json.type} config.center.lat`),
+				lng: reviveFiniteNumber(lng, `${json.type} config.center.lng`),
+			},
+		});
+	}
 }
+
+/** A constructor with `GeoProximityRule`'s signature: the class itself, or a subclass that keeps it. */
+type GeoProximityRuleClass = new (field: FieldExtractor, config: GeoProximityRuleConfig) => GeoProximityRule;

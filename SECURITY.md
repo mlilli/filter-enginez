@@ -39,6 +39,38 @@ ordinary bugs in that repository, unless they reveal a defect in an engine packa
 Also out of scope: the optional real wine dataset, which is third-party data that this project never distributes (see
 [`NOTICE.md`](./NOTICE.md)).
 
+## Dependency release age
+
+A dependency version is installed here only once it is 7 days old. `minimumReleaseAge: 10080` in
+[`pnpm-workspace.yaml`](./pnpm-workspace.yaml) makes pnpm refuse a younger version, both when it resolves one
+(`pnpm add`, `pnpm update`, a Dependabot update) and when it verifies an existing lockfile (`--frozen-lockfile`
+included). Dependabot's version updates wait the same 7 days (`cooldown.default-days` in
+[`.github/dependabot.yml`](./.github/dependabot.yml)), so they never propose a version pnpm would refuse.
+`tests/tooling/releaseAgeCooldown.test.ts` keeps the cooldown at least as long as the quarantine.
+
+Dependabot security updates are not subject to the cooldown
+([GitHub's `cooldown` reference](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#cooldown-)),
+but pnpm's quarantine still applies to them. So when the fix for an advisory is younger than 7 days, the security update
+fails in its lockfile step and opens no pull request. A manual bump does not reach it either: asking for the exact
+version fails with `ERR_PNPM_NO_MATURE_MATCHING_VERSION`, and a range resolves to the newest version that is old enough,
+which predates the fix. To take the fix without waiting:
+
+1. Exempt the exact patched version in `pnpm-workspace.yaml`, with a comment naming the advisory:
+
+   ```yaml
+   minimumReleaseAgeExclude:
+     # GHSA-xxxx-xxxx-xxxx: fixed in 1.2.3
+     - 'some-package@1.2.3'
+   ```
+
+   List one version, or a union of exact versions (`'some-package@1.2.3 || 1.2.4'`) when the fix needs two. pnpm rejects
+   a range, and a bare package name would exempt every later release of the package too.
+
+2. Install the patched version: `pnpm update some-package` for a direct dependency, or an `overrides` floor in
+   `pnpm-workspace.yaml` for a transitive one. Commit the lockfile together with the exemption.
+3. Delete the entry once the lockfile has moved past that version, or once the version is more than 7 days old, then run
+   `pnpm install --frozen-lockfile`: it passes only if nothing in the lockfile still needs the exemption.
+
 ## Accepted advisories
 
 A small set of advisories are deliberately suppressed from `pnpm audit` via `auditConfig.ignoreGhsas` in

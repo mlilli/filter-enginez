@@ -7,14 +7,20 @@
  * `buildFuseOptions` helper: the default threshold, an explicit threshold, the optional
  * `distance` option (set vs unset), and the optional `keys` option (set vs unset). Fuzzy
  * behavior is asserted at the level the rule guarantees — a close typo matches, a clearly
- * unrelated query does not.
+ * unrelated query does not. The `static deserialize` hook: a `null` `threshold` or `distance` (what
+ * JSON writes for `Infinity`) revives as unlimited, an absent option stays absent, a registered
+ * subclass revives as itself, and an option that is not a number throws.
  */
 
 // cspell:ignore cabxrnet cabernay -- deliberate typo fixtures exercising fuzzy tolerance
 
 import { describe, expect, it } from 'vitest';
 
+import type { SerializedRule } from '../types.js';
+
+import { FilterEngineRuleError } from '../errors/index.js';
 import { FuzzySearchRule } from './FuzzySearchRule.js';
+import { RuleRegistry } from './ruleRegistry.js';
 
 describe('FuzzySearchRule', () => {
 	it('matches a close typo against a single string field', () => {
@@ -80,6 +86,55 @@ describe('FuzzySearchRule', () => {
 			config: { query: 'cabernay', threshold: 0.4 },
 			field: 'title',
 			type: 'FuzzySearchRule',
+		});
+	});
+
+	describe('deserialize', () => {
+		it('revives null threshold and distance — what JSON writes for Infinity — as unlimited', () => {
+			const original = new FuzzySearchRule('title', {
+				distance: Number.POSITIVE_INFINITY,
+				query: 'cabernay',
+				threshold: Number.POSITIVE_INFINITY,
+			});
+			const rule = FuzzySearchRule.deserialize(JSON.parse(JSON.stringify(original.serialize())) as SerializedRule);
+
+			expect(rule.config).toEqual({ distance: Number.POSITIVE_INFINITY, query: 'cabernay', threshold: Number.POSITIVE_INFINITY });
+		});
+
+		it('matches through JSON what the original matches with an unlimited distance', () => {
+			const original = new FuzzySearchRule('title', { distance: Number.POSITIVE_INFINITY, query: 'cabernay' });
+			const rule = FuzzySearchRule.deserialize(JSON.parse(JSON.stringify(original.serialize())) as SerializedRule);
+			const farMatch = { title: 'pinot noir from somewhere far away cabernay' };
+
+			expect(original.action(farMatch, original)).toBe(true);
+			expect(rule.action(farMatch, rule)).toBe(true);
+		});
+
+		it('leaves absent options absent, so the defaults apply', () => {
+			const rule = FuzzySearchRule.deserialize({ config: { query: 'merlot' }, field: 'title', type: 'FuzzySearchRule' });
+
+			expect(rule.config).toEqual({ query: 'merlot' });
+		});
+
+		it('revives as the class registered under its name, so a replacing subclass revives as itself', () => {
+			/** A subclass registered in place of the built-in. */
+			class AuditedSearch extends FuzzySearchRule {
+				readonly isAudited = true;
+			}
+			const registry = new RuleRegistry();
+
+			registry.unregister('FuzzySearchRule');
+			registry.register('FuzzySearchRule', AuditedSearch);
+
+			expect(registry.deserialize({ config: { query: 'a' }, field: 'title', type: 'FuzzySearchRule' })).toBeInstanceOf(AuditedSearch);
+		});
+
+		it.each([
+			[{ distance: '100', query: 'a' }, 'FuzzySearchRule config.distance must be a number, or null for an open bound; got "100".'],
+			[{ query: 'a', threshold: Number.NaN }, 'FuzzySearchRule config.threshold must be a number, or null for an open bound; got NaN.'],
+		])('rejects the config %o', (config, message) => {
+			expect(() => FuzzySearchRule.deserialize({ config, field: 'title', type: 'FuzzySearchRule' })).toThrowError(FilterEngineRuleError);
+			expect(() => FuzzySearchRule.deserialize({ config, field: 'title', type: 'FuzzySearchRule' })).toThrowError(message);
 		});
 	});
 });

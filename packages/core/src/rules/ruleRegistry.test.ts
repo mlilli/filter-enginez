@@ -5,8 +5,9 @@
  * @remarks
  * Covers `register` (happy + duplicate error), `unregister`, `get` (happy + unknown-type error),
  * `has`, the entries iterator, and `deserialize` across all three reconstruction paths:
- *   1. per-class `static deserialize` hook (`RegexRule`, `DateRangeRule`)
- *   2. generic two-arg construction (`RangeRule`, `ValueRule`)
+ *   1. per-class `static deserialize` hook (`RegexRule`, `DateRangeRule`, `RangeRule`), called
+ *      with the registered class as `this`
+ *   2. generic two-arg construction (`TextSearchRule`, `ValueRule`)
  *   3. single-arg fallback when the two-arg call throws (`InSetRule`)
  * plus the `<function>` → `undefined` field normalization and the unknown-type throw.
  *
@@ -26,6 +27,7 @@ import { InSetRule } from './InSetRule.js';
 import { RangeRule } from './RangeRule.js';
 import { RegexRule } from './RegexRule.js';
 import { type RuleClass, ruleRegistry, RuleRegistry, RuleRegistryError } from './ruleRegistry.js';
+import { TextSearchRule } from './TextSearchRule.js';
 import { ValueRule } from './ValueRule.js';
 
 /** A trivial registrable subclass that does NOT collide with the built-in names. */
@@ -257,17 +259,27 @@ describe('RuleRegistry', () => {
 			expect(restored.action({ createdAt: new Date('2025-06-15') }, restored)).toBe(true);
 		});
 
-		it('uses the generic two-arg path for JSON-safe configs (RangeRule)', () => {
+		it('calls a static deserialize hook with the registered class as `this` (RangeRule)', () => {
 			const registry = new RuleRegistry();
 			const original = new RangeRule('price', { max: 20, min: 10 });
 			const restored = registry.deserialize(original.serialize());
 
 			expect(restored).toBeInstanceOf(RangeRule);
 			expect(restored.config).toEqual({ max: 20, min: 10 });
-			// `action` is a class-field arrow function — the generic path must run the
-			// constructor for it to exist.
+			// `action` is a class-field arrow function — the hook must run the constructor for it to
+			// exist.
 			expect(restored.action({ price: 15 }, restored)).toBe(true);
 			expect(restored.action({ price: 99 }, restored)).toBe(false);
+		});
+
+		it('uses the generic two-arg path for JSON-safe configs (TextSearchRule)', () => {
+			const registry = new RuleRegistry();
+			const restored = registry.deserialize(new TextSearchRule('title', { mode: 'substring', query: 'cab' }).serialize());
+
+			expect(restored).toBeInstanceOf(TextSearchRule);
+			expect(restored.config).toEqual({ mode: 'substring', query: 'cab' });
+			expect(restored.action({ title: 'cabernet' }, restored)).toBe(true);
+			expect(restored.action({ title: 'merlot' }, restored)).toBe(false);
 		});
 
 		it('round-trips a ValueRule through the generic path', () => {

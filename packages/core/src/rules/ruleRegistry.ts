@@ -188,10 +188,12 @@ export class RuleRegistry {
 	 *      nested child through the registry first (the generic path would leave a composite's
 	 *      `config.rules` as plain objects with no `action`).
 	 *   2. **Per-class `static deserialize(json)` hook** — when present on the rule class, it's
-	 *      called and the result returned. Used by rules with non-JSON-safe config values:
-	 *      `RegexRule` (rebuild `RegExp` from `{ source, flags }`), `DateRangeRule` (rebuild
-	 *      `Date` instances from ISO strings). Custom subclasses can opt into this same hook
-	 *      pattern by adding their own static `deserialize` method.
+	 *      called with the class as `this` and the result returned. Used by rules with
+	 *      non-JSON-safe config values: `RegexRule` (rebuild `RegExp` from `{ source, flags }`),
+	 *      `DateRangeRule` (rebuild `Date` instances from ISO strings), and the rules with numeric
+	 *      bounds — `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` —
+	 *      which read the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
+	 *      can opt into this same hook pattern by adding their own static `deserialize` method.
 	 *   3. **Generic path** — fallback for rules whose config is already JSON-safe (most of the
 	 *      built-in catalog). Constructs the instance via `new ruleClass(field, config)` so
 	 *      class-field initializers (most importantly `action`) actually run, then overwrites
@@ -223,13 +225,15 @@ export class RuleRegistry {
 			return this._deserializeComposite(json);
 		}
 
-		// Per-class custom hook — checked via duck-typing for a `static deserialize` method.
+		// Per-class custom hook — checked via duck-typing for a `static deserialize` method. Called
+		// with the class as `this`, so an inherited hook that constructs `new this(...)` revives a
+		// registered subclass as itself.
 		const customDeserialize = (ruleClass as unknown as {
-			deserialize?: (json: SerializedRule) => FilterRule;
+			deserialize?: (this: RuleClass, json: SerializedRule) => FilterRule;
 		}).deserialize;
 
 		if (typeof customDeserialize === 'function') {
-			return customDeserialize(json);
+			return customDeserialize.call(ruleClass, json);
 		}
 
 		const field = json.field === '<function>' ? undefined : (json.field);
@@ -239,8 +243,8 @@ export class RuleRegistry {
 
 		try {
 			// Common path — every built-in rule whose constructor accepts (field, config)
-			// directly: RangeRule, BooleanRule, TextSearchRule, FuzzySearchRule,
-			// NumericComparisonRule, HierarchicalRule, GeoProximityRule, etc.
+			// directly and has no hook: ValueRule, BooleanRule, TextSearchRule,
+			// HierarchicalRule, etc.
 
 			instance = new RuleClassCtor(field, json.config);
 		} catch {

@@ -232,6 +232,24 @@ describe('rule errors (FilterEngineRuleError)', () => {
 		expect((error as Error).cause).toMatchObject({ code: 'BLOOM_FILTER_INVALID_PAYLOAD' });
 	});
 
+	it.each([
+		['RangeRule', { max: '100', min: 0 }, 'RangeRule config.max must be a number, or null for an open bound'],
+		['NumericComparisonRule', { op: '<', value: Number.NaN }, 'NumericComparisonRule config.value must be a number'],
+		['NumericComparisonRule', { op: '~', value: 1 }, 'NumericComparisonRule config.op must be one of'],
+		['GeoProximityRule', { center: { lat: null, lng: 0 }, radiusKm: 5 }, 'GeoProximityRule config.center.lat must be a finite number'],
+		['FuzzySearchRule', { distance: 'far', query: 'a' }, 'FuzzySearchRule config.distance must be a number'],
+		['DateRangeRule', { start: 'soon' }, 'DateRangeRule config.start must be a date string'],
+	])('resolveConfig: a %s bound that is not a number or null → RULE_INVALID_SERIALIZED_CONFIG', (type, config, message) => {
+		const error = caught(() => resolveConfig({
+			rules: [{ id: 'bound', rule: { config, field: 'color', type }}],
+			version: CURRENT_CONFIG_VERSION,
+		}));
+
+		expect(error).toBeInstanceOf(FilterEngineRuleError);
+		expect(error).toMatchObject({ code: 'RULE_INVALID_SERIALIZED_CONFIG', name: 'FilterEngineRuleError' });
+		expect((error as Error).message).toContain(message);
+	});
+
 	it('snapshotCodec: a persisted expression that revives as a leaf → RULE_INVALID_SERIALIZED_CONFIG', () => {
 		const engine = createFilterEngine<Item>({ sourceData: ITEMS });
 		const encoded = { ...serializeSnapshot(engine.snapshot()), expression: value('color', 'red').serialize() };

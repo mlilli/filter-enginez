@@ -1,10 +1,11 @@
 /**
  * Tests for the engine-state ↔ URL-string serializers — `resolveSerializer` dispatch, the three
- * built-in formats' round-trips (including non-ASCII through the base64url path), and the decode
- * error branches.
+ * built-in formats' round-trips (including non-ASCII through the base64url path), an open range
+ * bound keeping its matches through every format and the tagged wrapper, and the decode error
+ * branches.
  */
 
-import { createFilterEngine, type FilterEngineConfig, range, value } from '@filter-enginez/core';
+import { createFilterEngine, type FilterEngineConfig, numCompare, range, value } from '@filter-enginez/core';
 import { compressToEncodedURIComponent } from 'lz-string';
 import { describe, expect, it } from 'vitest';
 
@@ -46,6 +47,40 @@ describe('serializer round-trips', () => {
 		it(`${serializer.name} preserves the config through encode → decode`, () => {
 			expect(serializer.decode(serializer.encode(sampleConfig))).toEqual(sampleConfig);
 		});
+	}
+});
+
+describe('open bounds through every format', () => {
+	/** Prices on both sides of zero, so an open bound that loaded as `0` would change the count. */
+	const PRICES = [-50, -1, 0, 60, 75, 1_000_000].map((price) => ({ price }));
+	const openRules = [
+		['an open upper bound', () => range('price', { max: Number.POSITIVE_INFINITY, min: 60 })],
+		['an open lower bound', () => range('price', { max: 60, min: Number.NEGATIVE_INFINITY })],
+		['an open comparison', () => numCompare('price', { op: '<', value: Number.POSITIVE_INFINITY })],
+	] as const;
+	const formats: readonly EngineStateSerializer[] = [
+		...builtIns,
+		createTaggedSerializer('compact'),
+		createTaggedSerializer('human-readable'),
+		createTaggedSerializer('json-base64'),
+	];
+
+	for (const serializer of formats) {
+		for (const [label, rule] of openRules) {
+			it(`${serializer.name} keeps the matches of ${label}`, () => {
+				const original = createFilterEngine<{ price: number }>({ sourceData: PRICES });
+
+				original.addRule('price', rule());
+				const restored = createFilterEngine<{ price: number }>({ sourceData: PRICES });
+
+				restored.loadConfig(serializer.decode(serializer.encode(original.exportConfig())));
+
+				expect(original.getResultCount()).toBeGreaterThan(0);
+				expect([...restored.getResultIndices()]).toEqual([...original.getResultIndices()]);
+				void original.destroy();
+				void restored.destroy();
+			});
+		}
 	}
 });
 

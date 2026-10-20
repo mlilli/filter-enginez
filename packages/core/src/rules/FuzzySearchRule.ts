@@ -13,15 +13,22 @@
  * confirms the survivors, so no real match is dropped. Default-threshold (0.4) and multi-key fuzzy
  * bypass the index (the bound proves nothing / the index is single-field) and run `action` directly.
  *
+ * An unlimited `threshold` or `distance` survives JSON: `JSON.stringify` writes `Infinity` as `null`,
+ * and {@link FuzzySearchRule.deserialize} reads a `null` option back as `Infinity`.
+ *
  * @packageDocumentation
  */
 
 import Fuse, { type IFuseOptions } from 'fuse.js';
 
-import type { FieldExtractor, FilterRuleAction } from '../types.js';
+import type { FieldExtractor, FilterRuleAction, SerializedRule } from '../types.js';
 
 import { coerceStringField } from '../lib/textTokens.js';
 import { FilterRule } from './FilterRule.js';
+import { reviveBounds, revivedField } from './serializedConfig.js';
+
+/** A constructor with `FuzzySearchRule`'s signature: the class itself, or a subclass that keeps it. */
+type FuzzySearchRuleClass = new (field: FieldExtractor, config: FuzzySearchRuleConfig) => FuzzySearchRule;
 
 // #region docs:fuzzy-search-rule
 /**
@@ -106,6 +113,29 @@ export class FuzzySearchRule extends FilterRule {
 	 */
 	extractText(item: unknown): string | undefined {
 		return coerceStringField(this.getFieldValue(item));
+	}
+
+	/**
+	 * Revive a `FuzzySearchRule` from its serialized form. `ruleRegistry.deserialize` calls this hook
+	 * with the registered class as `this`, so a subclass registered in its place revives as
+	 * itself.
+	 *
+	 * @remarks
+	 * `threshold` and `distance` are upper limits, and a `null` one is unlimited (`Infinity`), which is
+	 * what `JSON.stringify` writes for `Infinity`. Passed to Fuse.js as it is, a `null` `distance`
+	 * would weigh every match by its location as `distance: 0` does. An absent option stays absent, so
+	 * the defaults apply; any other config keys are carried over unchanged.
+	 *
+	 * @param json - The serialized rule
+	 * @returns The revived rule
+	 * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `config` is not an
+	 *   object, or `threshold` or `distance` is present but neither a number nor `null`
+	 */
+	static deserialize(this: FuzzySearchRuleClass, json: SerializedRule): FuzzySearchRule {
+		const config = reviveBounds(json, { distance: Number.POSITIVE_INFINITY, threshold: Number.POSITIVE_INFINITY }, true);
+
+		// `query` and `keys` are carried over unchecked, as the generic revival path carries them.
+		return new this(revivedField(json), config as unknown as FuzzySearchRuleConfig);
 	}
 }
 

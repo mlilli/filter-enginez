@@ -21,7 +21,7 @@ allowBuilds:
   # in the examples repository, whose apps serve the handlers through the browser worker.
   msw: true
 
-# ─── Supply-chain policy exceptions ────────────────────────────────────────────
+# ─── Supply-chain policy: the 7-day release-age quarantine ─────────────────────
 # 🟢 **pnpm 12 REPORTS an unrecognized setting in this file instead of ignoring it.** Under pnpm 11 and
 # earlier, misspelling `minimumReleaseAge` or `minimumReleaseAgeExclude` silently dropped the policy — a
 # supply-chain guard that evaporated with no output. The build-script settings pnpm 12 removed
@@ -33,14 +33,40 @@ allowBuilds:
 # supply-chain policy — and `tests/tooling/overrideUpperBounds.test.ts` reads the single-quoted
 # override ranges. The quoting below is deliberate; leave it alone.
 #
-# pnpm 11 defaults `minimumReleaseAge` to 1440 (24h): a newly-published version can't be installed
-# until it has aged a day, on the theory that malicious releases are usually yanked within the hour.
-# The check runs twice — once during resolution, and again as a verification pass over every entry of
-# an already-written lockfile.
+# `minimumReleaseAge` is 10080 minutes — 7 days. pnpm refuses any version published less than 7 days
+# ago, so a compromised release has a week to be noticed and pulled before it can reach this tree.
+# The check runs twice — once during resolution (`pnpm add`, `pnpm update`, the lockfile step of a
+# Dependabot update), and again as a verification pass over every entry of an already-written
+# lockfile, `--frozen-lockfile` installs included.
 #
-# Nothing in this lockfile needs an exemption, so there is no `minimumReleaseAgeExclude` list.
-# When one is needed, pin it to the ONE version, not the package, so a later release gets the full
-# 24h soak like everything else, and delete the entry once the lockfile moves past it.
+# 🟢 The value is written out rather than left to pnpm's built-in 1440 (24h) default, and that also
+# changes how a violation behaves: an explicitly set `minimumReleaseAge` makes `minimumReleaseAgeStrict`
+# default to `true`, so a too-young version FAILS the install (`ERR_PNPM_NO_MATURE_MATCHING_VERSION`
+# when resolving, `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` when verifying the lockfile) instead of being
+# added to `minimumReleaseAgeExclude` without anyone deciding to.
+#
+# ⚠ `.github/dependabot.yml` gives every ecosystem `cooldown.default-days: 7` to match. Dependabot's
+# cooldown must stay at least as long as this quarantine: a version Dependabot proposes while pnpm
+# still refuses it fails the `pnpm install` in Dependabot's lockfile step, and the PR never opens.
+# `tests/tooling/releaseAgeCooldown.test.ts` holds the two in that order, so raising this value means
+# raising the cooldowns in the same change.
+#
+# ── Exemptions: `minimumReleaseAgeExclude` ──
+#
+# Nothing in this lockfile needs one, so there is no list. Dependabot SECURITY updates skip its
+# cooldown, but not this quarantine, so a security fix younger than 7 days is refused like any other
+# young version. The way through is to exempt that ONE version:
+#
+#   minimumReleaseAgeExclude:
+#     # GHSA-xxxx-xxxx-xxxx: fixed in 1.2.3
+#     - 'some-package@1.2.3'
+#
+# pnpm 12 accepts an exact version or a union of exact versions (`'some-package@1.2.3 || 1.2.4'`) and
+# rejects a range (`some-package@^1.2.3` fails with `ERR_PNPM_INVALID_MINIMUM_RELEASE_AGE_EXCLUDE`). A
+# bare package name exempts every version, the next release included, so it is never the fix, and
+# the same test rejects one. Delete the entry once the lockfile has moved past that version or the
+# version is older than 7 days. SECURITY.md → "Dependency release age" has the whole procedure.
+minimumReleaseAge: 10080
 
 # ─── Security remediation — force patched transitive versions ──────────────────────────────────────
 # Every advisory `pnpm audit` reports against this tree is in DEV TOOLING — none touch the runtime deps

@@ -307,6 +307,7 @@ packages/core/src/
 │   ├── CompositeRule.ts
 │   ├── factories.ts            # range(), inSet(), text(), geo() — RULE constructors
 │   ├── ruleTypeName.ts         # Reads a rule's declared, minifier-proof type name
+│   ├── serializedConfig.ts     # Revives numeric bounds in deserialize hooks; JSON's null is an open bound (§9.3)
 │   └── ruleRegistry.ts         # The central RuleRegistry
 ├── composition/
 │   ├── index.ts
@@ -885,7 +886,7 @@ The full code list, by class:
 | `REGISTRY_UNKNOWN_TYPE`           | `RuleRegistryError`          | `ruleRegistry.get` / `deserialize` (so config loading, URL state and the worker tier) for an unregistered type                                                                                                                     |
 | `RULE_TYPE_NAME_MISSING`          | `FilterEngineRuleError`      | `FilterRule.serialize` on a class that never declared `static readonly ruleTypeName`                                                                                                                                               |
 | `RULE_NOT_SERIALIZABLE`           | `FilterEngineRuleError`      | `PredicateRule.serialize`: a predicate function has no serialized form                                                                                                                                                             |
-| `RULE_INVALID_SERIALIZED_CONFIG`  | `FilterEngineRuleError`      | `RegexRule.deserialize`, `BloomMembershipRule.deserialize`, persisted devtools snapshots: a payload that does not rebuild                                                                                                          |
+| `RULE_INVALID_SERIALIZED_CONFIG`  | `FilterEngineRuleError`      | A rule's `static deserialize` hook (`RegexRule`, `BloomMembershipRule`, `DateRangeRule`, the numeric rules) or a persisted devtools snapshot: a payload that does not rebuild, or a bound not a number or `null`                   |
 | `RULE_NOT_FOUND`                  | `FilterEngineRuleError`      | `BitmapIndex.getBitmap` for a rule id with no registered rule                                                                                                                                                                      |
 | `MODE_EXPRESSION_ACTIVE`          | `FilterEngineModeError`      | `FilterEngine.addRule` while an expression is set — flat-map rules are ignored in expression mode, so the rule would never apply                                                                                                   |
 | `MODE_WORKER_UNSUPPORTED`         | `FilterEngineModeError`      | A synchronous `engine.core` member a worker-backed engine has no main-thread mirror for (`applyFiltersAndQuery`, `simulate`, `getResultIndices`, the store internals, …; §11.2); the message names the async call to await instead |
@@ -1633,11 +1634,14 @@ export class BooleanRule extends FilterRule {
  * Configuration for `RangeRule`.
  */
 export interface RangeRuleConfig {
-  /** Lower bound, inclusive. Use `-Infinity` for unbounded-low. */
+  /** Lower bound, inclusive. Use `-Infinity` for unbounded-low; JSON writes it as `null`. */
   readonly min: number;
-  /** Upper bound, inclusive. Use `Infinity` for unbounded-high. */
+  /** Upper bound, inclusive. Use `Infinity` for unbounded-high; JSON writes it as `null`. */
   readonly max: number;
 }
+
+/** A constructor with `RangeRule`'s signature: `RangeRule` itself, or a subclass that keeps it. */
+type RangeRuleClass = new (field: FieldExtractor, config: RangeRuleConfig) => RangeRule;
 
 /**
  * Filter items by an inclusive numeric range.
@@ -1679,6 +1683,28 @@ export class RangeRule extends FilterRule {
     super(field);
     this.config = config;
   }
+
+  /**
+   * Revive a `RangeRule` from its serialized form. `ruleRegistry.deserialize` calls this hook with
+   * the registered class as `this`, so a subclass registered in its place revives as itself.
+   *
+   * @remarks
+   * A `null` bound is an open one: `min` revives as `-Infinity` and `max` as `Infinity`. That is
+   * what `JSON.stringify` writes for those values, so an open range keeps its meaning through
+   * `exportConfig` → JSON → `loadConfig`, URL state and an HTTP request body. Any other config keys
+   * are carried over unchanged.
+   *
+   * @param json - The serialized rule
+   * @returns The revived rule, with both bounds numbers
+   * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `config` is not an
+   *   object, or a bound is neither a number nor `null` (a string, a missing key, `NaN`)
+   */
+  static deserialize(this: RangeRuleClass, json: SerializedRule): RangeRule {
+    return new this(
+      revivedField(json),
+      reviveBounds(json, { max: Number.POSITIVE_INFINITY, min: Number.NEGATIVE_INFINITY }),
+    );
+  }
 }
 ```
 
@@ -1697,8 +1723,15 @@ export type NumericComparisonOp = '!=' | '<' | '<=' | '==' | '>' | '>=';
  */
 export interface NumericComparisonRuleConfig {
   readonly op: NumericComparisonOp;
+  /** The number to compare against. An infinite value is written to JSON as `null`. */
   readonly value: number;
 }
+
+/** The six operators, for checking a serialized `op`. */
+const NUMERIC_COMPARISON_OPS: readonly string[] = ['!=', '<', '<=', '==', '>', '>='] satisfies readonly NumericComparisonOp[];
+
+/** A constructor with `NumericComparisonRule`'s signature: the class itself, or a subclass that keeps it. */
+type NumericComparisonRuleClass = new (field: FieldExtractor, config: NumericComparisonRuleConfig) => NumericComparisonRule;
 
 /**
  * Filter items by a numeric comparison.
@@ -1747,6 +1780,35 @@ export class NumericComparisonRule extends FilterRule {
   constructor(field: FieldExtractor, config: NumericComparisonRuleConfig) {
     super(field);
     this.config = config;
+  }
+
+  /**
+   * Revive a `NumericComparisonRule` from its serialized form. `ruleRegistry.deserialize` calls this
+   * hook with the registered class as `this`, so a subclass registered in its place revives
+   * as itself.
+   *
+   * @remarks
+   * A `null` value is an open one: `Infinity` under `<`, `<=`, `==` and `!=`, `-Infinity` under `>`
+   * and `>=`. That is what `JSON.stringify` writes for an infinity, so `{ op: '<=', value: Infinity }`
+   * keeps its meaning through `exportConfig` → JSON → `loadConfig`, URL state and an HTTP request
+   * body. Any other config keys are carried over unchanged.
+   *
+   * @param json - The serialized rule
+   * @returns The revived rule, with a numeric `value`
+   * @throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG` when `config` is not an
+   *   object, `op` is not one of the six operators, or `value` is neither a number nor `null`
+   */
+  static deserialize(this: NumericComparisonRuleClass, json: SerializedRule): NumericComparisonRule {
+    const { op } = readRecord(json.config, `${json.type} config`);
+
+    if (!NUMERIC_COMPARISON_OPS.includes(op as string)) {
+      throw invalidConfig(`${json.type} config.op`, `one of ${NUMERIC_COMPARISON_OPS.join(' ')}`, op);
+    }
+    // `>` and `>=` are open toward -Infinity; `<`, `<=` toward Infinity, and `==` / `!=` compare
+    // every finite value the same way against either infinity.
+    const openValue = op === '>' || op === '>=' ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+
+    return new this(revivedField(json), { ...reviveBounds(json, { value: openValue }), op: op as NumericComparisonOp });
   }
 }
 ```
@@ -2154,7 +2216,7 @@ export class HierarchicalRule extends FilterRule {
  */
 export interface GeoProximityRuleConfig {
   readonly center: GeoCoords;
-  /** Radius in kilometers. */
+  /** Radius in kilometers. `Infinity` for no limit; JSON writes it as `null`. */
   readonly radiusKm: number;
 }
 
@@ -3859,10 +3921,12 @@ export class RuleRegistry {
  *      nested child through the registry first (the generic path would leave a composite's
  *      `config.rules` as plain objects with no `action`).
  *   2. **Per-class `static deserialize(json)` hook** — when present on the rule class, it's
- *      called and the result returned. Used by rules with non-JSON-safe config values:
- *      `RegexRule` (rebuild `RegExp` from `{ source, flags }`), `DateRangeRule` (rebuild
- *      `Date` instances from ISO strings). Custom subclasses can opt into this same hook
- *      pattern by adding their own static `deserialize` method.
+ *      called with the class as `this` and the result returned. Used by rules with
+ *      non-JSON-safe config values: `RegexRule` (rebuild `RegExp` from `{ source, flags }`),
+ *      `DateRangeRule` (rebuild `Date` instances from ISO strings), and the rules with numeric
+ *      bounds — `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` —
+ *      which read the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
+ *      can opt into this same hook pattern by adding their own static `deserialize` method.
  *   3. **Generic path** — fallback for rules whose config is already JSON-safe (most of the
  *      built-in catalog). Constructs the instance via `new ruleClass(field, config)` so
  *      class-field initializers (most importantly `action`) actually run, then overwrites
@@ -3894,13 +3958,15 @@ deserialize(json: SerializedRule): FilterRule {
     return this._deserializeComposite(json);
   }
 
-  // Per-class custom hook — checked via duck-typing for a `static deserialize` method.
+  // Per-class custom hook — checked via duck-typing for a `static deserialize` method. Called
+  // with the class as `this`, so an inherited hook that constructs `new this(...)` revives a
+  // registered subclass as itself.
   const customDeserialize = (ruleClass as unknown as {
-    deserialize?: (json: SerializedRule) => FilterRule;
+    deserialize?: (this: RuleClass, json: SerializedRule) => FilterRule;
   }).deserialize;
 
   if (typeof customDeserialize === 'function') {
-    return customDeserialize(json);
+    return customDeserialize.call(ruleClass, json);
   }
 
   const field = json.field === '<function>' ? undefined : (json.field);
@@ -3910,8 +3976,8 @@ deserialize(json: SerializedRule): FilterRule {
 
   try {
     // Common path — every built-in rule whose constructor accepts (field, config)
-    // directly: RangeRule, BooleanRule, TextSearchRule, FuzzySearchRule,
-    // NumericComparisonRule, HierarchicalRule, GeoProximityRule, etc.
+    // directly and has no hook: ValueRule, BooleanRule, TextSearchRule,
+    // HierarchicalRule, etc.
 
     instance = new RuleClassCtor(field, json.config);
   } catch {
@@ -4035,6 +4101,28 @@ item. The document itself can differ from the state that produced it in four way
 back as top-level rules named `__inline_{n}` (one per occurrence); a function `field` is written as `'<function>'` and
 cannot be revived; a `PredicateRule` cannot be exported at all (`serialize()` throws); and a lone-leaf expression comes
 back wrapped in `and(...)`.
+
+**Open numeric bounds.** JSON has no `Infinity`, `-Infinity` or `NaN`; `JSON.stringify` writes each as `null`. A
+document that crossed JSON (a `?f=` URL, devtools persistence over `localStorage`, an HTTP request body) therefore holds
+`null` wherever a rule held an open bound, and each rule with a numeric bound reads that `null` back as open in its
+`static deserialize` hook:
+
+| Rule                    | Key                     | A `null` revives as                                                     |
+| ----------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `RangeRule`             | `min` / `max`           | `-Infinity` / `Infinity`                                                |
+| `NumericComparisonRule` | `value`                 | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>` and `>=`  |
+| `GeoProximityRule`      | `radiusKm`              | `Infinity`                                                              |
+| `FuzzySearchRule`       | `threshold`, `distance` | `Infinity`                                                              |
+| `DateRangeRule`         | `start` / `end`         | absent (an ISO string is how a set bound travels; `null` is never 1970) |
+
+The worker bridge moves rules by structured clone, which carries the infinities themselves, and the same hooks keep
+them. Two cases cannot survive JSON and are documented rather than encoded: a bound on the wrong side (a `RangeRule`
+with `min: Infinity`, empty whatever its `max`) and a `NaN` bound both arrive as `null` and revive as the open bound for
+their position. A bound that is neither a number nor `null` (a string, a missing key, a `NaN` that arrived by structured
+clone) throws `FilterEngineRuleError` with code `RULE_INVALID_SERIALIZED_CONFIG`, naming the rule type and the key.
+Equality values (`ValueRule`, `InSetRule`, `InSetofSetsRule`) are compared as written, so a `null` there is the value
+`null`. `packages/core/src/config/configRoundTripBehavior.test.ts` holds every registered rule type to the same match
+set before and after the trip, through JSON and through structured clone.
 
 - **`exportConfig(engine, options?)`** reads `getRules()` / `getGroups()` / `getExpression()`. Each registered rule
   serializes via `rule.serialize()`; the expression is walked by `serializeExpression()` into a
@@ -6525,6 +6613,15 @@ applies, and `scripts/pack-engine-tarballs.sh` checks the packed result. One del
 `@filter-enginez/eslint`'s `./config` subpath ships its flat configs as authored JavaScript (`src/config/**/*.js`),
 since ESLint loads them directly. The build graph follows the `tsconfig.build.json` project references listed in §20.4.
 
+Every package's manifest declares `"sideEffects": false`: no module does anything at import time beyond defining what it
+exports, so a bundler drops every module an app does not import. An app that imports only `FilterEngineConfigError` from
+`@filter-enginez/core` bundles under 1 kB of the package; roaring-wasm (about 231 kB of inline WebAssembly in its
+browser build), fuse.js and rbush come in only with the engine code that uses them. A module that is imported still runs
+in full, so the roaring-wasm start-up behind `initializeBitmapAcceleration()` is unaffected.
+[`tests/tooling/sideEffectFreePackages.test.ts`](../tests/tooling/sideEffectFreePackages.test.ts) keeps the declaration
+true: it reads every module each package's `exports` reach and fails on a top-level statement whose effect could reach
+outside its module, apart from a short list of reviewed ones that touch only their own module's bindings.
+
 ### §22.2. ESM-only
 
 All packages ship ESM only. Reasoning:
@@ -6550,28 +6647,28 @@ measures them against `dist/`. **CI runs it as a blocking gate**, after the buil
 Every figure is **gzipped and marginal** — the engine, the framework and every third-party dependency are `ignore`d per
 entry, so each budget measures the package's own code. Without that convention `react-signals` would be measuring React.
 
-| Entry                   | Budget  |
-| ----------------------- | ------- |
-| `core` (default entry)  | 17.5 kB |
-| `core/storage/browser`  | 2 kB    |
-| `core/keyboard/browser` | 1 kB    |
-| `reactive-signals`      | 3 kB    |
-| `reactive-rxjs`         | 3.5 kB  |
-| `react-signals`         | 4 kB    |
-| `react-rxjs`            | 4 kB    |
-| `svelte-signals`        | 3 kB    |
-| `vue-signals`           | 3 kB    |
-| `angular-rxjs`          | 3 kB    |
-| `redux-bridge`          | 4 kB    |
-| `url-state-router`      | 3 kB    |
-| `worker-bridge`         | 5 kB    |
+| Entry                   | Budget |
+| ----------------------- | ------ |
+| `core` (default entry)  | 18 kB  |
+| `core/storage/browser`  | 2 kB   |
+| `core/keyboard/browser` | 1 kB   |
+| `reactive-signals`      | 3 kB   |
+| `reactive-rxjs`         | 3.5 kB |
+| `react-signals`         | 4 kB   |
+| `react-rxjs`            | 4 kB   |
+| `svelte-signals`        | 3 kB   |
+| `vue-signals`           | 3 kB   |
+| `angular-rxjs`          | 3 kB   |
+| `redux-bridge`          | 4 kB   |
+| `url-state-router`      | 3 kB   |
+| `worker-bridge`         | 5 kB   |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 17.1 kB: the error hierarchy (§2.5), filter groups composed into every
-evaluation path, bitmap-backed results, the devtools snapshot codec with cross-reload persistence, and devtools failure
-reporting are all in its default entry. `reactive-rxjs` measures about 3.0 kB, most of it the worker-backed adapter and
-its `engine.core` shim, which answers every public `FilterEngine` member (§11.2).
-`tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
+nearest half kilobyte. `core` measures about 17.6 kB: the error hierarchy (§2.5), filter groups composed into every
+evaluation path, bitmap-backed results, the devtools snapshot codec with cross-reload persistence, devtools failure
+reporting, and the rules' revival of open bounds from JSON (§9.3) are all in its default entry. `reactive-rxjs` measures
+about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine`
+member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;
 `angular-rxjs` is the smallest binding because Angular consumes `Observable`s natively, leaving only DI to plumb.

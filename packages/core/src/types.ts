@@ -80,7 +80,9 @@ export type FilterRuleAction = (item: unknown, rule: FilterRule) => boolean;
  * The `type` field maps to a registered rule class via the `RuleRegistry`. The `field` is
  * normalized to its serializable form (functions become the string `'<function>'` placeholder,
  * which deserializes to `undefined`: the round-trip is lossy). The `config` is JSON-serializable;
- * rules with non-JSON-safe configs override `serialize()`.
+ * rules with non-JSON-safe configs override `serialize()`. An open numeric bound (`±Infinity`) is
+ * the exception that needs no override: JSON writes it as `null`, and the rule's `static
+ * deserialize` reads a `null` bound back as open.
  */
 export interface SerializedRule {
 	readonly config: unknown;

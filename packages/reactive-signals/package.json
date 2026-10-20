@@ -25,6 +25,7 @@
     "url": "https://github.com/mlilli/filter-enginez/issues"
   },
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./worker": "./src/worker.ts"

@@ -3,7 +3,7 @@
     "name": "core",
     "path": "packages/core/dist/index.js",
     "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
-    "limit": "17.5 kB",
+    "limit": "18 kB",
     "gzip": true
   },
   {

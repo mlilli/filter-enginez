@@ -23,6 +23,7 @@
     "url": "https://github.com/mlilli/filter-enginez/issues"
   },
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./plugin": {
       "types": "./src/plugin/index.ts",

@@ -150,7 +150,8 @@ node -e '
 
 	process.stdout.write(`    ${missingEverywhere.join(" ") || "—"}\n`);
 	process.stdout.write("    (fields left unset on purpose until there is a measurement to set them from —\n");
-	process.stdout.write("     a guessed sideEffects or engines value is worse than none)\n");
+	process.stdout.write("     a guessed engines value is worse than none; sideEffects is set, and checked by\n");
+	process.stdout.write("     tests/tooling/sideEffectFreePackages.test.ts)\n");
 ' "${ENGINE_PACKAGES[@]}"
 
 printf '\n⚠ npm resolves ignore files PACKAGE-LOCALLY. The root .gitignore does not apply to a\n'
