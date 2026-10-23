@@ -86,8 +86,9 @@ interface Wine {
 
 declare const wines: readonly Wine[];
 
-// Await this once at startup. The Roaring-Bitmap path is WASM-backed and stays off until it resolves —
-// silently, so skipping it costs speed rather than raising an error.
+// Await this once at startup. It loads roaring-wasm, which an app that never calls it does not bundle.
+// The Roaring-Bitmap path stays off until it resolves — silently, so skipping it costs speed rather than
+// raising an error.
 await initializeBitmapAcceleration();
 
 const engine = createFilterEngine<Wine>({ sourceData: wines });

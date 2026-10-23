@@ -29,10 +29,12 @@
  * @packageDocumentation
  */
 
+import type { RoaringBitmap32 } from 'roaring-wasm';
+
 import type { InternalStore } from '../store/InternalStore.js';
 
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
-import { RoaringBitmap32 } from './roaringInit.js';
+import { createRoaringBitmap } from './roaringInit.js';
 
 /**
  * Per-field inverted text index. Constructed + cached by `BitmapIndex`; not used directly by
@@ -85,7 +87,7 @@ export class TextInvertedIndex<T> {
 
 			if (posting === undefined) {
 				// A required word has no posting → nothing can contain all query words.
-				return new RoaringBitmap32();
+				return createRoaringBitmap();
 			}
 			if (accumulator === undefined) {
 				accumulator = posting.clone();
@@ -97,7 +99,7 @@ export class TextInvertedIndex<T> {
 			}
 		}
 
-		return accumulator ?? new RoaringBitmap32();
+		return accumulator ?? createRoaringBitmap();
 	}
 
 	/**
@@ -213,7 +215,7 @@ export class TextInvertedIndex<T> {
 				let posting = map.get(token);
 
 				if (posting === undefined) {
-					posting = new RoaringBitmap32();
+					posting = createRoaringBitmap();
 					map.set(token, posting);
 				}
 				posting.add(i);

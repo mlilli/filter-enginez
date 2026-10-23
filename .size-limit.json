@@ -3,7 +3,14 @@
     "name": "core",
     "path": "packages/core/dist/index.js",
     "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
-    "limit": "19 kB",
+    "limit": "19.5 kB",
+    "gzip": true
+  },
+  {
+    "name": "core without bitmaps",
+    "path": "packages/core/dist/index.js",
+    "import": "{ createFilterEngine, InSetRule, RangeRule }",
+    "limit": "32 kB",
     "gzip": true
   },
   {

@@ -20,13 +20,13 @@ import { InternalStore } from '../store/InternalStore.js';
 import { BitmapIndex } from './BitmapIndex.js';
 
 vi.mock('./roaringInit.js', () => ({
+	// These tests never reach bitmap construction because the readiness gate short-circuits
+	// first; a call would mean the gate let a bitmap through before init.
+	createRoaringBitmap: (): never => {
+		throw new Error('createRoaringBitmap reached past the readiness gate');
+	},
 	// Force the use-before-init guard: the WASM module is "not ready".
 	isBitmapAccelerationReady: (): boolean => false,
-	// A constructable stub is enough — these tests never reach bitmap construction because the
-	// readiness gate short-circuits first.
-	RoaringBitmap32: class StubBitmap {
-		readonly size = 0;
-	},
 }));
 
 interface Item {

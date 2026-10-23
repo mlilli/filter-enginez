@@ -23,8 +23,9 @@ const engine = createFilterEngine<Wine>({ sourceData: wines });
 
 **Skipping it changes speed, never answers.** Results are identical either way; without the bitmaps the filter
 intersection measured here runs 42.1× slower at 10k items (`filter-intersection`), and uncached `simulate()` about 2.8×
-slower (`simulate-per-option`). The readiness gate exists so an app whose WASM asset is still in flight on the first
-ticks of page load keeps working rather than throwing; there is no warning when the init is missing, so check for it:
+slower (`simulate-per-option`). The readiness gate exists so an app whose roaring-wasm chunk or WASM asset is still in
+flight on the first ticks of page load keeps working rather than throwing; there is no warning when the init is missing,
+so check for it:
 
 ```ts
 import { isBitmapAccelerationReady } from '@filter-enginez/core';
@@ -35,6 +36,24 @@ if (!isBitmapAccelerationReady()) {
 ```
 
 The gate applies to `bitmap: 'on'` as well as `'auto'`: asking for `'on'` explicitly does not bypass it.
+
+### What the initializer loads
+
+`initializeBitmapAcceleration()` is also what loads roaring-wasm, the Roaring-Bitmap library: about 259 kB minified,
+nearly all of it inline WebAssembly. Core reaches the library only through a dynamic `import()` inside that function, so
+what you ship depends on whether you call it:
+
+- **Never called:** the library is not in your bundle. An app that creates an engine and filters with two rules bundles
+  about 31.7 kB gzipped of core and its dependencies; the same app with roaring-wasm in it is about 126 kB.
+- **Called, with a bundler that splits code** (Vite, Rollup, Rolldown, webpack, esbuild with `splitting`): the library
+  is its own chunk, fetched when the call runs, so the first render does not wait for it.
+- **Called, with a bundler that does not split code:** the chunk is inlined. The app pays the bytes up front and behaves
+  the same.
+
+Call it only in the thread that hosts the engine (see [`worker_offload.md`](./worker_offload.md)). `BitmapIndex` and
+`TextInvertedIndex` are exported for advanced use; called directly before the initializer resolves, they throw a
+`FilterEngineModeError` with code `MODE_ACCELERATION_NOT_READY`. The engine itself never reaches them that early,
+because it checks readiness first.
 
 ---
 

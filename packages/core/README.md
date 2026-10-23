@@ -22,8 +22,9 @@ keeps their bytes out of your build.
 import { createFilterEngine, initializeBitmapAcceleration, InSetRule, RangeRule } from '@filter-enginez/core';
 import { type Wine, wines } from '@filter-enginez/mock-data/wine';
 
-// Await this once at startup. The Roaring-Bitmap path is WASM-backed and stays OFF until it
-// resolves — silently, so an app whose WASM asset is still in flight keeps working rather than
+// Await this once at startup. It loads roaring-wasm, which an app that never calls it does not
+// bundle. The Roaring-Bitmap path stays OFF until it resolves —
+// silently, so an app whose WASM asset is still in flight keeps working rather than
 // throwing. Skipping it costs roughly 40x on a 10k corpus and raises no warning.
 await initializeBitmapAcceleration();
 

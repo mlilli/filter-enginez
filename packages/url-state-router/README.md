@@ -3,9 +3,10 @@
 react-router URL serialization for filter state. `<FilterEngineUrlSync>` keeps one query parameter and the engine in
 sync both ways: filter changes `replace` the history entry by default (`historyMode`), and with `routeChangeMode` set,
 the current filter state is re-attached when the app navigates to another route whose URL lacks the parameter.
-Origin-tracking prevents engine ↔ URL ↔ engine loops. Three serializers — `json-base64` (opaque), `compact` (lz-string,
-shortest) and `human-readable` (the config as plain JSON) — plus `createTaggedSerializer`, which prefixes the format so
-one URL parameter can carry any of them. Browser-only.
+Origin-tracking prevents engine ↔ URL ↔ engine loops, and recognizes the component's own writes even when an app that
+navigates inside React transitions renders them out of order; Back, Forward and links always load. Three serializers —
+`json-base64` (opaque), `compact` (lz-string, shortest) and `human-readable` (the config as plain JSON) — plus
+`createTaggedSerializer`, which prefixes the format so one URL parameter can carry any of them. Browser-only.
 
 ## Install
 

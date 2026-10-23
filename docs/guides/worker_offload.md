@@ -97,8 +97,9 @@ Skip it and you get the silent fallback described in [`acceleration_tuning.md`](
 it is a slow predicate scan on a background thread, which is harder to notice, because the main thread stays responsive
 and the symptom is only latency.
 
-Conversely, if the engine lives **only** in the worker, the main thread does not need the init at all and should skip it
-rather than pay for the WASM fetch.
+Conversely, if the engine lives **only** in the worker, the main thread does not need the init at all and should skip
+it: core loads roaring-wasm only when `initializeBitmapAcceleration()` runs, so a main thread that never calls it never
+fetches the library.
 
 ---
 

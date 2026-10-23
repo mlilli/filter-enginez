@@ -25,6 +25,8 @@
  * @packageDocumentation
  */
 
+import type { RoaringBitmap32 } from 'roaring-wasm';
+
 import type { InternalStore } from '../store/InternalStore.js';
 import type { FieldExtractor, RuleId, SimulationModification } from '../types.js';
 
@@ -35,11 +37,10 @@ import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.j
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
 import { GeoProximityRule } from '../rules/GeoProximityRule.js';
 import { TextSearchRule } from '../rules/TextSearchRule.js';
-// Bitmap library imports go through the `roaringInit` adapter, which:
-//   - re-exports `RoaringBitmap32` so we don't depend on the library's module shape directly
-//   - exposes `isBitmapAccelerationReady()` for the use-before-init guard below
-//   - keeps the library swap (we went WASM-first for isomorphic browser support) in one
-//     place rather than scattered across BitmapIndex
+// Bitmaps come from the `roaringInit` adapter, never from `roaring-wasm` (its types alone are imported above):
+// it builds them with the constructor `initializeBitmapAcceleration()` loaded, keeping the library out of the
+// static module graph; exposes `isBitmapAccelerationReady()` for the use-before-init guard below; and keeps the
+// library swap (we went WASM-first for isomorphic browser support) in one place.
 import {
 	type AccelerationMode,
 	AUTO_BITMAP_THRESHOLD,
@@ -47,7 +48,7 @@ import {
 	TEXT_INDEX_AUTO_THRESHOLD,
 	type TextIndexMode,
 } from './accelerationModes.js';
-import { isBitmapAccelerationReady, RoaringBitmap32 } from './roaringInit.js';
+import { createRoaringBitmap, isBitmapAccelerationReady } from './roaringInit.js';
 import { SpatialIndex } from './SpatialIndex.js';
 import { TextInvertedIndex } from './TextInvertedIndex.js';
 import { compileTextPlan } from './textPlan.js';
@@ -452,7 +453,7 @@ export class BitmapIndex<T> {
 			// Plan said bypass — fall through to the per-item predicate scan below.
 		}
 		const items = this._store.sourceData.value;
-		const bitmap = new RoaringBitmap32();
+		const bitmap = createRoaringBitmap();
 
 		prepareRuleForCollection(rule, items);
 		if (rule instanceof CompositeRule) {
@@ -489,7 +490,7 @@ export class BitmapIndex<T> {
 	 * exact haversine refinement, so its returned indices ARE the passing set — no re-check.
 	 */
 	private _buildGeoBitmap(rule: GeoProximityRule): RoaringBitmap32 {
-		const bitmap = new RoaringBitmap32();
+		const bitmap = createRoaringBitmap();
 		const indices = this._getSpatialIndexFor(rule).queryRadius(rule.config.center, rule.config.radiusKm);
 
 		for (const idx of indices) {
@@ -540,7 +541,7 @@ export class BitmapIndex<T> {
 		// Candidate: trigram pre-filter → exact Fuse confirm per surviving item.
 		const items = this._store.sourceData.value;
 		const candidates = index.queryFuzzyCandidates(plan.patternTrigrams, plan.minSharedTrigrams);
-		const bitmap = new RoaringBitmap32();
+		const bitmap = createRoaringBitmap();
 
 		for (const idx of candidates) {
 			const item = items[idx];

@@ -42,10 +42,11 @@ export type FilterEngineRuleErrorCode =
 
 /**
  * Codes carried by `FilterEngineModeError` — the call is valid in general but not in the
- * engine's current mode: expression mode, a worker-backed engine, or a worker host whose engine
- * does not exist yet (or already does).
+ * engine's current mode: expression mode, a worker-backed engine, a worker host whose engine
+ * does not exist yet (or already does), or a bitmap requested before the Roaring library loaded.
  */
 export type FilterEngineModeErrorCode =
+	| 'MODE_ACCELERATION_NOT_READY'
 	| 'MODE_EXPRESSION_ACTIVE'
 	| 'MODE_WORKER_ALREADY_INITIALIZED'
 	| 'MODE_WORKER_NOT_INITIALIZED'

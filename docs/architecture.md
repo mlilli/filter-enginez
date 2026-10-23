@@ -335,7 +335,7 @@ packages/core/src/
 │   ├── rejectCallsAfterDestroy.ts # Makes every public method throw ENGINE_DESTROYED after destroy()
 │   ├── textPlan.ts             # Chooses index vs scan per text query
 │   ├── fuzzyTrigramBound.ts    # Fuse-pinned trigram bound for FuzzySearchRule pre-filtering
-│   ├── roaringInit.ts          # `await roaringLibraryInitialize()` — why engine boot is async
+│   ├── roaringInit.ts          # Loads roaring-wasm on demand: `import()`, then `roaringLibraryInitialize()`
 │   └── types/
 │       └── roaring-wasm.d.ts   # Ambient types for the WASM binding
 ├── similarity/
@@ -894,8 +894,9 @@ The full code list, by class:
 | `MODE_WORKER_UNSUPPORTED`         | `FilterEngineModeError`      | A synchronous `engine.core` member a worker-backed engine has no main-thread mirror for (`applyFiltersAndQuery`, `simulate`, `getResultIndices`, the store internals, …; §11.2); the message names the async call to await instead |
 | `MODE_WORKER_NOT_INITIALIZED`     | `FilterEngineModeError`      | A worker host method called before `init`                                                                                                                                                                                          |
 | `MODE_WORKER_ALREADY_INITIALIZED` | `FilterEngineModeError`      | A second `init` on a worker host, which keeps one engine for its lifetime                                                                                                                                                          |
+| `MODE_ACCELERATION_NOT_READY`     | `FilterEngineModeError`      | `BitmapIndex` or `TextInvertedIndex` building a bitmap before `initializeBitmapAcceleration()` has resolved; the engine checks readiness first and never raises it                                                                 |
 | `ENGINE_DESTROYED`                | `FilterEngineDestroyedError` | Any public `FilterEngine` method, or any `wrapInWorker` facade method, after `destroy()`                                                                                                                                           |
-| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: the WASM module failed to load (original error as `cause`), on that call and every later one                                                                                                       |
+| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: roaring-wasm or its WASM module failed to load (original error as `cause`), on that call and every later one                                                                                       |
 | `DEVTOOLS_INDEX_OUT_OF_RANGE`     | `FilterEngineError`          | `TimeTravel.jumpTo`, `ActionLog.setCurrentIndex`: an index outside the action log                                                                                                                                                  |
 | `STORAGE_UNAVAILABLE`             | `FilterEngineError`          | `IndexedDBAdapter` in a runtime without `indexedDB`                                                                                                                                                                                |
 | `STORAGE_OPERATION_FAILED`        | `FilterEngineError`          | `IndexedDBAdapter` open, load, save or remove failed (the request's error as `cause`)                                                                                                                                              |
@@ -3027,7 +3028,7 @@ private _buildBitmapForRule(rule: FilterRule): RoaringBitmap32 {
     // Plan said bypass — fall through to the per-item predicate scan below.
   }
   const items = this._store.sourceData.value;
-  const bitmap = new RoaringBitmap32();
+  const bitmap = createRoaringBitmap();
 
   prepareRuleForCollection(rule, items);
   if (rule instanceof CompositeRule) {
@@ -3058,6 +3059,15 @@ private _buildBitmapForRule(rule: FilterRule): RoaringBitmap32 {
   return bitmap;
 }
 ```
+
+**Loading.** `roaring-wasm` is reached only through a dynamic `import()` inside `initializeBitmapAcceleration()`
+(`internals/roaringInit.ts`); everywhere else core imports its types alone, and `BitmapIndex` and `TextInvertedIndex`
+build every bitmap with the `RoaringBitmap32` constructor that import resolved (`createRoaringBitmap()`). An app that
+never calls the initializer never bundles the library, and a bundler that splits code gives it a chunk of its own,
+fetched when the call runs. Called directly before the initializer resolves, the two classes throw
+`MODE_ACCELERATION_NOT_READY` (§2.5).
+[`tests/tooling/lazyDependencies.test.ts`](../tests/tooling/lazyDependencies.test.ts) fails if any static import chain
+from core's entry points reaches the library, and the `core without bitmaps` size budget (§22.4) pins what an app saves.
 
 **Engagement.** Bitmaps are engaged (`BitmapIndex.shouldUseBitmap()`) when the Roaring WASM module has been initialized
 (`await initializeBitmapAcceleration()`) and `acceleration.bitmap` is `'on'`, or `'auto'` (the default) with
@@ -5552,9 +5562,11 @@ return unsubscribe;
 
 - **Engine → URL.** On every engine change event, debounced (`debounceMs`, default 150; `0` writes synchronously), the
   component exports the config (`asyncConfig.exportConfig()` for worker-backed engines), encodes it with the chosen
-  serializer and navigates with `historyMode` (default `'replace'`, so filter ticks do not pile up history). A token
-  discards a stale async export that a newer change has overtaken.
-- **URL → Engine.** On every `location.search` change it decodes the parameter and calls `engine.loadConfig`. A decode
+  serializer and navigates with `historyMode` (default `'replace'`, so filter ticks do not pile up history). Every
+  engine change bumps a token, which discards an async export the change has made stale. The subscription and its
+  pending write outlive location changes: a write reads the current location from a ref when it runs.
+- **URL → Engine.** On every `location.search` change it decodes the parameter and calls `engine.loadConfig`, unless the
+  location is one of the component's own writes arriving or the engine already holds that state (below). A decode
   failure is reported to `onError` and, with `tolerateMalformedUrls` (default `true`), leaves the engine as it was.
 - **Across routes (opt-in).** Route navigations are the app's own. With `routeChangeMode` set, a navigation to another
   pathname whose URL lacks the parameter gets the current one re-attached, so filter state is retained across routes
@@ -5568,10 +5580,10 @@ return unsubscribe;
 // ─── Engine → URL ──────────────────────────────────────────────────────
 useEffect((): (() => void) => {
   const writeUrl = async (): Promise<void> => {
-    // Worker-backed engines export across a postMessage round-trip; bump a token first so a
-    // newer engine change landing mid-export discards this now-stale write. The sync path (no
+    // Worker-backed engines export across a postMessage round-trip; an engine change landing
+    // mid-export bumps the token and discards this now-stale write. The sync path (no
     // `asyncConfig`) hits no `await`, so it still runs through to `navigate` synchronously.
-    const token = ++writeTokenRef.current;
+    const token = writeTokenRef.current;
     const config = asyncConfig ? await asyncConfig.exportConfig() : engine.exportConfig();
 
     if (token !== writeTokenRef.current) {
@@ -5579,18 +5591,19 @@ useEffect((): (() => void) => {
     }
     const serialized = serializer.encode(config);
 
-    ourLastWriteRef.current = serialized;
+    rememberWrite(pendingWritesRef.current, serialized);
+    engineStateRef.current = serialized;
     currentParamRef.current = serialized;
-    const search = new URLSearchParams(location.search);
+    const { pathname, search: currentSearch } = locationRef.current;
+    const search = new URLSearchParams(currentSearch);
 
     search.set(paramKey, serialized);
-    void navigate(
-      { pathname: location.pathname, search: search.toString() },
-      { replace: historyMode === 'replace' },
-    );
+    void navigateRef.current({ pathname, search: search.toString() }, { replace: historyMode === 'replace' });
   };
 
   const off = engine.subscribe(() => {
+    writeTokenRef.current += 1;
+    engineStateRef.current = null;
     if (writeTimerRef.current !== null) {
       clearTimeout(writeTimerRef.current);
     }
@@ -5611,7 +5624,7 @@ useEffect((): (() => void) => {
     }
     off();
   };
-}, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode, navigate, location.pathname, location.search]);
+}, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode]);
 
 // ─── URL → Engine ──────────────────────────────────────────────────────
 useEffect((): void => {
@@ -5621,9 +5634,19 @@ useEffect((): void => {
   if (!serialized) {
     return;
   }
-  // If the URL value matches the most recent value WE wrote, it's our own echo —
-  // skip the load to break the loop.
-  if (serialized === ourLastWriteRef.current) {
+  // One of our own writes arriving — in order, or late, after a newer one (see "Own writes").
+  // A POP is the user's history navigation, even to a value we wrote, so it is never skipped here.
+  const pending = pendingWritesRef.current;
+  const pendingIndex = pending.indexOf(serialized);
+
+  if (pendingIndex !== -1) {
+    pending.splice(pendingIndex, 1);
+    if (navigationType !== NavigationType.Pop) {
+      return;
+    }
+  }
+  // The engine already holds this state; loading it again would change nothing.
+  if (serialized === engineStateRef.current) {
     return;
   }
 
@@ -5631,6 +5654,7 @@ useEffect((): void => {
     const config = serializer.decode(serialized);
 
     engine.loadConfig(config);
+    engineStateRef.current = serialized;
     currentParamRef.current = serialized;
   } catch (err) {
     /* v8 ignore next -- defensive: the built-in serializers always throw Error; the non-Error branch is only reachable via a custom serializer that throws a non-Error */
@@ -5641,13 +5665,23 @@ useEffect((): void => {
       throw error;
     }
   }
-}, [location.search, engine, serializer, paramKey, shouldTolerateMalformedUrls, onError]);
+}, [location.search, navigationType, engine, serializer, paramKey, shouldTolerateMalformedUrls, onError]);
 ```
 
-Origin tracking compares values: the component keeps the last parameter string it wrote (`ourLastWriteRef`), and the URL
-→ engine effect skips a URL whose parameter equals it — its own write echoing back, not an external navigation. A
-separate ref, `currentParamRef`, holds the parameter that describes the engine's current state, whichever direction it
-came from; `routeChangeMode` re-attaches that value when a navigation drops the parameter.
+Origin tracking keeps two things. `pendingWritesRef` lists the parameter values the component has navigated to whose
+locations have not rendered yet (at most `PENDING_WRITES_REMEMBERED`, 16); a value leaves the list when it arrives. An
+app that navigates inside a React transition can render an older write's location after a newer one, so the last value
+written is not enough to recognize an own write: the older value would look external, be loaded, and drop the newer
+change. A listed value arriving through `PUSH` or `REPLACE` is that late commit, and is not loaded. A `POP` (Back,
+Forward, a reload) is the user's, even when it lands on a value the component wrote, so it is never skipped as an own
+write. `engineStateRef` holds the value the engine is known to hold: set by every write and load, and cleared by every
+engine change until the next write, so it never vouches for a state the engine has left. A location carrying that value
+has nothing to load, whichever way it arrived. Everything else loads: Back and Forward, a pasted link, an in-app link to
+any `?f=`.
+
+A third ref, `currentParamRef`, holds the parameter that describes the engine's current state, whichever direction it
+came from; `routeChangeMode` re-attaches that value when a navigation drops the parameter, and lists it as a pending
+write so its arrival is not loaded over a newer change still inside the debounce window.
 
 ---
 
@@ -6761,9 +6795,9 @@ since ESLint loads them directly. The build graph follows the `tsconfig.build.js
 
 Every package's manifest declares `"sideEffects": false`: no module does anything at import time beyond defining what it
 exports, so a bundler drops every module an app does not import. An app that imports only `FilterEngineConfigError` from
-`@filter-enginez/core` bundles under 1 kB of the package; roaring-wasm (about 231 kB of inline WebAssembly in its
-browser build), fuse.js and rbush come in only with the engine code that uses them. A module that is imported still runs
-in full, so the roaring-wasm start-up behind `initializeBitmapAcceleration()` is unaffected.
+`@filter-enginez/core` bundles under 1 kB of the package; fuse.js and rbush come in only with the engine code that uses
+them, and roaring-wasm (about 231 kB of inline WebAssembly in its browser build) only with
+`initializeBitmapAcceleration()`, which loads it through `import()` (§6.1).
 [`tests/tooling/sideEffectFreePackages.test.ts`](../tests/tooling/sideEffectFreePackages.test.ts) keeps the declaration
 true: it reads every module each package's `exports` reach and fails on a top-level statement whose effect could reach
 outside its module, apart from a short list of reviewed ones that touch only their own module's bindings.
@@ -6790,33 +6824,42 @@ maps are still emitted for in-repo editor navigation between packages, and stay 
 [`.size-limit.json`](../.size-limit.json) holds one budget per published entry, and `pnpm size` (or `pnpm size:json`)
 measures them against `dist/`. **CI runs it as a blocking gate**, after the build.
 
-Every figure is **gzipped and marginal** — the engine, the framework and every third-party dependency are `ignore`d per
-entry, so each budget measures the package's own code. Without that convention `react-signals` would be measuring React.
+Every figure is **gzipped**, and every figure but one is **marginal** — the engine, the framework and every third-party
+dependency are `ignore`d per entry, so each budget measures the package's own code. Without that convention
+`react-signals` would be measuring React. The exception is `core without bitmaps`, which measures what an app pays for
+`createFilterEngine` with two rules, every dependency included: it pins that roaring-wasm stays out of an app that never
+calls `initializeBitmapAcceleration()` (§6.1), a saving the marginal `core` entry cannot see because it ignores
+roaring-wasm either way.
 
-| Entry                   | Budget |
-| ----------------------- | ------ |
-| `core` (default entry)  | 19 kB  |
-| `core/storage/browser`  | 2 kB   |
-| `core/keyboard/browser` | 1 kB   |
-| `reactive-signals`      | 3 kB   |
-| `reactive-rxjs`         | 3.5 kB |
-| `react-signals`         | 4 kB   |
-| `react-rxjs`            | 4 kB   |
-| `svelte-signals`        | 3 kB   |
-| `vue-signals`           | 3 kB   |
-| `angular-rxjs`          | 3 kB   |
-| `redux-bridge`          | 4 kB   |
-| `url-state-router`      | 3 kB   |
-| `worker-bridge`         | 5 kB   |
+| Entry                                      | Budget  |
+| ------------------------------------------ | ------- |
+| `core` (default entry)                     | 19.5 kB |
+| `core without bitmaps` (with dependencies) | 32 kB   |
+| `core/storage/browser`                     | 2 kB    |
+| `core/keyboard/browser`                    | 1 kB    |
+| `reactive-signals`                         | 3 kB    |
+| `reactive-rxjs`                            | 3.5 kB  |
+| `react-signals`                            | 4 kB    |
+| `react-rxjs`                               | 4 kB    |
+| `svelte-signals`                           | 3 kB    |
+| `vue-signals`                              | 3 kB    |
+| `angular-rxjs`                             | 3 kB    |
+| `redux-bridge`                             | 4 kB    |
+| `url-state-router`                         | 3 kB    |
+| `worker-bridge`                            | 5 kB    |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 18.8 kB: the error hierarchy (§2.5), filter groups composed into every
-evaluation path, bitmap-backed results, the devtools snapshot codec with cross-reload persistence, devtools failure
-reporting, the rules' revival of open bounds and checking of options from JSON (§9.3), array-valued membership and its
-facet counts, `FuzzySearchRule`'s Fuse option passthrough with its per-collection index (§4.3), and the R-tree's cap
-geometry (§6.2) are all in its default entry. `reactive-rxjs` measures about 3.0 kB, most of it the worker-backed
-adapter and its `engine.core` shim, which answers every public `FilterEngine` member (§11.2).
-`tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
+nearest half kilobyte. `core` measures about 19.1 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm
+(§6.1), filter groups composed into every evaluation path, bitmap-backed results, the devtools snapshot codec with
+cross-reload persistence, devtools failure reporting, the rules' revival of open bounds and checking of options from
+JSON (§9.3), array-valued membership and its facet counts, `FuzzySearchRule`'s Fuse option passthrough with its
+per-collection index (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry. `core without bitmaps`
+measures about 31.7 kB: about 18.3 kB of core and the rest its dependencies (zod, fuse.js, rbush, `@preact/signals-core`
+and microdiff). The same app with `initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines
+roaring-wasm, and stays near 32 kB when the bundler splits code and fetches roaring-wasm as its own chunk.
+`reactive-rxjs` measures about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers
+every public `FilterEngine` member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to
+`.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;
 `angular-rxjs` is the smallest binding because Angular consumes `Observable`s natively, leaving only DI to plumb.

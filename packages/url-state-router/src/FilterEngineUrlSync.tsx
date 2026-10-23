@@ -9,7 +9,8 @@
  *   - **Engine → URL**: subscribe to `engine.subscribe`, debounce writes (default 150ms),
  *     `navigate({ replace: true })` so filter-state changes don't bloat the back stack.
  *   - **URL → Engine**: subscribe to `location.search`, decode the param, `engine.loadConfig
- *     (...)`. Skipped when the change originated from this component (origin sentinel).
+ *     (...)`. Skipped when the location is one of this component's own writes arriving, or when
+ *     the parameter is the state the engine already holds (see "Own writes" below).
  *   - **Across routes (opt-in)**: with `routeChangeMode` set, when the app navigates to another
  *     pathname with a URL that lacks the parameter, the component re-attaches the current one, so
  *     the filter state is retained across routes served by the same engine.
@@ -17,6 +18,14 @@
  * **History modes.** Filter state changes use `replace` by default (`historyMode`) — every
  * checkbox tick shouldn't pollute browser history. Route navigations are the app's own; the
  * optional re-attach after one uses `routeChangeMode`.
+ *
+ * **Own writes.** The component remembers each parameter value it navigated to until that
+ * location renders, a bounded list of {@link PENDING_WRITES_REMEMBERED}. An app that navigates
+ * inside a React transition can render an older write's location AFTER a newer one, so "the last
+ * value written" is not enough to recognize an own write: the older value would look external, be
+ * loaded, and drop the newer change. A pending value arriving through `PUSH` or `REPLACE` is that
+ * late commit and is never loaded. A `POP` (Back, Forward, a reload) is always the user's, even to
+ * a value this component wrote, so it loads unless the engine already holds that state.
  *
  * **Why a component, not a hook.** The implementation owns timer cleanup, subscription
  * cleanup, and a ref-based origin sentinel — all of which want a stable mount lifecycle a
@@ -29,9 +38,35 @@
 import type { FilterEngine, FilterEngineConfig } from '@filter-enginez/core';
 
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { NavigationType, useLocation, useNavigate, useNavigationType } from 'react-router';
 
 import { type BuiltInSerializerName, type EngineStateSerializer, resolveSerializer } from './serializers.js';
+
+/**
+ * How many of its own parameter values the component keeps while their locations are waiting to
+ * render.
+ *
+ * @remarks
+ * A value leaves the list when its location renders, so the list holds only writes React has not
+ * shown yet: with the 150 ms default debounce, two or three at most. The bound matters only when a
+ * write's location never renders at all (a transition React abandoned for a newer one); sixteen
+ * leaves a wide margin and keeps a long session's list small.
+ */
+export const PENDING_WRITES_REMEMBERED = 16;
+
+/**
+ * Remember a parameter value the component is about to navigate to, forgetting the oldest past
+ * {@link PENDING_WRITES_REMEMBERED}.
+ *
+ * @param pending - The component's pending writes, oldest first; updated in place.
+ * @param serialized - The value.
+ */
+function rememberWrite(pending: string[], serialized: string): void {
+	pending.push(serialized);
+	if (pending.length > PENDING_WRITES_REMEMBERED) {
+		pending.shift();
+	}
+}
 
 /**
  * Props for `FilterEngineUrlSync`.
@@ -139,18 +174,25 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	} = props;
 
 	const location = useLocation();
+	const navigationType = useNavigationType();
 	const navigate = useNavigate();
 
 	/**
-	 * Origin sentinel — set to the most recent value WE wrote to the URL. When the
-	 * `location.search` effect runs, it compares the current `?${paramKey}=...` value to
-	 * this sentinel; if they match, it skips the engine.loadConfig call (the URL change
-	 * was our own write echoing back, not an external nav).
+	 * Origin tracking — the parameter values this component navigated to whose locations have not
+	 * rendered yet, oldest first, at most {@link PENDING_WRITES_REMEMBERED}. The `location.search`
+	 * effect removes a value when it arrives and skips the load when it arrived through `PUSH` or
+	 * `REPLACE`: that is our own write committing, in order or late, never an external navigation.
 	 *
-	 * Using a ref instead of state because the sentinel doesn't drive renders — it's
-	 * cross-effect bookkeeping.
+	 * Refs rather than state, here and below: this is cross-effect bookkeeping that drives no render.
 	 */
-	const ourLastWriteRef = useRef<string | null>(null);
+	const pendingWritesRef = useRef<string[]>([]);
+
+	/**
+	 * The parameter value the engine is known to hold — set when this component writes or loads a
+	 * value, and cleared by every engine change until the next write, so it never vouches for a
+	 * state the engine has moved on from. A navigation to this value has nothing to load.
+	 */
+	const engineStateRef = useRef<string | null>(null);
 
 	/**
 	 * The parameter value describing the engine's current state — the last one written or
@@ -168,11 +210,20 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	/**
-	 * Monotonic token for engine→URL writes. When `asyncConfig` is in play, `exportConfig` awaits a
-	 * worker round-trip; a newer engine change bumps this so a stale in-flight export is discarded
-	 * rather than clobbering the URL with an out-of-date state.
+	 * Monotonic token for engine→URL writes, bumped by every engine change. When `asyncConfig` is in
+	 * play, `exportConfig` awaits a worker round-trip; a change landing meanwhile bumps this, so the
+	 * now-stale export is discarded rather than clobbering the URL with an out-of-date state (the
+	 * change schedules its own write).
 	 */
 	const writeTokenRef = useRef(0);
+
+	/**
+	 * The rendered location and the router's `navigate`, as of the latest render. A write reads them
+	 * when it runs rather than closing over them, so the engine subscription and its pending
+	 * debounced write survive a location change — including the one a previous write causes.
+	 */
+	const locationRef = useRef(location);
+	const navigateRef = useRef(navigate);
 
 	/**
 	 * Resolved serializer instance. Re-resolved if the prop changes (the resolver is
@@ -180,14 +231,19 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	 */
 	const serializer = resolveSerializer(serializerProp);
 
+	useEffect((): void => {
+		locationRef.current = location;
+		navigateRef.current = navigate;
+	}, [location, navigate]);
+
 	// #region docs:url-sync-effects
 	// ─── Engine → URL ──────────────────────────────────────────────────────
 	useEffect((): (() => void) => {
 		const writeUrl = async (): Promise<void> => {
-			// Worker-backed engines export across a postMessage round-trip; bump a token first so a
-			// newer engine change landing mid-export discards this now-stale write. The sync path (no
+			// Worker-backed engines export across a postMessage round-trip; an engine change landing
+			// mid-export bumps the token and discards this now-stale write. The sync path (no
 			// `asyncConfig`) hits no `await`, so it still runs through to `navigate` synchronously.
-			const token = ++writeTokenRef.current;
+			const token = writeTokenRef.current;
 			const config = asyncConfig ? await asyncConfig.exportConfig() : engine.exportConfig();
 
 			if (token !== writeTokenRef.current) {
@@ -195,18 +251,19 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			}
 			const serialized = serializer.encode(config);
 
-			ourLastWriteRef.current = serialized;
+			rememberWrite(pendingWritesRef.current, serialized);
+			engineStateRef.current = serialized;
 			currentParamRef.current = serialized;
-			const search = new URLSearchParams(location.search);
+			const { pathname, search: currentSearch } = locationRef.current;
+			const search = new URLSearchParams(currentSearch);
 
 			search.set(paramKey, serialized);
-			void navigate(
-				{ pathname: location.pathname, search: search.toString() },
-				{ replace: historyMode === 'replace' },
-			);
+			void navigateRef.current({ pathname, search: search.toString() }, { replace: historyMode === 'replace' });
 		};
 
 		const off = engine.subscribe(() => {
+			writeTokenRef.current += 1;
+			engineStateRef.current = null;
 			if (writeTimerRef.current !== null) {
 				clearTimeout(writeTimerRef.current);
 			}
@@ -227,7 +284,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			}
 			off();
 		};
-	}, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode, navigate, location.pathname, location.search]);
+	}, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode]);
 
 	// ─── URL → Engine ──────────────────────────────────────────────────────
 	useEffect((): void => {
@@ -237,9 +294,19 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 		if (!serialized) {
 			return;
 		}
-		// If the URL value matches the most recent value WE wrote, it's our own echo —
-		// skip the load to break the loop.
-		if (serialized === ourLastWriteRef.current) {
+		// One of our own writes arriving — in order, or late, after a newer one (see "Own writes").
+		// A POP is the user's history navigation, even to a value we wrote, so it is never skipped here.
+		const pending = pendingWritesRef.current;
+		const pendingIndex = pending.indexOf(serialized);
+
+		if (pendingIndex !== -1) {
+			pending.splice(pendingIndex, 1);
+			if (navigationType !== NavigationType.Pop) {
+				return;
+			}
+		}
+		// The engine already holds this state; loading it again would change nothing.
+		if (serialized === engineStateRef.current) {
 			return;
 		}
 
@@ -247,6 +314,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			const config = serializer.decode(serialized);
 
 			engine.loadConfig(config);
+			engineStateRef.current = serialized;
 			currentParamRef.current = serialized;
 		} catch (err) {
 			/* v8 ignore next -- defensive: the built-in serializers always throw Error; the non-Error branch is only reachable via a custom serializer that throws a non-Error */
@@ -257,7 +325,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 				throw error;
 			}
 		}
-	}, [location.search, engine, serializer, paramKey, shouldTolerateMalformedUrls, onError]);
+	}, [location.search, navigationType, engine, serializer, paramKey, shouldTolerateMalformedUrls, onError]);
 	// #endregion docs:url-sync-effects
 
 	// ─── Across routes ─────────────────────────────────────────────────────
@@ -273,7 +341,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			return;
 		}
 		search.set(paramKey, carried);
-		ourLastWriteRef.current = carried;
+		rememberWrite(pendingWritesRef.current, carried);
 		void navigate(
 			{ pathname: location.pathname, search: search.toString() },
 			{ replace: routeChangeMode === 'replace' },

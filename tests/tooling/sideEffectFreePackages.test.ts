@@ -7,8 +7,9 @@
  *
  * `"sideEffects": false` is a promise to every bundler that consumes the package: "a module whose exports you do not
  * use can be dropped, and nothing changes." Bundlers act on it without checking. That is what lets an app import one
- * error class from `@filter-enginez/core` and bundle well under a kilobyte instead of the whole engine — the
- * roaring-wasm WebAssembly (about 231 kB of inline base64 in its browser build), fuse.js and rbush.
+ * error class from `@filter-enginez/core` and bundle well under a kilobyte instead of the whole engine with zod,
+ * fuse.js and rbush. (roaring-wasm, the largest dependency, is loaded through `import()` only; that is a separate
+ * property, kept by `lazyDependencies.test.ts`.)
  *
  * The promise is also a claim about code nobody has written yet. A module that registers a global, patches a built-in
  * prototype, imports a stylesheet or polyfill, or calls `customElements.define()` at its top level works in every test
@@ -54,10 +55,11 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, posix, relative, resolve } from 'node:path';
+import { posix, relative, resolve } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { buildCompilerOptions, emittedJavaScript, resolveRelative, sourceOfExportTarget } from './support/packageModules.js';
 import { REPO_ROOT } from './support/repoFiles.js';
 
 /** The fields of a package manifest this guard reads. */
@@ -371,94 +373,6 @@ function findTopLevelEffects(javascript: string, file: string): readonly Finding
 	}
 
 	return findings;
-}
-
-/**
- * Compiler options for transpiling one package's modules the way its build does.
- *
- * @param directory - Absolute path of the package.
- * @returns The options of its `tsconfig.build.json`, emitting ES modules without declarations or maps.
- */
-function buildCompilerOptions(directory: string): ts.CompilerOptions {
-	const configPath = resolve(directory, 'tsconfig.build.json');
-	const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, {
-		...ts.sys,
-		onUnRecoverableConfigFileDiagnostic: (diagnostic) => {
-			throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
-		},
-	});
-
-	if (parsed === undefined) {
-		throw new Error(`${configPath} could not be read`);
-	}
-
-	// `module: ESNext` because `transpileModule` cannot see `"type": "module"`, which is what makes NodeNext emit ESM;
-	// the statement structure is the same either way.
-	return {
-		...parsed.options,
-		composite: false,
-		declaration: false,
-		declarationMap: false,
-		module: ts.ModuleKind.ESNext,
-		moduleResolution: ts.ModuleResolutionKind.Bundler,
-		noEmit: false,
-		sourceMap: false,
-	};
-}
-
-/**
- * Transpile a module the way the package build emits it.
- *
- * @param path - Absolute path of a `.ts`, `.tsx` or `.js` source.
- * @param options - From {@link buildCompilerOptions}.
- * @returns The emitted JavaScript; a `.js` source is returned as written.
- */
-function emittedJavaScript(path: string, options: ts.CompilerOptions): string {
-	const source = readFileSync(path, 'utf8');
-
-	if (path.endsWith('.js')) {
-		return source;
-	}
-
-	return ts.transpileModule(source, { compilerOptions: options, fileName: path }).outputText;
-}
-
-/**
- * Map an `exports` target to the source module it is built from.
- *
- * @param directory - Absolute path of the package.
- * @param target - A target such as `./src/index.ts` or `./dist/plugin/index.js`.
- * @returns The absolute source path, or `undefined` for a declaration file.
- */
-function sourceOfExportTarget(directory: string, target: string): string | undefined {
-	if (target.endsWith('.d.ts')) {
-		return undefined;
-	}
-
-	const built = /^\.\/dist\/(?<path>.+)\.js$/u.exec(target)?.groups?.['path'];
-
-	return resolve(directory, built === undefined ? target : `./src/${built}.ts`);
-}
-
-/**
- * Resolve a relative module specifier the way `moduleResolution: nodenext` does for this repository's sources.
- *
- * @param importer - Absolute path of the importing module.
- * @param specifier - A relative specifier, such as `./errors/index.js`.
- * @returns The absolute path of the source module.
- */
-function resolveRelative(importer: string, specifier: string): string {
-	const base = resolve(dirname(importer), specifier);
-	const candidates = specifier.endsWith('.js')
-		? [base.replace(/\.js$/u, '.ts'), base.replace(/\.js$/u, '.tsx'), base]
-		: [`${base}.ts`, resolve(base, 'index.ts'), base];
-	const found = candidates.find((candidate) => existsSync(candidate) && !candidate.endsWith('.d.ts'));
-
-	if (found === undefined) {
-		throw new Error(`${relative(REPO_ROOT, importer)} imports '${specifier}', which resolves to no source file`);
-	}
-
-	return found;
 }
 
 /**
