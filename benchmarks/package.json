@@ -18,7 +18,7 @@
     "@filter-enginez/core": "workspace:^",
     "@filter-enginez/eslint": "workspace:^",
     "@filter-enginez/mock-data": "workspace:^",
-    "tinybench": "^6.0.2",
+    "tinybench": "^6.2.2",
     "tsx": "^4.23.0"
   }
 }

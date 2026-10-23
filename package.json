@@ -75,7 +75,7 @@
     "markdownlint-cli2": "^0.23.3",
     "prettier": "^3.9.9",
     "size-limit": "^13.1.1",
-    "tinybench": "^6.2.0",
+    "tinybench": "^6.2.2",
     "turbo": "^2.11.8",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
