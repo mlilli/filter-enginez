@@ -15,7 +15,7 @@
  *     check digits, built from curated word lists
  *
  * ⚠ Wine alone has an optional real-data path, local to a development checkout: the Kaggle "Wine
- * Reviews" dataset (CC BY-NC-SA 4.0) can be downloaded with `pnpm regen:wine:real
+ * Reviews" dataset, under its own license, can be downloaded with `pnpm regen:wine:real
  * --accept-data-license`. It is gitignored, never packaged, and stripped from example-app
  * production builds.
  *

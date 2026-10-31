@@ -43,10 +43,12 @@ export type FilterEngineRuleErrorCode =
 /**
  * Codes carried by `FilterEngineModeError` — the call is valid in general but not in the
  * engine's current mode: expression mode, a worker-backed engine, a worker host whose engine
- * does not exist yet (or already does), or a bitmap requested before the Roaring library loaded.
+ * does not exist yet (or already does), a bitmap requested before the Roaring library loaded, or
+ * bitmap acceleration initialized without its optional `roaring-wasm` peer installed.
  */
 export type FilterEngineModeErrorCode =
 	| 'MODE_ACCELERATION_NOT_READY'
+	| 'MODE_ACCELERATION_PEER_MISSING'
 	| 'MODE_EXPRESSION_ACTIVE'
 	| 'MODE_WORKER_ALREADY_INITIALIZED'
 	| 'MODE_WORKER_NOT_INITIALIZED'

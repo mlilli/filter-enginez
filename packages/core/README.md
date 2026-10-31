@@ -10,6 +10,19 @@ edge runtimes.
 pnpm add @filter-enginez/core
 ```
 
+Bitmap acceleration uses `roaring-wasm`, an optional peer dependency: core runs without it, and installing core does not
+install it. To enable bitmaps, install it alongside core and await `initializeBitmapAcceleration()` once at startup (see
+the quick start):
+
+```bash
+pnpm add roaring-wasm
+```
+
+Without it, `initializeBitmapAcceleration()` rejects with a `FilterEngineModeError` whose code is
+`MODE_ACCELERATION_PEER_MISSING` and whose message is the install command, and the engine keeps filtering through its
+predicate path with the same results. Nothing in the engine calls it for you, so an app that never does needs nothing
+more.
+
 Sub-exports: `@filter-enginez/core/keyboard/browser`, `@filter-enginez/core/similarity`,
 `@filter-enginez/core/storage/browser`, `@filter-enginez/core/suggestions`.
 
@@ -22,8 +35,8 @@ keeps their bytes out of your build.
 import { createFilterEngine, initializeBitmapAcceleration, InSetRule, RangeRule } from '@filter-enginez/core';
 import { type Wine, wines } from '@filter-enginez/mock-data/wine';
 
-// Await this once at startup. It loads roaring-wasm, which an app that never calls it does not
-// bundle. The Roaring-Bitmap path stays OFF until it resolves —
+// Await this once at startup, with roaring-wasm installed. It loads roaring-wasm, which an app that
+// never calls it does not bundle. The Roaring-Bitmap path stays OFF until it resolves —
 // silently, so an app whose WASM asset is still in flight keeps working rather than
 // throwing. Skipping it costs roughly 40x on a 10k corpus and raises no warning.
 await initializeBitmapAcceleration();

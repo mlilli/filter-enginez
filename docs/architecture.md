@@ -336,8 +336,7 @@ packages/core/src/
 │   ├── textPlan.ts             # Chooses index vs scan per text query
 │   ├── fuzzyTrigramBound.ts    # Fuse-pinned trigram bound for FuzzySearchRule pre-filtering
 │   ├── roaringInit.ts          # Loads roaring-wasm on demand: `import()`, then `roaringLibraryInitialize()`
-│   └── types/
-│       └── roaring-wasm.d.ts   # Ambient types for the WASM binding
+│   └── roaringBitmap.ts        # Core's own bitmap types, so published declarations never name roaring-wasm
 ├── similarity/
 │   ├── index.ts
 │   ├── MinHash.ts              # Signature computation
@@ -895,8 +894,9 @@ The full code list, by class:
 | `MODE_WORKER_NOT_INITIALIZED`     | `FilterEngineModeError`      | A worker host method called before `init`                                                                                                                                                                                          |
 | `MODE_WORKER_ALREADY_INITIALIZED` | `FilterEngineModeError`      | A second `init` on a worker host, which keeps one engine for its lifetime                                                                                                                                                          |
 | `MODE_ACCELERATION_NOT_READY`     | `FilterEngineModeError`      | `BitmapIndex` or `TextInvertedIndex` building a bitmap before `initializeBitmapAcceleration()` has resolved; the engine checks readiness first and never raises it                                                                 |
+| `MODE_ACCELERATION_PEER_MISSING`  | `FilterEngineModeError`      | `initializeBitmapAcceleration` without the optional peer dependency `roaring-wasm` installed, on that call and every later one; the message is the install command (§6.1)                                                          |
 | `ENGINE_DESTROYED`                | `FilterEngineDestroyedError` | Any public `FilterEngine` method, or any `wrapInWorker` facade method, after `destroy()`                                                                                                                                           |
-| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: roaring-wasm or its WASM module failed to load (original error as `cause`), on that call and every later one                                                                                       |
+| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: roaring-wasm is installed but it or its WASM module failed to load (a chunk that did not fetch, a module that did not compile; original error as `cause`), on that call and every later one        |
 | `DEVTOOLS_INDEX_OUT_OF_RANGE`     | `FilterEngineError`          | `TimeTravel.jumpTo`, `ActionLog.setCurrentIndex`: an index outside the action log                                                                                                                                                  |
 | `STORAGE_UNAVAILABLE`             | `FilterEngineError`          | `IndexedDBAdapter` in a runtime without `indexedDB`                                                                                                                                                                                |
 | `STORAGE_OPERATION_FAILED`        | `FilterEngineError`          | `IndexedDBAdapter` open, load, save or remove failed (the request's error as `cause`)                                                                                                                                              |
@@ -3060,14 +3060,39 @@ private _buildBitmapForRule(rule: FilterRule): RoaringBitmap32 {
 }
 ```
 
+**Install.** `roaring-wasm` is an **optional peer dependency** of core (`peerDependencies` plus
+`peerDependenciesMeta: { "roaring-wasm": { "optional": true } }`), so installing core does not install it. An app that
+enables bitmaps installs it alongside core (`npm install roaring-wasm`); an app that does not needs nothing. Core keeps
+it as a dev dependency, which installs it for its own tests and the benchmarks.
+
 **Loading.** `roaring-wasm` is reached only through a dynamic `import()` inside `initializeBitmapAcceleration()`
-(`internals/roaringInit.ts`); everywhere else core imports its types alone, and `BitmapIndex` and `TextInvertedIndex`
-build every bitmap with the `RoaringBitmap32` constructor that import resolved (`createRoaringBitmap()`). An app that
-never calls the initializer never bundles the library, and a bundler that splits code gives it a chunk of its own,
-fetched when the call runs. Called directly before the initializer resolves, the two classes throw
-`MODE_ACCELERATION_NOT_READY` (§2.5).
+(`internals/roaringInit.ts`); `BitmapIndex` and `TextInvertedIndex` build every bitmap with the `RoaringBitmap32`
+constructor that import resolved (`createRoaringBitmap()`). No other module names the library: the bitmap types the
+engine uses are core's own (`internals/roaringBitmap.ts`), so the published declarations type-check in an app without it
+under `skipLibCheck: false`. An app that never calls the initializer never bundles the library, and a bundler that
+splits code gives it a chunk of its own, fetched when the call runs. Called directly before the initializer resolves,
+the two classes throw `MODE_ACCELERATION_NOT_READY` (§2.5).
 [`tests/tooling/lazyDependencies.test.ts`](../tests/tooling/lazyDependencies.test.ts) fails if any static import chain
-from core's entry points reaches the library, and the `core without bitmaps` size budget (§22.4) pins what an app saves.
+from core's entry points reaches the library, if any module names it other than through `import()`, or if it stops being
+an optional peer, and the `core without bitmaps` size budget (§22.4) pins what an app saves.
+
+**When it is not installed.** The `import()` sits inside a `try` block. That is what lets esbuild and webpack bundle an
+app without the package (both fail a build on a bare `import()` they cannot resolve; inside a `try` they leave it for
+the runtime, webpack with a "Module not found" warning); Vite and Rollup build such an app either way. At run time
+`initializeBitmapAcceleration()` then rejects with a `FilterEngineModeError` whose code is
+`MODE_ACCELERATION_PEER_MISSING` and whose message is the install command. It recognizes the absence from the
+module-not-found error each runtime raises — the `ERR_MODULE_NOT_FOUND` / `MODULE_NOT_FOUND` codes of Node, Bun and
+webpack's runtime, the bare-specifier messages of Chromium, Firefox and WebKit, Vite's "Could not resolve … Is it
+installed?" — anywhere in the error's `cause` chain, provided it names `roaring-wasm`; and from a namespace with neither
+of the library's exports, the empty module a bundler substitutes for an absent optional peer. Any other failure — a
+chunk that did not fetch, a WebAssembly module that did not compile — stays `ACCELERATION_INIT_FAILED`. Both are
+terminal, and the engine keeps its predicate path either way.
+
+**Nothing initializes implicitly.** No engine option, binding or bridge calls `initializeBitmapAcceleration()`:
+`acceleration.bitmap: 'on'` and `'auto'` choose the bitmap path only once an explicit call has resolved, and use the
+predicate path until then, so a missing peer never surfaces anywhere except that call. A worker's engine is no
+exception: its factory calls the initializer (§15), and a rejection there rejects `wrapInWorker` on the main thread with
+the same error.
 
 **Engagement.** Bitmaps are engaged (`BitmapIndex.shouldUseBitmap()`) when the Roaring WASM module has been initialized
 (`await initializeBitmapAcceleration()`) and `acceleration.bitmap` is `'on'`, or `'auto'` (the default) with
@@ -6797,7 +6822,8 @@ Every package's manifest declares `"sideEffects": false`: no module does anythin
 exports, so a bundler drops every module an app does not import. An app that imports only `FilterEngineConfigError` from
 `@filter-enginez/core` bundles under 1 kB of the package; fuse.js and rbush come in only with the engine code that uses
 them, and roaring-wasm (about 231 kB of inline WebAssembly in its browser build) only with
-`initializeBitmapAcceleration()`, which loads it through `import()` (§6.1).
+`initializeBitmapAcceleration()`, which loads it through `import()` — and is installed only by an app that enables
+bitmaps, since it is an optional peer dependency (§6.1).
 [`tests/tooling/sideEffectFreePackages.test.ts`](../tests/tooling/sideEffectFreePackages.test.ts) keeps the declaration
 true: it reads every module each package's `exports` reach and fails on a top-level statement whose effect could reach
 outside its module, apart from a short list of reviewed ones that touch only their own module's bindings.
@@ -6849,16 +6875,16 @@ roaring-wasm either way.
 | `worker-bridge`                            | 5 kB    |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 19.1 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm
-(§6.1), filter groups composed into every evaluation path, bitmap-backed results, the devtools snapshot codec with
-cross-reload persistence, devtools failure reporting, the rules' revival of open bounds and checking of options from
-JSON (§9.3), array-valued membership and its facet counts, `FuzzySearchRule`'s Fuse option passthrough with its
-per-collection index (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry. `core without bitmaps`
-measures about 31.7 kB: about 18.3 kB of core and the rest its dependencies (zod, fuse.js, rbush, `@preact/signals-core`
-and microdiff). The same app with `initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines
-roaring-wasm, and stays near 32 kB when the bundler splits code and fetches roaring-wasm as its own chunk.
-`reactive-rxjs` measures about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers
-every public `FilterEngine` member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to
+nearest half kilobyte. `core` measures about 19.4 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
+its missing-peer detection (§6.1), filter groups composed into every evaluation path, bitmap-backed results, the
+devtools snapshot codec with cross-reload persistence, devtools failure reporting, the rules' revival of open bounds and
+checking of options from JSON (§9.3), array-valued membership and its facet counts, `FuzzySearchRule`'s Fuse option
+passthrough with its per-collection index (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry.
+`core without bitmaps` measures about 31.7 kB: about 18.3 kB of core and the rest its dependencies (fuse.js, rbush,
+`@preact/signals-core` and microdiff). The same app with `initializeBitmapAcceleration()` added measures about 126 kB
+when its bundler inlines roaring-wasm, and stays near 32 kB when the bundler splits code and fetches roaring-wasm as its
+own chunk. `reactive-rxjs` measures about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which
+answers every public `FilterEngine` member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to
 `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;

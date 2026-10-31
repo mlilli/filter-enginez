@@ -41,6 +41,12 @@ export interface AccelerationOptions {
 	/**
 	 * Roaring-Bitmap filter intersection. `'auto'` (default) engages at source data ≥ 500 items;
 	 * `'on'` always engages; `'off'` uses the per-item predicate evaluator (no bitmap path).
+	 *
+	 * @remarks
+	 * `'auto'` and `'on'` engage only once `initializeBitmapAcceleration()` has resolved, and that
+	 * needs the optional peer dependency `roaring-wasm` installed (`npm install roaring-wasm`).
+	 * Neither setting loads the library: until the call resolves, or if it rejects because the
+	 * package is missing, the engine uses the predicate evaluator with identical results.
 	 */
 	readonly bitmap?: 'auto' | 'off' | 'on';
 	/**

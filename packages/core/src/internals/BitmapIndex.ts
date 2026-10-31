@@ -25,10 +25,9 @@
  * @packageDocumentation
  */
 
-import type { RoaringBitmap32 } from 'roaring-wasm';
-
 import type { InternalStore } from '../store/InternalStore.js';
 import type { FieldExtractor, RuleId, SimulationModification } from '../types.js';
+import type { RoaringBitmap32 } from './roaringBitmap.js';
 
 import { isConjunctive } from '../composition/composeFlatExpression.js';
 import { FilterEngineRuleError } from '../errors/index.js';
@@ -37,7 +36,7 @@ import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.j
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
 import { GeoProximityRule } from '../rules/GeoProximityRule.js';
 import { TextSearchRule } from '../rules/TextSearchRule.js';
-// Bitmaps come from the `roaringInit` adapter, never from `roaring-wasm` (its types alone are imported above):
+// Bitmaps come from the `roaringInit` adapter, never from `roaring-wasm` (their type is core's own, `./roaringBitmap.js`):
 // it builds them with the constructor `initializeBitmapAcceleration()` loaded, keeping the library out of the
 // static module graph; exposes `isBitmapAccelerationReady()` for the use-before-init guard below; and keeps the
 // library swap (we went WASM-first for isomorphic browser support) in one place.
@@ -113,9 +112,9 @@ export class BitmapIndex<T> {
 	 *      can't actually intersect bitmaps if the WASM module isn't loaded yet).
 	 *   2. **Data-size threshold** (auto mode only) — small datasets skip the bitmap path
 	 *      because the index-build overhead exceeds the per-eval predicate cost.
-	 *   3. **WASM readiness** — `roaring-wasm` initializes asynchronously in the browser. If
-	 *      the consumer hasn't awaited `initializeBitmapAcceleration()` yet, we can't safely
-	 *      construct `RoaringBitmap32` instances and must fall back to predicate. This gate
+	 *   3. **WASM readiness** — `roaring-wasm` (an optional peer) loads asynchronously. Until
+	 *      `initializeBitmapAcceleration()` resolves — and forever if the peer is not installed —
+	 *      we can't construct `RoaringBitmap32` instances and must fall back to predicate. This gate
 	 *      is the one that makes the engine usable in a browser app that hasn't yet completed
 	 *      its WASM init (the early ticks of page load) without the engine throwing —
 	 *      everything downstream of `shouldUseBitmap()` already knows to handle false by

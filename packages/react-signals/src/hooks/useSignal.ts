@@ -28,8 +28,7 @@ import { useMemo, useSyncExternalStore } from 'react';
  * Structural shape of a `@preact/signals-core` `ReadonlySignal<V>`. Defined locally rather
  * than imported so this package doesn't have to declare a direct dependency on
  * `@preact/signals-core` (it reaches it transitively through
- * `@filter-enginez/reactive-signals`, and via `@preact/signals-react` for the React
- * integration). Keeps the import graph tidy.
+ * `@filter-enginez/reactive-signals`). Keeps the import graph tidy.
  *
  * @internal
  */

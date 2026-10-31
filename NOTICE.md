@@ -36,30 +36,28 @@ attribution requirement applies to redistribution — relevant to any bundled bu
 
 **Apache License 2.0** — full text in [`LICENSE.md`](./LICENSE.md), which is also this project's license:
 
-- `roaring-wasm` — CRoaring compiled to WebAssembly; the Roaring-bitmap acceleration axis
+- `roaring-wasm` — CRoaring compiled to WebAssembly; the Roaring-bitmap acceleration axis. An optional peer dependency
+  of `core`, installed by the applications that enable bitmap acceleration
 - `fuse.js` — fuzzy matching behind `FuzzySearchRule`
 - `rxjs` — the RxJS surface: a dependency of `react-rxjs` and a peer dependency of `reactive-rxjs` and `angular-rxjs`
   (never used inside `core`)
 - `comlink` — the Web Worker bridge
-- `@eslint/config-helpers` — flat-config composition in `@filter-enginez/eslint`
 
 **MIT** — each project's own license text ships in its npm package under `node_modules/<pkg>/LICENSE`; copyright remains
 with each project.
 
 - `@preact/signals-core` — the internal reactive primitive
-- `@preact/signals-react` — the React signals binding
 - `rbush` — the R-tree behind `GeoProximityRule`
 - `microdiff` — devtools state diffing
-- `zod` — JSON-config validation
 - `lz-string` — URL-state compression
 - the ESLint plugins and helpers `@filter-enginez/eslint` composes into its shared configs —
   `@eslint-community/eslint-plugin-eslint-comments`, `@eslint-react/eslint-plugin`, `@stylistic/eslint-plugin`,
-  `@typescript-eslint/utils`, `typescript-eslint`, `@vitest/eslint-plugin`, `eslint-plugin-compat`,
-  `eslint-plugin-jsx-a11y-x`, `eslint-plugin-perfectionist`, `eslint-plugin-react-hooks` and `globals`
+  `typescript-eslint`, `@vitest/eslint-plugin`, `eslint-plugin-compat`, `eslint-plugin-jsx-a11y-x`,
+  `eslint-plugin-perfectionist`, `eslint-plugin-react-hooks` and `globals`
 
-Peer dependencies (React, Vue, Svelte, Angular, React Router, Redux Toolkit, MSW, ESLint) are installed by the consuming
-application, not by these packages. Development-only dependencies (TypeScript, Vite, Vitest, ESLint's own toolchain,
-Changesets and the rest of the build and test tooling) are not redistributed. Neither group is listed here.
+Other peer dependencies (React, Vue, Svelte, Angular, React Router, Redux Toolkit, MSW, ESLint) are installed by the
+consuming application, not by these packages. Development-only dependencies (TypeScript, Vite, Vitest, ESLint's own
+toolchain, Changesets and the rest of the build and test tooling) are not redistributed. Neither group is listed here.
 
 ---
 
@@ -76,6 +74,8 @@ fall in each origin, varietal, score and price band, vintage ages, and how often
 grape names are facts and the counts are statistics; no review text, wine title, winery name or taster name is included,
 and no record of the dataset can be reconstructed from them. Producer names and tasting notes are invented.
 
+<!-- repository-only:start: the package copies of this notice leave out everything up to repository-only:end -->
+
 ### Optional real wine data (not distributed)
 
 For local development, `pnpm regen:wine:real --accept-data-license` in the engine repository downloads the
@@ -86,3 +86,5 @@ WineEnthusiast's content. **None of it is part of this project or covered by its
 from every published package, and stripped from the example apps' production builds; anything distributed from this
 project uses the synthetic generators only. If you run the import, the dataset's terms apply to your copy: attribution,
 non-commercial use only, and the same license for anything you adapt from it.
+
+<!-- repository-only:end -->

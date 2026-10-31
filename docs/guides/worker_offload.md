@@ -91,7 +91,12 @@ names `PredicateRule` explicitly. For a worker-hosted engine with non-serializab
 
 `initializeBitmapAcceleration()` sets module-level state, and a worker has its own module graph. **Initializing on the
 main thread does nothing for the worker.** Call it inside the factory, before `createFilterEngine`, as the example above
-does.
+does. It needs `roaring-wasm` installed in the app, as on the main thread: it is an optional peer dependency of core,
+and neither core nor `worker-bridge` installs it (see [`acceleration_tuning.md`](./acceleration_tuning.md#install)).
+Without it, the `await` in the factory rejects with a `FilterEngineModeError` whose code is
+`MODE_ACCELERATION_PEER_MISSING`, and `wrapInWorker` rejects with that same error on the main thread — class, code and
+install-command message intact. `worker-bridge` never calls the initializer itself; whether a worker's engine is
+accelerated is decided by its factory.
 
 Skip it and you get the silent fallback described in [`acceleration_tuning.md`](./acceleration_tuning.md) — except now
 it is a slow predicate scan on a background thread, which is harder to notice, because the main thread stays responsive
@@ -298,7 +303,8 @@ exposeFilterEngineWorker({ bookEngine, wineEngine });
 
 ## Checklist
 
-- [ ] `initializeBitmapAcceleration()` **inside the worker factory**, not just on the main thread
+- [ ] `roaring-wasm` installed, and `initializeBitmapAcceleration()` **inside the worker factory**, not just on the main
+      thread
 - [ ] Custom rules registered on **both** threads, from a shared module
 - [ ] Worker spawned at your own call site, inline, so the bundler sees it
 - [ ] `applyFiltersAndQuery` instead of a cascade of reads

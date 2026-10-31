@@ -70,7 +70,10 @@ export class FilterEngine<T = unknown> {
 	/** Devtools surface — action log, time-travel, replay, diff, Redux DevTools bridge. */
 	readonly devtools: Devtools<T>;
 
-	/** Roaring-Bitmap acceleration index. Auto-engages at sourceData.length ≥ 500 (default mode). */
+	/**
+	 * Roaring-Bitmap acceleration index. Auto-engages at sourceData.length ≥ 500 (default mode), once
+	 * the optional peer `roaring-wasm` is installed and `initializeBitmapAcceleration()` has resolved.
+	 */
 	readonly bitmapIndex: BitmapIndex<T>;
 
 	/** Mutual-exclusion graph for "would this filter empty the result set?" short-circuiting. */

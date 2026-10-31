@@ -2,7 +2,7 @@
   {
     "name": "core",
     "path": "packages/core/dist/index.js",
-    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
+    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm"],
     "limit": "19.5 kB",
     "gzip": true
   },
@@ -16,7 +16,7 @@
   {
     "name": "core/storage/browser",
     "path": "packages/core/dist/storage/browser/index.js",
-    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm", "zod"],
+    "ignore": ["@preact/signals-core", "fuse.js", "microdiff", "rbush", "roaring-wasm"],
     "limit": "2 kB",
     "gzip": true
   },
@@ -43,7 +43,7 @@
   {
     "name": "react-signals",
     "path": "packages/react-signals/dist/index.js",
-    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-signals", "@preact/signals-react", "react"],
+    "ignore": ["@filter-enginez/core", "@filter-enginez/reactive-signals", "react"],
     "limit": "4 kB",
     "gzip": true
   },
@@ -71,7 +71,7 @@
   {
     "name": "angular-rxjs",
     "path": "packages/angular-rxjs/dist/index.js",
-    "ignore": ["@angular/core", "@filter-enginez/core", "@filter-enginez/reactive-rxjs", "rxjs"],
+    "ignore": ["@angular/core", "@filter-enginez/reactive-rxjs", "rxjs"],
     "limit": "3 kB",
     "gzip": true
   },

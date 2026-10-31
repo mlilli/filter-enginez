@@ -23,7 +23,7 @@
  *
  * ⚠ The one real-data path is local only: `pnpm regen:wine:real --accept-data-license` downloads
  * the Kaggle "Wine Reviews" dataset (scraped from WineEnthusiast in 2017) into gitignored JSON in
- * the same `Wine` shape. It is licensed CC BY-NC-SA 4.0, so it is never packaged or deployed.
+ * the same `Wine` shape. Its own license rules out shipping it, so it is never packaged or deployed.
  *
  * **Full tier = 150k records** (`FULL_WINE_TIER_SIZE`), generated on demand in Node or a browser
  * Web Worker — the stress-test dataset for the benchmark suite and the worker-offload demos.

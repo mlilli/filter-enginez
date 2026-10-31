@@ -59,7 +59,6 @@
     "rxjs": "^7.8.1"
   },
   "dependencies": {
-    "@filter-enginez/core": "workspace:^",
     "@filter-enginez/reactive-rxjs": "workspace:^"
   },
   "devDependencies": {

@@ -16,6 +16,13 @@
  * ship stale attributions. Generating them at publish time means there is exactly one source of truth. The copies are
  * gitignored (`.gitignore` §"License + notice copies") for the same reason.
  *
+ * **The copies are not byte-for-byte copies.** `lib/license-copies.mjs` decides what each one says: links to files no
+ * tarball carries are flattened to their labels, and the parts of the root file marked
+ * `<!-- repository-only:start -->` … `<!-- repository-only:end -->` are left out — the root `NOTICE.md` marks its
+ * section on the local-only real wine dataset that way, because that dataset's license is not permissive and a package
+ * that names it reads to a license scanner as a package that carries it. `tests/tooling/packedLicenseTerms.test.ts`
+ * checks the same copies for non-permissive license names.
+ *
  * ⚠ The script reads every `LICENSE_FILES` entry from the repo root and `process.exit(1)`s on the first miss, so a
  * license change that renames or deletes a root file would stop it at release time.
  * `tests/tooling/publishSurface.test.ts` asserts that every file this script names exists at the repo root, so that
@@ -29,6 +36,8 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { packageCopyOf } from './lib/license-copies.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGES_DIR = join(ROOT, 'packages');
@@ -65,43 +74,19 @@ function publishablePackages() {
 		});
 }
 
-/**
- * Files that DO travel alongside the copy, so a repo-relative link to them still resolves.
- *
- * @remarks
- * `LICENSE.md` is itself synced into every package and named in every `files` array, so
- * `[LICENSE.md](./LICENSE.md)` is correct inside a tarball. Nothing else in the repo is.
- */
-const CO_LOCATED = new Set(['./LICENSE.md']);
-
-/**
- * Rewrite repo-relative markdown links that will not resolve from a package directory.
- *
- * @remarks
- * 🔴 **Consumer-facing.** The root `NOTICE.md` links files such as `[CONTRIBUTING.md](./CONTRIBUTING.md)`
- * — correct at the repo root, dead one directory down, and **the target ships in no tarball.** Copied
- * verbatim, every published package would carry a NOTICE with links pointing at nothing (and
- * `tests/tooling/docLinks.test.ts` reports each one as a dead link).
- *
- * 🟢 Flattened to the link label (inline code) rather than rewritten to a URL. A link into a
- * repository is meaningless inside a tarball that has no repository around it, and naming the path as
- * text is the honest rendering.
- *
- * @param {string} body - The root file's contents.
- * @returns {string} The same text with non-co-located relative links flattened.
- */
-function flattenRepoRelativeLinks(body) {
-	return body.replaceAll(
-		/\[(?<label>[^\]]+)\]\((?<target>\.\/[^)]+)\)/gu,
-		(match, label, target) => (CO_LOCATED.has(target) ? match : label),
-	);
-}
-
 const sources = LICENSE_FILES.map((name) => {
+	let body;
+
 	try {
-		return { body: flattenRepoRelativeLinks(readFileSync(join(ROOT, name), 'utf8')), name };
+		body = readFileSync(join(ROOT, name), 'utf8');
 	} catch {
 		console.error(`✗ missing root ${name} — cannot sync licenses`);
+		process.exit(1);
+	}
+	try {
+		return { body: packageCopyOf(body, name), name };
+	} catch (error) {
+		console.error(`✗ ${error instanceof Error ? error.message : String(error)} — cannot sync licenses`);
 		process.exit(1);
 	}
 });

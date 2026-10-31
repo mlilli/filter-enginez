@@ -16,6 +16,12 @@
  *     Fuse matches (see `fuzzyTrigramBound`), which the caller confirms with the exact Fuse pass.
  *     Built only when a fuzzy pattern with a usable bound asks.
  *
+ * **Needs `roaring-wasm`.** Postings are the library's `RoaringBitmap32`s, built through the
+ * `roaringInit` adapter, so the index serves queries only once `initializeBitmapAcceleration()` has
+ * resolved — which needs the optional peer dependency installed. `BitmapIndex` consults it only
+ * on the bitmap path, which waits for exactly that; a direct query before then throws
+ * `MODE_ACCELERATION_NOT_READY`.
+ *
  * **Normalization.** Field text and query tokens are lowercased — matching Fuse's case-insensitive
  * default and the `allWords` case-insensitive path. Case-sensitive `allWords` and multi-key fuzzy
  * are bypassed upstream (see `textPlan`), so the lowercase index never has to serve them.
@@ -29,9 +35,8 @@
  * @packageDocumentation
  */
 
-import type { RoaringBitmap32 } from 'roaring-wasm';
-
 import type { InternalStore } from '../store/InternalStore.js';
+import type { RoaringBitmap32 } from './roaringBitmap.js';
 
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
 import { createRoaringBitmap } from './roaringInit.js';

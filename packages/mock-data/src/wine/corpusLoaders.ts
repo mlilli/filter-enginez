@@ -108,7 +108,7 @@ let fullWinesPromise: Promise<readonly Wine[]> | null = null;
 
 /**
  * Lazily resolve the default-tier wine corpus — the synthetic procedural generator, unless the
- * locally downloaded Kaggle corpus (10 k stratified, CC BY-NC-SA 4.0, gitignored and never packaged)
+ * locally downloaded Kaggle corpus (10 k stratified, under its own license, gitignored and never packaged)
  * is present and loadable. Memoized: the first caller pays the load, the rest await the same
  * promise.
  */
@@ -120,8 +120,8 @@ export async function loadDefaultWines(): Promise<readonly Wine[]> {
 
 /**
  * Lazily resolve the full corpus — the synthetic full tier ({@link FULL_WINE_TIER_SIZE} records,
- * generated in-process), unless the locally downloaded Kaggle corpus (~130k reviews, CC BY-NC-SA
- * 4.0, gitignored and never packaged) is present and loadable. Memoized: the first caller pays the
+ * generated in-process), unless the locally downloaded Kaggle corpus (~130k reviews, under its own
+ * license, gitignored and never packaged) is present and loadable. Memoized: the first caller pays the
  * load, the rest await the same promise.
  *
  * @remarks

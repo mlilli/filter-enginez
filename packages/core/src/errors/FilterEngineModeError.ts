@@ -1,6 +1,7 @@
 /**
  * `FilterEngineModeError` — the category for calls the engine refuses in its current mode:
- * expression mode, a worker-backed engine, or a worker host before or after `init()`.
+ * expression mode, a worker-backed engine, a worker host before or after `init()`, or bitmap
+ * acceleration that is not loaded or not installed.
  *
  * @remarks
  * See `./FilterEngineError.ts` for why the hierarchy exists and how `name` survives minification.
@@ -14,8 +15,9 @@ import { defineErrorName, FilterEngineError } from './FilterEngineError.js';
 
 /**
  * The call is invalid in the engine's current mode: `addRule()` while an expression is set (the
- * rule would be silently ignored), a synchronous facility a worker-backed engine cannot provide, or
- * a worker host used before or re-initialized after `init()`.
+ * rule would be silently ignored), a synchronous facility a worker-backed engine cannot provide, a
+ * worker host used before or re-initialized after `init()`, or bitmap acceleration requested
+ * before its library loaded or without its optional `roaring-wasm` peer installed.
  */
 export class FilterEngineModeError extends FilterEngineError {
 	declare readonly code: FilterEngineModeErrorCode;

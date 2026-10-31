@@ -11,6 +11,10 @@
  * - `'bitmap'` — always use the Roaring Bitmap acceleration
  * - `'predicate'` — always use the per-item predicate evaluator (no acceleration)
  * - `'auto'` — engine picks based on `sourceData.length` (threshold 500 items)
+ *
+ * `'bitmap'` and `'auto'` engage bitmaps only once `initializeBitmapAcceleration()` has resolved,
+ * which needs the optional peer dependency `roaring-wasm` installed; until then, or when it is not
+ * installed, both use the predicate evaluator. No mode initializes the library itself.
  */
 export type AccelerationMode = 'auto' | 'bitmap' | 'predicate';
 

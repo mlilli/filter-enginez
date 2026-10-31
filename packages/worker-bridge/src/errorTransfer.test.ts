@@ -13,6 +13,7 @@ import {
 	and,
 	type CompositeRule,
 	CURRENT_CONFIG_VERSION,
+	type FilterEngine,
 	FilterEngineConfigError,
 	FilterEngineDestroyedError,
 	FilterEngineError,
@@ -143,6 +144,26 @@ describe('engine errors across the worker boundary (end to end)', () => {
 		expect((ruleError as Error).cause).toMatchObject({ name: 'SyntaxError' });
 
 		await engine.destroy();
+	});
+
+	it('a factory whose bitmap init finds no roaring-wasm rejects wrapInWorker with that mode error', async () => {
+		// The factory stands in for one that awaits `initializeBitmapAcceleration()` in a worker whose app
+		// did not install the optional peer; core's `roaringInit.peerMissing.test.ts` proves init raises
+		// exactly this. Here: the error reaches the main thread as itself, install command included.
+		const message = 'Bitmap acceleration needs the optional peer dependency `roaring-wasm`; install it with '
+			+ '`npm install roaring-wasm` (or your package manager\'s equivalent).';
+		const error = await rejectionOf(wrapInWorker<Item>({
+			factoryName: 'item',
+			worker: makeChannelWorker({
+				item: async (): Promise<FilterEngine<Item>> => {
+					await Promise.resolve();
+					throw new FilterEngineModeError('MODE_ACCELERATION_PEER_MISSING', message);
+				},
+			}),
+		}));
+
+		expect(error).toBeInstanceOf(FilterEngineModeError);
+		expect(error).toMatchObject({ code: 'MODE_ACCELERATION_PEER_MISSING', message });
 	});
 
 	it('an unknown factory name rejects wrapInWorker with FilterEngineConfigError', async () => {

@@ -17,8 +17,8 @@ Blank issues are disabled; pick the template that fits.
 
 - **Bug report** — include the package and version, where it runs (browser bundle, plain Node ESM or CommonJS, SSR, Web
   Worker, edge), a minimal reproduction, and expected vs. actual behavior. If it is about speed, first check that
-  `initializeBitmapAcceleration()` was awaited — the bitmap path stays off without it, silently (results are the same
-  either way).
+  `roaring-wasm` is installed and `initializeBitmapAcceleration()` was awaited — the bitmap path stays off without it,
+  silently (results are the same either way).
 - **Feature request** — describe the problem rather than the solution, and what you do today instead. Check first
   whether a custom rule covers it ([`docs/guides/extending_rules.md`](./docs/guides/extending_rules.md)).
 - **Usage question** — open it as a bug report and say it is a question, so the answer is searchable for the next

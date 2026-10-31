@@ -73,6 +73,13 @@ pnpm add @filter-enginez/core
 Add the binding for your stack alongside it — for example `@filter-enginez/react-signals` for React or
 `@filter-enginez/angular-rxjs` for Angular. Each package README lists its peer dependencies.
 
+Roaring-Bitmap acceleration is opt-in at install time too. It uses `roaring-wasm`, an optional peer dependency of
+`core`: add it when you enable bitmaps, and leave it out otherwise.
+
+```bash
+pnpm add roaring-wasm
+```
+
 ## Usage
 
 ```ts
@@ -86,9 +93,9 @@ interface Wine {
 
 declare const wines: readonly Wine[];
 
-// Await this once at startup. It loads roaring-wasm, which an app that never calls it does not bundle.
-// The Roaring-Bitmap path stays off until it resolves — silently, so skipping it costs speed rather than
-// raising an error.
+// Await this once at startup, with roaring-wasm installed. It loads roaring-wasm, which an app that never
+// calls it does not bundle. The Roaring-Bitmap path stays off until it resolves — silently, so skipping it
+// costs speed rather than raising an error. Without roaring-wasm installed it rejects with the install command.
 await initializeBitmapAcceleration();
 
 const engine = createFilterEngine<Wine>({ sourceData: wines });

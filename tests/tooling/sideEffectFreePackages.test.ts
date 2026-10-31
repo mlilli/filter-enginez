@@ -7,9 +7,9 @@
  *
  * `"sideEffects": false` is a promise to every bundler that consumes the package: "a module whose exports you do not
  * use can be dropped, and nothing changes." Bundlers act on it without checking. That is what lets an app import one
- * error class from `@filter-enginez/core` and bundle well under a kilobyte instead of the whole engine with zod,
- * fuse.js and rbush. (roaring-wasm, the largest dependency, is loaded through `import()` only; that is a separate
- * property, kept by `lazyDependencies.test.ts`.)
+ * error class from `@filter-enginez/core` and bundle well under a kilobyte instead of the whole engine with fuse.js
+ * and rbush. (roaring-wasm, the largest library core uses, is an optional peer loaded through `import()` only; that
+ * is a separate property, kept by `lazyDependencies.test.ts`.)
  *
  * The promise is also a claim about code nobody has written yet. A module that registers a global, patches a built-in
  * prototype, imports a stylesheet or polyfill, or calls `customElements.define()` at its top level works in every test

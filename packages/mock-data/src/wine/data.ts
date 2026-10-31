@@ -5,9 +5,9 @@
  * What ships is **synthetic**: the seeded procedural generator in `./generate.ts`. The one exception
  * is local to a development checkout — after `pnpm regen:wine:real --accept-data-license` downloads
  * the Kaggle "Wine Reviews" dataset (scraped from WineEnthusiast in 2017, ~130k rows), the loader
- * prefers that corpus when it runs under Vite's module runner (vitest). 🔴 That dataset is licensed
- * **CC BY-NC-SA 4.0**, so its JSON is gitignored, never packaged, and stripped from example-app
- * production builds; every other consumer gets the synthetic generator. The loader logic lives in
+ * prefers that corpus when it runs under Vite's module runner (vitest). 🔴 That dataset's own license
+ * rules out shipping it in an Apache-2.0 package, so its JSON is gitignored, never packaged, and
+ * stripped from example-app production builds; every other consumer gets the synthetic generator. The loader logic lives in
  * {@link module:wine/corpusLoaders} so it can be imported lazily (by the MSW handlers) without
  * triggering the module-load `await` below.
  *

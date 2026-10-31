@@ -7,11 +7,47 @@
 
 ---
 
+## Install
+
+The Roaring-Bitmap path runs on `roaring-wasm`, an **optional peer dependency** of `@filter-enginez/core`. Installing
+core does not install it; install it yourself in any app that enables bitmaps:
+
+```bash
+npm install roaring-wasm
+```
+
+(or `pnpm add roaring-wasm`, `yarn add roaring-wasm`). The other four toggles need nothing extra.
+
+Without it, `initializeBitmapAcceleration()` rejects with a `FilterEngineModeError` whose code is
+`MODE_ACCELERATION_PEER_MISSING`, and whose message is that install command. Every later call rejects the same way.
+Nothing in the engine calls the initializer for you, so an app that never calls it neither needs the package nor sees
+the error, and an engine whose initializer failed keeps filtering through its predicate path with the same results. Code
+that treats bitmaps as optional — a library that leaves the choice to its own users, say — can catch that one code:
+
+```ts
+import { FilterEngineModeError, initializeBitmapAcceleration } from '@filter-enginez/core';
+
+try {
+  await initializeBitmapAcceleration();
+} catch (error) {
+  if (!(error instanceof FilterEngineModeError && error.code === 'MODE_ACCELERATION_PEER_MISSING')) {
+    throw error;
+  }
+}
+```
+
+An app without the package still builds: Vite, Rollup, esbuild and webpack all bundle core without it, and the
+initializer's rejection is the only place the absence shows. (webpack reports it as a "Module not found" warning, not an
+error.) Core's published type declarations do not name `roaring-wasm` either, so an app type-checks without it under
+`skipLibCheck: false`.
+
+---
+
 ## First: are the bitmaps running?
 
-The Roaring-Bitmap path is WASM-backed, and **it engages only after you have awaited its initializer.** Before that,
-`shouldUseBitmap()` returns `false` and every path — results, `computeResults()`, `simulate()` — uses the per-item
-predicate evaluator.
+The Roaring-Bitmap path is WASM-backed, and **it engages only after you have installed `roaring-wasm` and awaited its
+initializer.** Before that, `shouldUseBitmap()` returns `false` and every path — results, `computeResults()`,
+`simulate()` — uses the per-item predicate evaluator.
 
 ```ts
 import { createFilterEngine, initializeBitmapAcceleration } from '@filter-enginez/core';
@@ -43,8 +79,9 @@ The gate applies to `bitmap: 'on'` as well as `'auto'`: asking for `'on'` explic
 nearly all of it inline WebAssembly. Core reaches the library only through a dynamic `import()` inside that function, so
 what you ship depends on whether you call it:
 
-- **Never called:** the library is not in your bundle. An app that creates an engine and filters with two rules bundles
-  about 31.7 kB gzipped of core and its dependencies; the same app with roaring-wasm in it is about 126 kB.
+- **Never called:** the library is not in your bundle, and need not be installed. An app that creates an engine and
+  filters with two rules bundles about 31.7 kB gzipped of core and its dependencies; the same app with roaring-wasm in
+  it is about 126 kB.
 - **Called, with a bundler that splits code** (Vite, Rollup, Rolldown, webpack, esbuild with `splitting`): the library
   is its own chunk, fetched when the call runs, so the first render does not wait for it.
 - **Called, with a bundler that does not split code:** the chunk is inlined. The app pays the bytes up front and behaves
@@ -208,7 +245,8 @@ regardless of their own toggles — it is the off switch for the whole stack exc
 
 ## Checklist
 
-- [ ] `await initializeBitmapAcceleration()` at startup — the one that is silent when missed
+- [ ] `roaring-wasm` installed, and `await initializeBitmapAcceleration()` at startup — the one that is silent when
+      missed
 - [ ] Leave the five defaults alone unless a measurement says otherwise
 - [ ] `simulationCache: true` always, outside a benchmark
 - [ ] `textIndex: 'on'` plus `bitmap: 'on'` if you have repeated text queries under 500 items

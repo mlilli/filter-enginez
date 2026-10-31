@@ -81,8 +81,9 @@ for (let start = 0; start < FULL_WINE_TIER_SIZE; start += CHUNK) {
 
 When you work in this repository, you can swap the synthetic wines for the real
 [Kaggle "Wine Reviews"](https://www.kaggle.com/datasets/zynicide/wine-reviews) dataset (zackthoutt, scraped from
-WineEnthusiast). It is licensed **CC BY-NC-SA 4.0**: attribution required, non-commercial use only, and adaptations
-under the same license. The review text is WineEnthusiast's. That is why it is never committed, packaged, or deployed:
+WineEnthusiast). It is published under its own license, whose terms rule out shipping it in an Apache-2.0 package (the
+`NOTICE.md` at the root of the [engine repository](https://github.com/mlilli/filter-enginez) gives them), and its review
+text is WineEnthusiast's. That is why it is never committed, packaged, or deployed:
 
 - `pnpm regen:wine:real --accept-data-license` downloads it to your machine. Without the flag the script prints the
   terms and stops.
