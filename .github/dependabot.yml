@@ -95,14 +95,12 @@ updates:
         patterns:
           - "@types/*"
           - "@typescript-eslint/*"
-          - "@vitest/*"
           - eslint
           - eslint-*
           - markdownlint*
           - prettier
           - cspell*
           - typescript
-          - vitest
           - turbo
         update-types:
           - minor
@@ -115,9 +113,28 @@ updates:
           - react
           - react-dom
           - react-router
-      # ⚠ Majors are NOT grouped, for any ecosystem. A grouped major PR hides
-      # which dependency broke the build behind four others, and majors here are
-      # exactly the thing the override caps exist to make deliberate.
+      # Lockstep families: each member names the others' EXACT version as a peer
+      # (`@angular/common` 22.2.3 requires `@angular/core` 22.2.3), so no member
+      # can move alone. Split into one PR per package, every PR installs with an
+      # unmet peer, which pnpm reports only as a warning. One group per family,
+      # majors included: a major cannot land in halves either.
+      # `tests/tooling/lockstepPeers.test.ts` derives the families from the
+      # lockfile and fails when two direct dependencies that pin each other are
+      # not in the same group here, or share a group limited by `update-types`.
+      angular:
+        patterns:
+          - "@angular/*"
+      size-limit:
+        patterns:
+          - size-limit
+          - "@size-limit/*"
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
+      # ⚠ Outside the families above, majors are NOT grouped. A grouped major PR
+      # hides which dependency broke the build behind four others, and majors here
+      # are exactly the thing the override caps exist to make deliberate.
       build-tooling:
         patterns:
           - vite
