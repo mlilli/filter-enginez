@@ -20,6 +20,15 @@
  *   bump), they fall in the same group of the npm entry, and that group has no `update-types` filter, so a major
  *   arrives as one pull request too.
  *
+ * Some families are lockstep at RUNTIME while their peer ranges allow more: `react-dom` declares `react` as a caret
+ * range, then throws at load ("Incompatible React versions") unless `react` is its own exact version. The lockfile
+ * cannot reveal those, so they are listed ({@link RUNTIME_LOCKSTEP}), and checked the same two ways, plus a third:
+ *
+ * - **the manifests**: a workspace package that depends on the dependent (in `dependencies` or `devDependencies`)
+ *   depends on the peer there too. Dependabot bumps only what a manifest lists outside `peerDependencies`; a peer
+ *   that pnpm merely auto-installs stays where it is while its twin moves, which is how `react-dom` 19.3.1 once
+ *   arrived alone beside `react` 19.3.0.
+ *
  * Read as TEXT, like the other guards over these files. `pnpm-lock.yaml` is a two-document YAML stream (pnpm's own
  * environment first, then the workspace), each with its own `importers`, `packages` and `snapshots`; every section of
  * both documents is read.
@@ -58,8 +67,21 @@ interface DependabotGroup {
 	readonly patterns: readonly string[];
 }
 
+/** The dependency kinds a workspace manifest declares. */
+interface Manifest {
+	readonly dependencies?: Readonly<Record<string, string>>;
+	readonly devDependencies?: Readonly<Record<string, string>>;
+	readonly peerDependencies?: Readonly<Record<string, string>>;
+}
+
 /** A peer range that admits exactly one version. */
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/u;
+
+/**
+ * Families whose dependent requires the peer at its OWN exact version at runtime, though its peer range admits more.
+ * As `[dependent, peer]`.
+ */
+const RUNTIME_LOCKSTEP: readonly (readonly [dependent: string, peer: string])[] = [['react-dom', 'react']];
 
 /**
  * Read a repo file.
@@ -154,6 +176,56 @@ function resolvedPins(lockfile: string): readonly ResolvedPin[] {
 }
 
 /**
+ * Every runtime-lockstep peer installed beside its dependent, required at the dependent's own version.
+ *
+ * @param lockfile - The text of `pnpm-lock.yaml`.
+ * @param families - The `[dependent, peer]` pairs to check.
+ * @returns One record per snapshot of a dependent that has the peer installed.
+ */
+function runtimePins(lockfile: string, families: readonly (readonly [string, string])[]): readonly ResolvedPin[] {
+	return sections(lockfile, 'snapshots').flatMap(entries).flatMap(([snapshot, body]) => {
+		const withoutPeers = snapshot.replace(/\(.*$/u, '');
+		const required = withoutPeers.slice(withoutPeers.lastIndexOf('@') + 1);
+
+		return families.filter(([dependent]) => packageName(snapshot) === dependent).flatMap(([, peer]) => {
+			const installed = mapping(body, 'dependencies').find(([name]) => name === peer)?.[1];
+
+			return installed === undefined ? [] : [{ installed: installed.replace(/\(.*$/u, ''), peer, required, snapshot }];
+		});
+	});
+}
+
+/**
+ * The workspace packages, as the lockfile's importers name them.
+ *
+ * @param lockfile - The text of `pnpm-lock.yaml`.
+ * @returns Each importer's directory relative to the repo root (`.` for the root), once.
+ */
+function importerDirectories(lockfile: string): readonly string[] {
+	return [...new Set(sections(lockfile, 'importers').flatMap((body) =>
+		[...body.matchAll(/^ {2}(?<directory>\S[^\n]*?):$/gmu)].map((match) => unquote(match.groups?.['directory'] ?? ''))))];
+}
+
+/**
+ * The manifests that list a runtime-lockstep dependent where Dependabot bumps it, without its peer beside it.
+ *
+ * @param manifests - Each workspace manifest, by directory.
+ * @param families - The `[dependent, peer]` pairs to check.
+ * @returns One line per manifest and family that misses the peer.
+ */
+function manifestsMissingPeer(
+	manifests: Readonly<Record<string, Manifest>>,
+	families: readonly (readonly [string, string])[],
+): readonly string[] {
+	return Object.entries(manifests).flatMap(([directory, manifest]) => {
+		const bumped = { ...manifest.dependencies, ...manifest.devDependencies };
+
+		return families.filter(([dependent, peer]) => dependent in bumped && !(peer in bumped))
+			.map(([dependent, peer]) => `${directory}/package.json lists ${dependent} but not ${peer}`);
+	});
+}
+
+/**
  * The names every workspace importer depends on directly.
  *
  * @param lockfile - The text of `pnpm-lock.yaml`.
@@ -225,8 +297,15 @@ function groupOf(groups: readonly DependabotGroup[], name: string): DependabotGr
 
 const LOCKFILE = read('pnpm-lock.yaml');
 const PINS = resolvedPins(LOCKFILE);
-const PAIRS = lockstepPairs(LOCKFILE);
+const RUNTIME_PINS = runtimePins(LOCKFILE, RUNTIME_LOCKSTEP);
+const DIRECT = directDependencies(LOCKFILE);
+const PAIRS = [
+	...lockstepPairs(LOCKFILE),
+	...RUNTIME_LOCKSTEP.filter(([dependent, peer]) => DIRECT.has(dependent) && DIRECT.has(peer)),
+];
 const GROUPS = npmGroups(read('.github/dependabot.yml'));
+const MANIFESTS: Readonly<Record<string, Manifest>> = Object.fromEntries(importerDirectories(LOCKFILE)
+	.map((directory) => [directory, JSON.parse(read(`${directory}/package.json`)) as Manifest]));
 
 describe('exactly pinned peers in pnpm-lock.yaml', () => {
 	it('finds exactly pinned peers installed beside their dependents', () => {
@@ -271,10 +350,61 @@ describe('exactly pinned peers in pnpm-lock.yaml', () => {
 	});
 });
 
+describe('runtime-lockstep families', () => {
+	it('finds every listed family installed, and the workspace manifests', () => {
+		// The vacuity check: with no snapshot paired or no manifest read, the cases below would pass on any input.
+		expect(RUNTIME_LOCKSTEP.filter(([dependent]) => !RUNTIME_PINS.some((pin) => packageName(pin.snapshot) === dependent)))
+			.toEqual([]);
+		expect(Object.keys(MANIFESTS)).toEqual(expect.arrayContaining(['.', 'packages/core', 'packages/url-state-router']));
+	});
+
+	it('installs each peer at its dependent\'s own version', () => {
+		expect(
+			RUNTIME_PINS.filter((pin) => pin.installed !== pin.required)
+				.map((pin) => `${pin.snapshot} needs ${pin.peer} ${pin.required} at runtime, installed ${pin.installed}`),
+			'a runtime-lockstep family moved in halves. Bump every member to the same version in one change.',
+		).toEqual([]);
+	});
+
+	it('lists each peer beside its dependent in every manifest, where Dependabot bumps it', () => {
+		expect(
+			manifestsMissingPeer(MANIFESTS, RUNTIME_LOCKSTEP),
+			'Dependabot bumps only what a manifest lists outside peerDependencies, so a peer that is only auto-installed '
+			+ 'stays behind while its twin moves. Add the peer to devDependencies at the same range as the dependent.',
+		).toEqual([]);
+	});
+
+	it('reports a peer at another version, and a manifest without the peer — the controls for the cases above', () => {
+		// Without them, a parser that never paired a snapshot or never read a manifest would pass on any input.
+		const lockfile = [
+			'snapshots:',
+			'',
+			'  d@1.0.1(p@1.0.0):',
+			'    dependencies:',
+			'      p: 1.0.0',
+			'      s: 0.1.0',
+			'',
+			'  d@2.0.0(p@2.0.0):',
+			'    dependencies:',
+			'      p: 2.0.0',
+			'',
+		].join('\n');
+
+		expect(runtimePins(lockfile, [['d', 'p']]).filter((pin) => pin.installed !== pin.required)).toEqual([
+			{ installed: '1.0.0', peer: 'p', required: '1.0.1', snapshot: 'd@1.0.1(p@1.0.0)' },
+		]);
+		expect(manifestsMissingPeer({
+			'packages/both': { devDependencies: { d: '^1.0.1', p: '^1.0.1' }},
+			'packages/peer-only': { devDependencies: { d: '^1.0.1' }, peerDependencies: { p: '^1.0.0' }},
+		}, [['d', 'p']])).toEqual(['packages/peer-only/package.json lists d but not p']);
+	});
+});
+
 describe('Dependabot groups for lockstep families', () => {
 	it('finds lockstep pairs among the direct dependencies, and the npm groups', () => {
 		// The vacuity check: with no pairs or no groups parsed, every case below would pass or vanish.
 		expect(PAIRS.length).toBeGreaterThan(0);
+		expect(PAIRS).toContainEqual(['react-dom', 'react']);
 		expect(GROUPS.map((group) => group.name)).toEqual(expect.arrayContaining(['dev-toolchain', 'react']));
 		expect(GROUPS.every((group) => group.patterns.length > 0)).toBe(true);
 	});

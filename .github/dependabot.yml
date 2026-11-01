@@ -107,7 +107,11 @@ updates:
           - patch
       # Framework peers, grouped per family: a React bump that lands without its
       # `react-dom` twin risks the duplicate-copy hazard (hooks resolving one
-      # React while render uses another → `null` context).
+      # React while render uses another → `null` context), and `react-dom`
+      # refuses to load beside any other `react` version. A group bumps only
+      # what manifests list outside `peerDependencies`, so every package with
+      # `react-dom` in `devDependencies` lists `react` there too
+      # (`tests/tooling/lockstepPeers.test.ts`).
       react:
         patterns:
           - react
