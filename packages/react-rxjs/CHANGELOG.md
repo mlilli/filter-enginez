@@ -1,5 +1,23 @@
 # @filter-enginez/react-rxjs
 
+## 0.0.5
+
+### Patch Changes
+
+- 196a74d: The `NOTICE.md` each package ships names only the licenses of what the packages contain and install. It no
+  longer describes the repository's local-only real wine dataset, which ships in no package and is under a license of
+  its own; that note stays in the repository's `NOTICE.md`. In `@filter-enginez/mock-data`, the README and the compiled
+  code's comments describe the same dataset without naming its license. The runtime-dependency list follows this
+  release's dependency changes: `roaring-wasm` as an optional peer dependency of core, and no `zod`,
+  `@preact/signals-react`, `@eslint/config-helpers` or `@typescript-eslint/utils`.
+
+  <!-- markdownlint-disable-file MD041 -->
+
+- Updated dependencies [196a74d]
+- Updated dependencies [196a74d]
+  - @filter-enginez/core@0.2.0
+  - @filter-enginez/reactive-rxjs@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
