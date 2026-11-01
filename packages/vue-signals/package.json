@@ -64,6 +64,6 @@
   },
   "devDependencies": {
     "@filter-enginez/eslint": "workspace:^",
-    "vue": "^3.5.40"
+    "vue": "^3.5.44"
   }
 }
