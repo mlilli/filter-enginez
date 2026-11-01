@@ -5589,7 +5589,13 @@ return unsubscribe;
   component exports the config (`asyncConfig.exportConfig()` for worker-backed engines), encodes it with the chosen
   serializer and navigates with `historyMode` (default `'replace'`, so filter ticks do not pile up history). Every
   engine change bumps a token, which discards an async export the change has made stale. The subscription and its
-  pending write outlive location changes: a write reads the current location from a ref when it runs.
+  pending write outlive location changes: a write reads the rendered location from a ref when it runs. React Router
+  commits a navigation inside a transition, so for a moment after the app navigates, the router is on the new entry
+  while the rendered location is still the old one; a write in that moment would replace the new entry with the old
+  location and take the user back. So a write first compares the router's current entry key (a data router's
+  `state.location`, or a declarative router's history) with the rendered location's; when they differ, it waits and runs
+  once the next location renders. A route that unmounts the component drops the waiting write with it; a component that
+  stays mounted writes onto the new location.
 - **URL → Engine.** On every `location.search` change it decodes the parameter and calls `engine.loadConfig`, unless the
   location is one of the component's own writes arriving or the engine already holds that state (below). A decode
   failure is reported to `onError` and, with `tolerateMalformedUrls` (default `true`), leaves the engine as it was.
@@ -5612,6 +5618,15 @@ useEffect((): (() => void) => {
     const config = asyncConfig ? await asyncConfig.exportConfig() : engine.exportConfig();
 
     if (token !== writeTokenRef.current) {
+      return;
+    }
+    // A navigation the router has made and React has not rendered yet: built from the rendered
+    // location, this write would replace the new entry with the old one. Run it once it renders.
+    const entryKey = currentEntryKey(routerSourceRef.current);
+
+    if (entryKey !== undefined && entryKey !== locationRef.current.key) {
+      waitingWriteRef.current = writeUrl;
+
       return;
     }
     const serialized = serializer.encode(config);
@@ -5647,6 +5662,7 @@ useEffect((): (() => void) => {
     if (writeTimerRef.current !== null) {
       clearTimeout(writeTimerRef.current);
     }
+    waitingWriteRef.current = null;
     off();
   };
 }, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode]);

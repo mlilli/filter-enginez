@@ -27,6 +27,14 @@
  * late commit and is never loaded. A `POP` (Back, Forward, a reload) is always the user's, even to
  * a value this component wrote, so it loads unless the engine already holds that state.
  *
+ * **Writes wait for a pending navigation.** React Router commits a navigation inside a transition,
+ * so for a moment after the app navigates the router is on the new entry while the rendered
+ * location is still the old one. A write in that moment would be built from the old location and
+ * replace the new entry with it, taking the user back to the route they just left. So a write
+ * first compares the router's current entry with the rendered one; when they differ, it waits and
+ * runs when the next location renders. If that location unmounts the component (its route is
+ * left), the write is dropped with it; if the component stays, the write lands on the new location.
+ *
  * **Why a component, not a hook.** The implementation owns timer cleanup, subscription
  * cleanup, and a ref-based origin sentinel — all of which want a stable mount lifecycle a
  * component naturally provides. A hook would force consumers to remember to wire it inside
@@ -37,8 +45,17 @@
 
 import type { FilterEngine, FilterEngineConfig } from '@filter-enginez/core';
 
-import { useEffect, useRef } from 'react';
-import { NavigationType, useLocation, useNavigate, useNavigationType } from 'react-router';
+import { use, useEffect, useRef } from 'react';
+import {
+	UNSAFE_DataRouterContext as DataRouterContext,
+	type Location,
+	UNSAFE_NavigationContext as NavigationContext,
+	NavigationType,
+	type Navigator,
+	useLocation,
+	useNavigate,
+	useNavigationType,
+} from 'react-router';
 
 import { type BuiltInSerializerName, type EngineStateSerializer, resolveSerializer } from './serializers.js';
 
@@ -66,6 +83,25 @@ function rememberWrite(pending: string[], serialized: string): void {
 	if (pending.length > PENDING_WRITES_REMEMBERED) {
 		pending.shift();
 	}
+}
+
+/** Where the router's current entry can be read: a data router's state, or a history navigator. */
+interface RouterSource {
+	/** The data router, under `<RouterProvider>`; `null` under a declarative router. */
+	readonly dataRouter: { readonly router: { readonly state: { readonly location: Location }}} | null;
+	/** The navigator; the declarative routers' is a history object, which exposes `location`. */
+	readonly navigator: { readonly location?: Location } & Navigator;
+}
+
+/**
+ * The key of the entry the router is on now, which runs ahead of the rendered location while a
+ * navigation waits in a transition.
+ *
+ * @param source - The router's contexts.
+ * @returns The key, or `undefined` for a router that exposes neither its state nor a history.
+ */
+function currentEntryKey({ dataRouter, navigator }: RouterSource): string | undefined {
+	return dataRouter === null ? navigator.location?.key : dataRouter.router.state.location.key;
 }
 
 /**
@@ -176,6 +212,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	const location = useLocation();
 	const navigationType = useNavigationType();
 	const navigate = useNavigate();
+	const routerSource: RouterSource = { dataRouter: use(DataRouterContext), navigator: use(NavigationContext).navigator };
 
 	/**
 	 * Origin tracking — the parameter values this component navigated to whose locations have not
@@ -224,6 +261,14 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	 */
 	const locationRef = useRef(location);
 	const navigateRef = useRef(navigate);
+	const routerSourceRef = useRef(routerSource);
+
+	/**
+	 * A write waiting for a pending navigation to render (see "Writes wait for a pending
+	 * navigation"), or `null`. The location effect runs it; unsubscribing drops it, like a pending
+	 * debounced write.
+	 */
+	const waitingWriteRef = useRef<(() => Promise<void>) | null>(null);
 
 	/**
 	 * Resolved serializer instance. Re-resolved if the prop changes (the resolver is
@@ -234,7 +279,14 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	useEffect((): void => {
 		locationRef.current = location;
 		navigateRef.current = navigate;
-	}, [location, navigate]);
+		routerSourceRef.current = routerSource;
+		const waitingWrite = waitingWriteRef.current;
+
+		if (waitingWrite !== null) {
+			waitingWriteRef.current = null;
+			void waitingWrite();
+		}
+	});
 
 	// #region docs:url-sync-effects
 	// ─── Engine → URL ──────────────────────────────────────────────────────
@@ -247,6 +299,15 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			const config = asyncConfig ? await asyncConfig.exportConfig() : engine.exportConfig();
 
 			if (token !== writeTokenRef.current) {
+				return;
+			}
+			// A navigation the router has made and React has not rendered yet: built from the rendered
+			// location, this write would replace the new entry with the old one. Run it once it renders.
+			const entryKey = currentEntryKey(routerSourceRef.current);
+
+			if (entryKey !== undefined && entryKey !== locationRef.current.key) {
+				waitingWriteRef.current = writeUrl;
+
 				return;
 			}
 			const serialized = serializer.encode(config);
@@ -282,6 +343,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			if (writeTimerRef.current !== null) {
 				clearTimeout(writeTimerRef.current);
 			}
+			waitingWriteRef.current = null;
 			off();
 		};
 	}, [asyncConfig, engine, serializer, paramKey, debounceMs, historyMode]);
