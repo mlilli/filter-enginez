@@ -1,30 +1,22 @@
 /**
- * `turbo.json`'s `$schema` URL is a second copy of the installed Turborepo version.
+ * `turbo.json`'s `$schema` is the schema of the INSTALLED Turborepo, by construction.
  *
  * @remarks
- * The URL is version-PINNED — `https://v2-11-7.turborepo.dev/schema.json`, not a floating `latest` —
- * so it has to move with every bump. Left behind it validates the config against the previous
- * release's schema, which is the quiet kind of wrong: an editor stops flagging a key the installed
- * binary has started rejecting, or flags one it has started accepting. Nothing fails; the feedback
- * just becomes fiction.
+ * Turborepo ships its config schema inside its own package, so `turbo.json` points at
+ * `./node_modules/turbo/schema.json` rather than at a version-pinned URL. A pinned URL
+ * (`https://v2-11-8.turborepo.dev/schema.json`) was a second copy of the installed version that every
+ * bump had to carry by hand, and a dependency-update pull request bumps `package.json` and the
+ * lockfile but never `turbo.json`; left behind, the editor validates the config against the previous
+ * release's schema, and nothing fails. The local path cannot fall behind: it is whatever `turbo` the
+ * lockfile installed.
  *
- * **It is carried by hand on every bump**, which is exactly the case for the rule that data
- * duplicated on purpose has to be pinned.
- *
- * ## Read from `node_modules`, not from `package.json`
- *
- * The range in `package.json` is a caret range, and a caret range is not a version: after any install
- * that resolves a newer patch, the range and the installed binary legitimately disagree. What the
- * schema has to match is **what actually runs**, so this reads `node_modules/turbo/package.json`.
- *
- * That does mean the case is only as honest as the install — but a stale `node_modules` makes every
- * other gate lie too, and the alternative (asserting against the caret range) would pass while the
- * schema described a release nobody has.
+ * So the guard checks the path rather than a version: the declared `$schema` is exactly the local one,
+ * and the file it names is the schema of the `turbo` package that resolves from the repository root.
  *
  * @packageDocumentation
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,42 +24,49 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-/** The `$schema` URL exactly as `turbo.json` declares it. */
-function declaredSchemaUrl(): string {
+/** The only `$schema` value `turbo.json` may declare: the schema that ships inside the installed package. */
+const LOCAL_SCHEMA = './node_modules/turbo/schema.json';
+
+/** The `$schema` value exactly as `turbo.json` declares it. */
+function declaredSchema(): string {
 	const config = JSON.parse(readFileSync(resolve(REPO_ROOT, 'turbo.json'), 'utf8')) as { $schema?: string };
 
 	return config.$schema ?? '';
 }
 
-/** The version actually installed in `node_modules`. */
-function installedTurboVersion(): string {
+/** The directory of the `turbo` package that resolves from the repository root. */
+function installedTurboDirectory(): string {
 	const require = createRequire(import.meta.url);
-	const manifest = JSON.parse(
-		readFileSync(require.resolve('turbo/package.json', { paths: [REPO_ROOT]}), 'utf8'),
-	) as { version: string };
+
+	return dirname(require.resolve('turbo/package.json', { paths: [REPO_ROOT]}));
+}
+
+/** The version of that installed package. */
+function installedTurboVersion(): string {
+	const manifest = JSON.parse(readFileSync(resolve(installedTurboDirectory(), 'package.json'), 'utf8')) as {
+		version: string;
+	};
 
 	return manifest.version;
 }
 
 describe('turbo.json $schema', () => {
-	it('names the INSTALLED turbo version', () => {
-		// The whole point. `v2-11-7` ⇄ `2.11.7`.
-		const installed = installedTurboVersion();
-
-		expect(declaredSchemaUrl()).toContain(`v${installed.replaceAll('.', '-')}`);
+	it('points at the schema inside the installed turbo package', () => {
+		expect(declaredSchema(), `turbo.json's $schema must be "${LOCAL_SCHEMA}", so it moves with every turbo bump`).toBe(
+			LOCAL_SCHEMA,
+		);
 	});
 
-	it('is version-pinned rather than floating', () => {
-		// A `latest` URL would satisfy nothing above and quietly retire this guard, so the SHAPE is
-		// asserted separately from the value. If Turborepo ever ships a stable unversioned schema,
-		// deleting this file is the right move — leaving it and loosening the regex is not.
-		expect(declaredSchemaUrl()).toMatch(/^https:\/\/v\d+-\d+-\d+\.turborepo\.dev\/schema\.json$/u);
+	it('names a file that is the installed package\'s own schema', () => {
+		const declaredFile = resolve(REPO_ROOT, LOCAL_SCHEMA);
+
+		expect(existsSync(declaredFile), `${LOCAL_SCHEMA} does not exist; the turbo package no longer ships it`).toBe(true);
+		expect(realpathSync(declaredFile)).toBe(realpathSync(resolve(installedTurboDirectory(), 'schema.json')));
 	});
 
 	it('keeps the package.json range compatible with what is installed', () => {
-		// Weaker than the two above, deliberately: a caret range cannot pin a version. What it CAN
-		// catch is the bump that edits the schema URL and the lockfile while forgetting the range —
-		// which would leave the old range able to resolve something the schema does not describe.
+		// A caret range cannot pin a version. What this CAN catch is a bump that moves the lockfile while
+		// forgetting the range, which would leave the old range able to resolve a turbo nobody tested.
 		const rootManifest = JSON.parse(
 			readFileSync(resolve(REPO_ROOT, 'package.json'), 'utf8'),
 		) as { devDependencies: Record<string, string> };
