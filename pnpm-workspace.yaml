@@ -53,7 +53,7 @@ allowBuilds:
 #
 # ── Exemptions: `minimumReleaseAgeExclude` ──
 #
-# Nothing in this lockfile needs one, so there is no list. Dependabot SECURITY updates skip its
+# The list below is the only one in use, and it expires. Dependabot SECURITY updates skip its
 # cooldown, but not this quarantine, so a security fix younger than 7 days is refused like any other
 # young version. The way through is to exempt that ONE version:
 #
@@ -66,6 +66,27 @@ allowBuilds:
 # bare package name exempts every version, the next release included, so it is never the fix, and
 # the same test rejects one. Delete the entry once the lockfile has moved past that version or the
 # version is older than 7 days. SECURITY.md → "Dependency release age" has the whole procedure.
+
+# Exempt until 2026-11-03 15:27 UTC, when pnpm 12.16.1 (published 2026-10-27) turns 7 days old: the
+# `packageManager` pin installs pnpm and its platform binaries through the lockfile's
+# `packageManagerDependencies`, and the quarantine verifies those entries like any other. Delete this
+# list after that date; nothing else in the lockfile needs it.
+minimumReleaseAgeExclude:
+  - 'pnpm@12.16.1'
+  - '@pnpm/exe.android-arm64@12.16.1'
+  - '@pnpm/exe.android-x64@12.16.1'
+  - '@pnpm/exe.darwin-arm64@12.16.1'
+  - '@pnpm/exe.darwin-x64@12.16.1'
+  - '@pnpm/exe.freebsd-x64@12.16.1'
+  - '@pnpm/exe.linux-arm64-musl@12.16.1'
+  - '@pnpm/exe.linux-arm64@12.16.1'
+  - '@pnpm/exe.linux-ppc64@12.16.1'
+  - '@pnpm/exe.linux-riscv64@12.16.1'
+  - '@pnpm/exe.linux-s390x@12.16.1'
+  - '@pnpm/exe.linux-x64-musl@12.16.1'
+  - '@pnpm/exe.linux-x64@12.16.1'
+  - '@pnpm/exe.win32-arm64@12.16.1'
+  - '@pnpm/exe.win32-x64@12.16.1'
 minimumReleaseAge: 10080
 
 # ─── Security remediation — force patched transitive versions ──────────────────────────────────────
