@@ -101,10 +101,12 @@ export async function createRxJsEngineFromAsync<T>(
 	// exactly once at boot, then subsequent rule/expression events ship indices (Uint32Array,
 	// postMessage-transferred zero-copy) and the main thread joins them against the bootstrapped
 	// source mirror to hydrate results. See sibling adapter's intro comment for the full design.
+	// Boot pulls indices too, never `getResults()`: with no rules active the results are the whole
+	// corpus, so a second full transfer would double the boot's structuredClone for nothing. The
+	// count is `indices.length`, as in every refresh.
 	const initialSourceData = await asyncEngine.getSourceData();
 	const [
-		initialResults,
-		initialResultCount,
+		initialResultIndices,
 		initialActiveRulesSerialized,
 		initialActiveRuleIds,
 		initialExpression,
@@ -116,8 +118,7 @@ export async function createRxJsEngineFromAsync<T>(
 		initialActionLog,
 		initialDevtoolsState,
 	] = await Promise.all([
-		asyncEngine.getResults(),
-		asyncEngine.getResultCount(),
+		asyncEngine.getResultIndices(),
 		asyncEngine.getRules(),
 		asyncEngine.getActiveRuleIds(),
 		asyncEngine.getExpression(),
@@ -128,9 +129,26 @@ export async function createRxJsEngineFromAsync<T>(
 
 	const initialActiveRules = deserializeWireRules(initialActiveRulesSerialized);
 
+	// ─── Indices → results projection ──────────────────────────────────────
+	// Mirror of the signals adapter's helper — preallocated loop instead of `.map`, identity
+	// fast-path when indices length === workingSet length (preserves referential stability for
+	// memoized consumers).
+	const projectResults = (indices: Uint32Array, workingSet: readonly T[]): readonly T[] => {
+		if (indices.length === workingSet.length) {
+			return workingSet;
+		}
+		const out = new Array<T>(indices.length);
+
+		for (let i = 0; i < indices.length; i++) {
+			out[i] = workingSet[indices[i] as number] as T;
+		}
+
+		return out;
+	};
+
 	// ─── BehaviorSubjects — seeded from the initial pull ────────────────────
-	const resultsSubject = new BehaviorSubject<readonly T[]>(initialResults);
-	const resultCountSubject = new BehaviorSubject<number>(initialResultCount);
+	const resultsSubject = new BehaviorSubject<readonly T[]>(projectResults(initialResultIndices, initialSourceData));
+	const resultCountSubject = new BehaviorSubject<number>(initialResultIndices.length);
 	const sourceDataSubject = new BehaviorSubject<readonly T[]>(initialSourceData);
 	const workingSetSubject = new BehaviorSubject<readonly T[]>(initialSourceData);
 	const activeRulesSubject = new BehaviorSubject<ReadonlyMap<RuleId, FilterRule>>(initialActiveRules);
@@ -181,23 +199,6 @@ export async function createRxJsEngineFromAsync<T>(
 	// the cross-tick mutation. Routing the post-await reads through a call defeats that narrowing
 	// so the guard reflects real runtime state instead of being flagged as always-falsy.
 	const checkDisposed = (): boolean => isDisposed;
-
-	// ─── Indices → results projection ──────────────────────────────────────
-	// Mirror of the signals adapter's helper — preallocated loop instead of `.map`, identity
-	// fast-path when indices length === workingSet length (preserves referential stability for
-	// memoized consumers).
-	const projectResults = (indices: Uint32Array, workingSet: readonly T[]): readonly T[] => {
-		if (indices.length === workingSet.length) {
-			return workingSet;
-		}
-		const out = new Array<T>(indices.length);
-
-		for (let i = 0; i < indices.length; i++) {
-			out[i] = workingSet[indices[i] as number] as T;
-		}
-
-		return out;
-	};
 
 	// ─── Event-type-aware refresh family ───────────────────────────────────
 	// Naively refreshing all 7 signals on every engine event floods the postMessage channel

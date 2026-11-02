@@ -27,7 +27,7 @@ import {
 	value,
 } from '@filter-enginez/core';
 import { type Observable } from 'rxjs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createRxJsEngineFromAsync } from './createRxJsEngineFromAsync.js';
 import { type FakeAsyncEngine, makeFakeAsyncEngine } from './fakeAsyncEngine.js';
@@ -96,8 +96,7 @@ describe('createRxJsEngineFromAsync', () => {
 			const fake = makeFakeAsyncEngine<Item>({
 				activeRuleIds: ['price'],
 				groups,
-				resultCount: 3,
-				results: SOURCE,
+				resultIndices: Uint32Array.of(0, 1, 2),
 				rules: serializedRuleMap([['price', range('price', { max: 100, min: 0 })]]),
 				sourceData: SOURCE,
 			});
@@ -122,6 +121,37 @@ describe('createRxJsEngineFromAsync', () => {
 			expect(latest(engine.lastChangeRuleId$)).toBeNull();
 			expect(latest(engine.lastChangeTimestamp$)).toBeNull();
 			expect(engine.isDisposed).toBe(false);
+		});
+
+		it('seeds results from the result indices, never pulling full results', async () => {
+			const fake = makeFakeAsyncEngine<Item>({
+				resultIndices: Uint32Array.of(0, 2),
+				sourceData: SOURCE,
+			});
+			const getResults = vi.spyOn(fake.engine, 'getResults');
+			const engine = await createRxJsEngineFromAsync<Item>(fake.engine);
+
+			disposers.push(() => {
+				engine.dispose();
+			});
+
+			expect(getResults).not.toHaveBeenCalled();
+			expect(latest(engine.results$)).toEqual([SOURCE[0], SOURCE[2]]);
+			expect(latest(engine.resultCount$)).toBe(2);
+		});
+
+		it('seeds results as the source mirror itself when every item matches', async () => {
+			const fake = makeFakeAsyncEngine<Item>({
+				resultIndices: Uint32Array.of(0, 1, 2),
+				sourceData: SOURCE,
+			});
+			const engine = await createRxJsEngineFromAsync<Item>(fake.engine);
+
+			disposers.push(() => {
+				engine.dispose();
+			});
+
+			expect(latest(engine.results$)).toBe(latest(engine.sourceData$));
 		});
 
 		it('exposes the wrapped async engine via the asyncEngine escape hatch', async () => {

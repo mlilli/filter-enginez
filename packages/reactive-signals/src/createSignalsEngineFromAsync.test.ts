@@ -26,7 +26,7 @@ import {
 	type RuleId,
 	value,
 } from '@filter-enginez/core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createSignalsEngineFromAsync } from './createSignalsEngineFromAsync.js';
 import { type FakeAsyncEngine, makeFakeAsyncEngine } from './fakeAsyncEngine.js';
@@ -92,8 +92,7 @@ describe('createSignalsEngineFromAsync', () => {
 				activeRuleIds: ['price'],
 				devtoolsState: initialDevtoolsState,
 				groups,
-				resultCount: 3,
-				results: SOURCE,
+				resultIndices: Uint32Array.of(0, 1, 2),
 				rules: serializedRuleMap([['price', range('price', { max: 100, min: 0 })]]),
 				sourceData: SOURCE,
 			});
@@ -134,6 +133,39 @@ describe('createSignalsEngineFromAsync', () => {
 
 			expect(engine.mode.value).toBe('expression');
 			expect(engine.expression.value).not.toBeNull();
+		});
+
+		it('seeds results from the result indices, never pulling full results', async () => {
+			const fake = makeFakeAsyncEngine<Item>({
+				devtoolsState: initialDevtoolsState,
+				resultIndices: Uint32Array.of(0, 2),
+				sourceData: SOURCE,
+			});
+			const getResults = vi.spyOn(fake.engine, 'getResults');
+			const engine = await createSignalsEngineFromAsync<Item>(fake.engine);
+
+			disposers.push(() => {
+				engine.dispose();
+			});
+
+			expect(getResults).not.toHaveBeenCalled();
+			expect(engine.results.value).toEqual([SOURCE[0], SOURCE[2]]);
+			expect(engine.resultCount.value).toBe(2);
+		});
+
+		it('seeds results as the source mirror itself when every item matches', async () => {
+			const fake = makeFakeAsyncEngine<Item>({
+				devtoolsState: initialDevtoolsState,
+				resultIndices: Uint32Array.of(0, 1, 2),
+				sourceData: SOURCE,
+			});
+			const engine = await createSignalsEngineFromAsync<Item>(fake.engine);
+
+			disposers.push(() => {
+				engine.dispose();
+			});
+
+			expect(engine.results.value).toBe(engine.sourceData.value);
 		});
 	});
 
@@ -424,8 +456,7 @@ describe('createSignalsEngineFromAsync', () => {
 		it('exposes the underlying asyncEngine and a working .core shim', async () => {
 			const fake = makeFakeAsyncEngine<Item>({
 				devtoolsState: initialDevtoolsState,
-				resultCount: 3,
-				results: SOURCE,
+				resultIndices: Uint32Array.of(0, 1, 2),
 				sourceData: SOURCE,
 			});
 			const engine = await createSignalsEngineFromAsync<Item>(fake.engine);

@@ -39,8 +39,7 @@ describe('bootSignalsEngine', () => {
 	it('takes the worker path when size > threshold', async () => {
 		const fake: FakeAsyncEngine<Item> = makeFakeAsyncEngine<Item>({
 			devtoolsState: { canRedo: false, canUndo: false, currentIndex: -1, total: 0 },
-			resultCount: 3,
-			results: SOURCE,
+			resultIndices: Uint32Array.of(0, 1, 2),
 			sourceData: SOURCE,
 		});
 		const spawnAsyncEngine = vi.fn(async () => Promise.resolve(fake.engine));

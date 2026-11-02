@@ -75,6 +75,14 @@ updates:
     # nobody empties, and a review queue nobody empties is how a malicious
     # release gets rubber-stamped. Grouping below does the real noise reduction.
     open-pull-requests-limit: 5
+    # 🟢 Raise a range only when the new version falls outside it. The default
+    # (`increase`) rewrites every range to the new version, and in a published
+    # package's `dependencies` that narrows what consumers may install: a bump
+    # to typescript-eslint 8.72.0 made `@filter-enginez/eslint` require
+    # ^8.72.0, so a consumer whose angular-eslint holds an older typescript-eslint
+    # got two copies, and ESLint refuses to load the plugin twice. With this
+    # strategy an in-range release moves only the lockfile.
+    versioning-strategy: increase-if-necessary
     ignore:
       # The types track the Node major the repo runs on (`.nvmrc`), not the newest Node.
       # Moving to a new Node major is one deliberate change: `.nvmrc`, `engines` and

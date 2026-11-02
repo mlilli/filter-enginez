@@ -125,26 +125,24 @@ export async function createSignalsEngineFromAsync<T>(
 	// indices against the bootstrapped `initialSourceData` to hydrate the results signal —
 	// a sub-millisecond projection over already-resident memory.
 	//
-	// `getResults()` is still called once at boot so the initial paint can happen before any
-	// indices arrive (sub-millisecond on the initial-state path because results === source
-	// when no rules are active). After boot the adapter pivots to indices-only.
+	// Boot pulls indices too, never `getResults()`: with no rules active the results are the whole
+	// corpus, so a second full transfer would double the boot's structuredClone for nothing. The
+	// count is `indices.length`, as in every refresh.
 	const initialSourceData = await asyncEngine.getSourceData();
 	const [
-		initialResultCount,
+		initialResultIndices,
 		initialActiveRuleIds,
 		initialExpression,
 		initialGroups,
 		initialActiveRulesSerialized,
-		initialResults,
 		initialActionLog,
 		initialDevtoolsState,
 	] = await Promise.all([
-		asyncEngine.getResultCount(),
+		asyncEngine.getResultIndices(),
 		asyncEngine.getActiveRuleIds(),
 		asyncEngine.getExpression(),
 		asyncEngine.getGroups(),
 		asyncEngine.getRules(),
-		asyncEngine.getResults(),
 		// Devtools mirror state — fetched at boot so the panel can render the initial
 		// (typically empty or near-empty) action log without an awaitable mount delay.
 		asyncEngine.getActionLogSnapshot(),
@@ -152,8 +150,10 @@ export async function createSignalsEngineFromAsync<T>(
 	]);
 
 	// ─── Writable mirror signals — seeded from the initial pull ────────────
-	const resultsSignal = signal<readonly T[]>(initialResults);
-	const resultCountSignal = signal<number>(initialResultCount);
+	// Seeded empty, then reseeded from `initialResultIndices` once the refreshers' `projectResults`
+	// is available, as the active rules are below.
+	const resultsSignal = signal<readonly T[]>([]);
+	const resultCountSignal = signal<number>(initialResultIndices.length);
 	const sourceDataSignal = signal<readonly T[]>(initialSourceData);
 	// The async engine doesn't currently expose `workingSet` distinctly — mirror sourceData
 	// until the subscribe loop tells us otherwise (workingSet events refresh both).
@@ -225,6 +225,7 @@ export async function createSignalsEngineFromAsync<T>(
 	// cap. They close over the writable mirror signals above + the async engine + `getIsDisposed`.
 	const {
 		deserializeRules,
+		projectResults,
 		refreshDevtools,
 		refreshEverything,
 		refreshExpressionAndResults,
@@ -247,11 +248,13 @@ export async function createSignalsEngineFromAsync<T>(
 		workingSetSignal,
 	});
 
-	// Reseed the active-rules mirror now that `deserializeRules` exists. Synchronous +
-	// pre-subscriber, so the transient empty seed above is never observed by any consumer.
+	// Reseed the active-rules and results mirrors now that `deserializeRules` and `projectResults`
+	// exist. Synchronous + pre-subscriber, so the transient empty seeds above are never observed by
+	// any consumer.
 	const initialActiveRules = deserializeRules(initialActiveRulesSerialized);
 
 	activeRulesSignal.value = initialActiveRules;
+	resultsSignal.value = projectResults(initialResultIndices, initialSourceData);
 
 	if (options.eagerPerRuleSignals) {
 		for (const id of initialActiveRules.keys()) {
