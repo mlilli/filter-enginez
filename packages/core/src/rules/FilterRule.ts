@@ -187,6 +187,22 @@ export abstract class FilterRule {
 	}
 
 	/**
+	 * Drop everything `prepareForCollection` kept. The engine calls this when the rule leaves its
+	 * active rules (removed, replaced, cleared, undone, or the engine destroyed), so a rule that
+	 * something else still holds, such as the devtools action log, does not keep its prepared
+	 * answers alive with it.
+	 *
+	 * @remarks
+	 * The base implementation does nothing. A rule that overrides `prepareForCollection` to keep
+	 * per-collection state overrides this to drop it. Releasing never changes an answer: the next
+	 * pass that evaluates the rule prepares it again.
+	 */
+	// eslint-disable-next-line class-methods-use-this -- the base hook is a no-op that subclasses override
+	releasePrepared(): void {
+		// Nothing was prepared.
+	}
+
+	/**
 	 * Serialize this rule to its JSON shape for round-tripping through:
 	 *   - JSON config export (`engine.exportConfig()`)
 	 *   - URL state (`@filter-enginez/url-state-router`)
@@ -244,5 +260,20 @@ export function prepareRuleForCollection(rule: FilterRule, collection: readonly 
 
 	if (typeof prepareForCollection === 'function') {
 		prepareForCollection.call(rule, collection);
+	}
+}
+
+/**
+ * Call `rule.releasePrepared()` when the rule has it — for the same reason as
+ * {@link prepareRuleForCollection}: a rule from elsewhere may lack the method, and then holds
+ * nothing to release.
+ *
+ * @param rule - The rule leaving the engine's active rules
+ */
+export function releasePreparedRule(rule: FilterRule): void {
+	const { releasePrepared } = rule as Partial<Pick<FilterRule, 'releasePrepared'>>;
+
+	if (typeof releasePrepared === 'function') {
+		releasePrepared.call(rule);
 	}
 }

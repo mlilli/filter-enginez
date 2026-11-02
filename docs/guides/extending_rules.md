@@ -94,6 +94,11 @@ Override it to work your answers out ahead of the per-item calls, and keep two r
 - **Key what you prepare on the collection array and the `config` object.** The engine replaces both rather than
   mutating them, so an identity check tells you when the prepared answers are stale.
 
+If you keep prepared state, also override `releasePrepared()` to drop it. The engine calls it when your rule leaves the
+active rules: replaced, removed, cleared, undone, or still active when the engine is destroyed. Devtools keeps the rules
+of past states for undo, so a replaced rule lives on, and anything it still holds lives with it. The next pass that
+evaluates the rule prepares it again, so releasing never changes an answer.
+
 `FuzzySearchRule` is the built-in that uses it: it builds one Fuse.js index per collection, searches it once per query,
 and answers `action` from the result.
 

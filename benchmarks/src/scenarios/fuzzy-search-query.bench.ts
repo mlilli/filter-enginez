@@ -21,6 +21,9 @@
  * not the rule, so they stay cached, and this times the candidate query plus confirm, not a cold
  * index build.
  *
+ * Devtools is off, so the cell times the search alone: with recording on, every run would also
+ * capture two engine snapshots and append the `addRule` to the action log.
+ *
  * @packageDocumentation
  */
 import type { Wine } from '@filter-enginez/mock-data/wine';
@@ -43,7 +46,7 @@ function makeFuzzyScenario(id: string, title: string, description: string, thres
 		description,
 		id,
 		setup(tier: CorpusTier, acceleration: AccelerationOptions): ScenarioCell {
-			const engine = createFilterEngine<Wine>({ acceleration, sourceData: tier.data });
+			const engine = createFilterEngine<Wine>({ acceleration, devtools: { enabled: false }, sourceData: tier.data });
 			const field = (item: unknown): string => tastingNotesText(item as Wine);
 
 			const run = (): void => {

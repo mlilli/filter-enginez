@@ -248,6 +248,24 @@ describe('FuzzySearchRule — the collection index', () => {
 		expect(singleField.action({ name: 42 }, singleField)).toBe(false);
 	});
 
+	it('drops its index and answers on release, and builds them again on the next prepare', () => {
+		const { reads, rule } = countingRule({ query: 'cabernay' });
+		const perItem = new FuzzySearchRule('name', { query: 'cabernay' });
+		const expected = passing(WINES, (item) => perItem.action(item, perItem));
+
+		rule.prepareForCollection(WINES);
+		rule.releasePrepared();
+		// Between the release and the next prepare, `action` answers the per-item way.
+		expect(passing(WINES, (item) => rule.action(item, rule))).toEqual(expected);
+
+		const readsBeforePrepare = reads();
+
+		rule.prepareForCollection(WINES);
+		// Kept answers would have read nothing; a rebuilt index reads every item.
+		expect(reads()).toBe(readsBeforePrepare + WINES.length);
+		expect(passing(WINES, (item) => rule.action(item, rule))).toEqual(expected);
+	});
+
 	it('prepares nothing for an empty query, which passes every item', () => {
 		const { reads, rule } = countingRule({ query: '' });
 

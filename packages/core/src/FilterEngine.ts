@@ -50,6 +50,7 @@ import { filteredFieldValuesExcept } from './filteredFieldValuesExcept.js';
 import { createAccelerationStack } from './internals/createAccelerationStack.js';
 import { invalidateForAction } from './internals/invalidateForAction.js';
 import { rejectCallsAfterDestroy } from './internals/rejectCallsAfterDestroy.js';
+import { activeRules, releaseDepartedRules } from './internals/releaseDepartedRules.js';
 import { type CompositeRule } from './rules/CompositeRule.js';
 import { Dispatcher } from './store/Dispatcher.js';
 import { InternalStore } from './store/InternalStore.js';
@@ -97,6 +98,9 @@ export class FilterEngine<T = unknown> {
 	 */
 	private readonly _exclusionGraphMode: ExclusionGraphMode;
 
+	/** The active rules a time-travel restore or replay started from, released from once it lands. */
+	private _rulesBeforeRestore: ReadonlySet<FilterRule> = new Set();
+
 	// #region docs:devtools-construction
 	constructor(options: FilterEngineOptions<T> = {}) {
 		this.store = new InternalStore<T>(options.sourceData ?? []);
@@ -106,10 +110,13 @@ export class FilterEngine<T = unknown> {
 			this.dispatcher,
 			options.devtools,
 			(event) => {
+				releaseDepartedRules(this._rulesBeforeRestore, activeRules(this.store));
+				this._rulesBeforeRestore = new Set();
 				this._maybeWarmExclusionGraph();
 				this._emit(event);
 			},
 			() => {
+				this._rulesBeforeRestore = activeRules(this.store);
 				this._clearAccelerationCaches();
 			},
 		);
@@ -427,8 +434,8 @@ export class FilterEngine<T = unknown> {
 
 	/**
 	 * Tear down the engine — drop subscribers, release the acceleration caches (bitmaps, R-trees,
-	 * text postings, exclusion graph, simulation results), flush pending persistence and disconnect
-	 * devtools. Safe to call multiple times (subsequent calls are no-ops); every other public method
+	 * text postings, exclusion graph, simulation results) and the active rules' prepared state,
+	 * flush pending persistence and disconnect devtools. Safe to call multiple times (subsequent calls are no-ops); every other public method
 	 * throws `FilterEngineDestroyedError` (`ENGINE_DESTROYED`) afterwards.
 	 */
 	async destroy(): Promise<void> {
@@ -438,6 +445,7 @@ export class FilterEngine<T = unknown> {
 		this._destroyed = true;
 		this._subscribers.clear();
 		this._clearAccelerationCaches();
+		releaseDepartedRules(activeRules(this.store), new Set());
 		await this.devtools.destroy();
 	}
 
@@ -483,8 +491,9 @@ export class FilterEngine<T = unknown> {
 	/**
 	 * Dispatch an action AND emit the corresponding change event: capture the pre-action
 	 * snapshot, invalidate the acceleration caches the action affects, mutate the store via the
-	 * dispatcher (one batched write), re-warm an `'eager'` exclusion graph, record the action with
-	 * both snapshots into devtools (for time-travel + Redux DevTools), then notify subscribers.
+	 * dispatcher (one batched write), release the prepared state of every rule the action removed,
+	 * re-warm an `'eager'` exclusion graph, record the action with both snapshots into devtools (for
+	 * time-travel + Redux DevTools), then notify subscribers.
 	 *
 	 * Caches are dropped BEFORE the write so that a signal effect reacting to the write — which
 	 * runs when the dispatcher's batch ends — can never read a bitmap built for the old state.
@@ -492,10 +501,12 @@ export class FilterEngine<T = unknown> {
 	 */
 	private _dispatchAndEmit(action: Action, event: ChangeEvent): void {
 		const previousSnapshot = this.devtools.enabled ? captureSnapshot(this.store) : null;
+		const rulesBefore = activeRules(this.store);
 		const shouldWarmExclusions = invalidateForAction(this.bitmapIndex, this.exclusionGraph, action);
 
 		this.simulationCache.invalidate(action);
 		this.dispatcher.dispatch(action);
+		releaseDepartedRules(rulesBefore, activeRules(this.store));
 		if (shouldWarmExclusions) {
 			this._maybeWarmExclusionGraph();
 		}

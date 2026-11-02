@@ -18,11 +18,11 @@
  * output. These tests pin the contract; that one pins the artifact.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { FieldExtractor } from '../types.js';
 
-import { FilterRule } from './FilterRule.js';
+import { FilterRule, releasePreparedRule } from './FilterRule.js';
 
 /**
  * Minimal concrete rule used to exercise the abstract base. Exposes `getFieldValue` (which is
@@ -105,6 +105,27 @@ describe('FilterRule default action', () => {
 
 		expect(rule.action({ price: 1 }, rule)).toBe(true);
 		expect(rule.action(null, rule)).toBe(true);
+	});
+});
+
+describe('FilterRule.releasePrepared', () => {
+	it('is a no-op on the base, which prepares nothing', () => {
+		const rule = new TestRule('price');
+
+		rule.releasePrepared();
+		expect(rule.action({ price: 1 }, rule)).toBe(true);
+	});
+
+	it('is called through releasePreparedRule, which skips a rule without the method', () => {
+		const rule = new TestRule('price');
+		const release = vi.spyOn(rule, 'releasePrepared');
+
+		releasePreparedRule(rule);
+		expect(release).toHaveBeenCalledOnce();
+		// A rule written to the shape by hand, or built against another copy of core, has none.
+		expect(() => {
+			releasePreparedRule({ action: () => true, config: undefined } as unknown as FilterRule);
+		}).not.toThrow();
 	});
 });
 

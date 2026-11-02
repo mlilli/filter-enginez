@@ -193,8 +193,9 @@ is never done outside the store, the dispatcher and the devtools restore path:
 /**
  * Dispatch an action AND emit the corresponding change event: capture the pre-action
  * snapshot, invalidate the acceleration caches the action affects, mutate the store via the
- * dispatcher (one batched write), re-warm an `'eager'` exclusion graph, record the action with
- * both snapshots into devtools (for time-travel + Redux DevTools), then notify subscribers.
+ * dispatcher (one batched write), release the prepared state of every rule the action removed,
+ * re-warm an `'eager'` exclusion graph, record the action with both snapshots into devtools (for
+ * time-travel + Redux DevTools), then notify subscribers.
  *
  * Caches are dropped BEFORE the write so that a signal effect reacting to the write — which
  * runs when the dispatcher's batch ends — can never read a bitmap built for the old state.
@@ -202,10 +203,12 @@ is never done outside the store, the dispatcher and the devtools restore path:
  */
 private _dispatchAndEmit(action: Action, event: ChangeEvent): void {
   const previousSnapshot = this.devtools.enabled ? captureSnapshot(this.store) : null;
+  const rulesBefore = activeRules(this.store);
   const shouldWarmExclusions = invalidateForAction(this.bitmapIndex, this.exclusionGraph, action);
 
   this.simulationCache.invalidate(action);
   this.dispatcher.dispatch(action);
+  releaseDepartedRules(rulesBefore, activeRules(this.store));
   if (shouldWarmExclusions) {
     this._maybeWarmExclusionGraph();
   }
@@ -219,8 +222,9 @@ private _dispatchAndEmit(action: Action, event: ChangeEvent): void {
 `_dispatchAndEmit`, the funnel: (a) captures the pre-action snapshot (when devtools are enabled), (b) drops the bitmap,
 exclusion-graph and simulation caches the action affects — before the write, so nothing reacting to the write can read a
 cache built for the old state, (c) hands the action to the dispatcher, which applies it in one batched write, (d)
-re-warms an `'eager'` exclusion graph, (e) records the action with both snapshots — which also forwards it to the Redux
-DevTools bridge and schedules persistence — and (f) notifies subscribers. The dispatcher's own job is (c) alone.
+releases the prepared state of every rule the action removed (§4.1), (e) re-warms an `'eager'` exclusion graph, (f)
+records the action with both snapshots — which also forwards it to the Redux DevTools bridge and schedules persistence —
+and (g) notifies subscribers. The dispatcher's own job is (c) alone.
 
 §3 covers the dispatcher implementation in full.
 
@@ -1410,6 +1414,12 @@ of `core`); a `CompositeRule` passes the call to its children. The base does not
 whole collection overrides it to work its answers out ahead of the per-item calls, and must still answer `action`
 exactly for any item outside the prepared collection. `FuzzySearchRule` is the built-in that does (§4.3).
 
+**`releasePrepared()`** is its counterpart. The engine calls it (through `releasePreparedRule`) on each rule that leaves
+its active rules — replaced, removed, cleared, dropped from the expression, taken out by an undo or redo, or still
+active at `destroy()` — and on no other. The devtools action log keeps the rules of up to 100 past states, so without it
+a replaced rule would keep its prepared state alive with it. A rule that keeps per-collection state drops it here.
+Releasing never changes an answer: the next pass that evaluates the rule prepares it again.
+
 #### §4.1a. `ruleTypeName` — why the wire name is a declared static
 
 `serialize()` writes `type: Class.ruleTypeName`, a string literal each rule class declares, and `ruleRegistry` looks
@@ -2138,6 +2148,7 @@ prepared collection (or one the index left out: a non-string field, a non-object
 one-item search. The match set is the per-item search's exactly: Fuse decides each record's match from that record alone
 (the threshold applies to each field's own Bitap score), while the parts of scoring that read the collection — the
 field-length norm, token search's inverse document frequency — only order the matches, which a filter never reads.
+`releasePrepared` (§4.1) drops every index and answer the rule holds, once the engine no longer uses it.
 `FuzzySearchRule.collection.test.ts` holds the collection search, the per-item search and a direct
 `new Fuse(collection).search(query)` to the same answer for every option.
 
@@ -4789,14 +4800,21 @@ constructor(options: FilterEngineOptions<T> = {}) {
     this.dispatcher,
     options.devtools,
     (event) => {
+      releaseDepartedRules(this._rulesBeforeRestore, activeRules(this.store));
+      this._rulesBeforeRestore = new Set();
       this._maybeWarmExclusionGraph();
       this._emit(event);
     },
     () => {
+      this._rulesBeforeRestore = activeRules(this.store);
       this._clearAccelerationCaches();
     },
   );
 ```
+
+The second callback runs before a time-travel restore or a replay writes the store: it drops the acceleration caches and
+notes the active rules. The first runs once the restore has landed: it releases the prepared state of every rule the
+restore took out (§4.1), re-warms an `'eager'` exclusion graph and notifies subscribers.
 
 `devtools: { enabled: false }` makes every engine action skip the snapshot capture and the action log, and constructs no
 Redux DevTools connection and no persistence. Undo/redo then have nothing to restore, so enable devtools wherever the UI

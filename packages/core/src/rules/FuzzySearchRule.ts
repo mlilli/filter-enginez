@@ -15,7 +15,8 @@
  * index rather than rebuilding it, and a new collection (`setSourceData`, `setWorkingSet`), a new
  * `field`, or a change to `keys` or any Fuse option builds a new one. An item outside the prepared
  * collection is answered the original way, by a one-item Fuse search, so `action` stays exact for
- * any item it is handed.
+ * any item it is handed. When the rule leaves the engine's active rules, the engine calls
+ * {@link FuzzySearchRule.releasePrepared}, which drops every index and answer.
  *
  * **Same matches as one item at a time.** Fuse decides whether a record matches from that record
  * alone: the threshold applies to each field's own Bitap score, and the parts of scoring that read
@@ -151,13 +152,13 @@ export class FuzzySearchRule extends FilterRule {
 	config: FuzzySearchRuleConfig;
 
 	/** The Fuse index per collection, rebuilt when the field or the Fuse options change. */
-	private readonly _indexes = new WeakMap<readonly unknown[], CollectionIndex>();
+	private _indexes = new WeakMap<readonly unknown[], CollectionIndex>();
 
 	/** The answers for the collection prepared last — the one the current pass iterates. */
 	private _verdicts: CollectionVerdicts | null = null;
 
 	/** Every collection's last answers, so a pass over a collection prepared before reuses them. */
-	private readonly _verdictsByCollection = new WeakMap<readonly unknown[], CollectionVerdicts>();
+	private _verdictsByCollection = new WeakMap<readonly unknown[], CollectionVerdicts>();
 
 	constructor(field: FieldExtractor, config: FuzzySearchRuleConfig) {
 		super(field);
@@ -199,6 +200,20 @@ export class FuzzySearchRule extends FilterRule {
 		}
 		this._verdicts = { config, field: this.field, matched };
 		this._verdictsByCollection.set(collection, this._verdicts);
+	}
+
+	/**
+	 * Drop every Fuse index and every collection's answers — see {@link FilterRule.releasePrepared}.
+	 *
+	 * @remarks
+	 * An index covers the whole collection it was built over, so a rule the engine no longer uses
+	 * would otherwise keep one alive for as long as anything holds the rule: at 150,000 items, about
+	 * 27 MB for each replaced rule the devtools action log keeps.
+	 */
+	override releasePrepared(): void {
+		this._indexes = new WeakMap();
+		this._verdicts = null;
+		this._verdictsByCollection = new WeakMap();
 	}
 
 	/**
