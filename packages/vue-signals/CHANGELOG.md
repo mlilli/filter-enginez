@@ -1,5 +1,12 @@
 # @filter-enginez/vue-signals
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [2bff306]
+  - @filter-enginez/reactive-signals@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes
