@@ -26,8 +26,9 @@
  *
  * **Acceleration.** When the bitmap layer engages this rule with `acceleration.textIndex` on, a
  * Roaring inverted **trigram** index (`internals/TextInvertedIndex`) pre-filters candidates via the
- * sound bound in `internals/fuzzyTrigramBound` before `action` confirms the survivors, so no real
- * match is dropped. Default-threshold (0.4) fuzzy, multi-key fuzzy, and the options that change
+ * sound bound in `internals/fuzzyTrigramBound`, so no real match is dropped. The survivors are a
+ * collection of their own: the engine prepares the rule over them, which builds a Fuse index over
+ * just those items and searches it once, and `action` then confirms each with a lookup. Default-threshold (0.4) fuzzy, multi-key fuzzy, and the options that change
  * what a query means (`ignoreDiacritics`, `useExtendedSearch`, `useTokenSearch`) bypass the index
  * and go through the collection search.
  *

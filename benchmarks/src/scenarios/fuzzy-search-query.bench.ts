@@ -4,16 +4,22 @@
  *
  *   - **strict (t=0.2)** — the sound trigram bound applies, so `textIndex:auto` narrows to a small
  *     candidate set (a Uint16 count over the pattern's trigram postings) and confirms only those
- *     with Fuse, versus `textIndex:off` running a per-item Fuse probe across the whole corpus.
+ *     with one Fuse search, versus `textIndex:off` searching the whole corpus with Fuse.
  *   - **loose (t=0.4, Fuse's default)** — the bound proves nothing, so `auto` bypasses to the same
- *     per-item predicate as `off`. This cell is a regression guardrail: `auto` must not be slower
+ *     whole-corpus search as `off`. This cell is a regression guardrail: `auto` must not be slower
  *     than `off` (the only difference is the cheap plan check).
  *
  * @remarks
- * The query is a near-miss typo of a common descriptor, so at the strict threshold its trigrams
- * pre-filter to a fraction of the corpus. As with the other text scenarios, `invalidateRule` drops
- * only the rule's bitmap each iteration — the trigram postings stay cached — so this times the
- * steady-state candidate query + confirm, not a cold rebuild.
+ * The query is a near-miss typo of a common descriptor whose trigrams are rare in other words, so at
+ * the strict threshold they pre-filter to a few percent of the corpus. A pattern made of common
+ * trigrams prunes far less: `lether` shares `the` and `her` with most tasting notes and keeps about a
+ * third.
+ *
+ * Every run adds a new rule, as a search box does on each keystroke. Reusing one rule would time a
+ * cache hit: `FuzzySearchRule` keeps its answers per collection and config, so a second pass over
+ * the corpus with the same config searches nothing. The trigram postings belong to the bitmap index,
+ * not the rule, so they stay cached, and this times the candidate query plus confirm, not a cold
+ * index build.
  *
  * @packageDocumentation
  */
@@ -27,8 +33,8 @@ import type { Scenario, ScenarioCell } from '../scenario.js';
 import { consume } from '../sink.js';
 import { tastingNotesText } from './wineText.js';
 
-/** A near-exact typo of a common descriptor ('leather') — its trigrams prune to a small candidate set. */
-const QUERY = 'lether';
+/** A near-exact typo of a common descriptor ('tobacco') — its trigrams prune to a small candidate set. */
+const QUERY = 'tobaco';
 
 /** Build a fuzzy scenario at a given Fuse threshold — the two exported scenarios differ only in that. */
 function makeFuzzyScenario(id: string, title: string, description: string, threshold: number): Scenario {
@@ -38,14 +44,10 @@ function makeFuzzyScenario(id: string, title: string, description: string, thres
 		id,
 		setup(tier: CorpusTier, acceleration: AccelerationOptions): ScenarioCell {
 			const engine = createFilterEngine<Wine>({ acceleration, sourceData: tier.data });
-
-			engine.addRule(
-				'fuzzy',
-				new FuzzySearchRule((item) => tastingNotesText(item as Wine), { query: QUERY, threshold }),
-			);
+			const field = (item: unknown): string => tastingNotesText(item as Wine);
 
 			const run = (): void => {
-				engine.bitmapIndex.invalidateRule('fuzzy');
+				engine.addRule('fuzzy', new FuzzySearchRule(field, { query: QUERY, threshold }));
 				consume(engine.computeResults().length);
 			};
 
@@ -64,7 +66,7 @@ function makeFuzzyScenario(id: string, title: string, description: string, thres
 export const fuzzyStrictScenario: Scenario = makeFuzzyScenario(
 	'fuzzy-search-strict',
 	'Fuzzy search (t=0.2, candidate)',
-	'Typo-tolerant search at a strict threshold — trigram candidate pre-filter + Fuse confirm vs per-item Fuse.',
+	'Typo-tolerant search at a strict threshold — trigram candidate pre-filter + Fuse confirm vs a whole-corpus Fuse search.',
 	0.2,
 );
 
@@ -72,6 +74,6 @@ export const fuzzyStrictScenario: Scenario = makeFuzzyScenario(
 export const fuzzyLooseScenario: Scenario = makeFuzzyScenario(
 	'fuzzy-search-loose',
 	'Fuzzy search (t=0.4, bypass)',
-	'Default-threshold fuzzy — the bound bypasses to the per-item predicate; guardrail that auto is not slower.',
+	'Default-threshold fuzzy — the bound bypasses to the whole-corpus search; guardrail that auto is not slower.',
 	0.4,
 );

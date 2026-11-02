@@ -50,7 +50,7 @@ import {
 import { createRoaringBitmap, isBitmapAccelerationReady } from './roaringInit.js';
 import { SpatialIndex } from './SpatialIndex.js';
 import { TextInvertedIndex } from './TextInvertedIndex.js';
-import { compileTextPlan } from './textPlan.js';
+import { compileTextPlan, confirmFuzzyCandidates } from './textPlan.js';
 
 /**
  * Per-rule compressed bitmap index. Lazy-built, version-invalidated.
@@ -521,9 +521,9 @@ export class BitmapIndex<T> {
 	 * return `null` so the caller falls back to the per-item predicate scan.
 	 *
 	 * - **authoritative** (`allWords`) — the AND of word postings IS the exact passing set.
-	 * - **candidate** (fuzzy) — the trigram pre-filter is a superset of the Fuse matches; confirm
-	 *   each survivor with the rule's exact per-item `action` (the sound bound guarantees nothing
-	 *   real was pruned, so the confirmed set is exact).
+	 * - **candidate** (fuzzy) — the trigram pre-filter is a superset of the Fuse matches; prepare
+	 *   the rule over the survivors (one Fuse search across them) and confirm each with its exact
+	 *   `action` (the sound bound guarantees nothing real was pruned, so the confirmed set is exact).
 	 * - **bypass** — `null`.
 	 */
 	private _buildTextBitmap(rule: FuzzySearchRule | TextSearchRule): RoaringBitmap32 | null {
@@ -537,17 +537,13 @@ export class BitmapIndex<T> {
 		if (plan.strategy === 'authoritative') {
 			return index.queryAllWords(plan.queryWords);
 		}
-		// Candidate: trigram pre-filter → exact Fuse confirm per surviving item.
+		// Candidate: trigram pre-filter → one exact Fuse search over the survivors.
 		const items = this._store.sourceData.value;
 		const candidates = index.queryFuzzyCandidates(plan.patternTrigrams, plan.minSharedTrigrams);
 		const bitmap = createRoaringBitmap();
 
-		for (const idx of candidates) {
-			const item = items[idx];
-
-			if (item !== undefined && rule.action(item, rule)) {
-				bitmap.add(idx);
-			}
+		for (const idx of confirmFuzzyCandidates(rule, items, candidates)) {
+			bitmap.add(idx);
 		}
 
 		return bitmap;

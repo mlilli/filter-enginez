@@ -89,6 +89,18 @@ describe('BitmapIndex — fuzzy candidate→confirm parity', () => {
 		expect(indicesFor('on', rule, fuzzyCorpus)).toEqual([0]);
 	});
 
+	it('confirms the candidates with one search over exactly them, not one per candidate', () => {
+		// 'blackberry' and 'blackboard' share the pattern's trigrams; 'vanilla oak' does not.
+		const fuzzyCorpus: readonly Wine[] = [{ text: 'blackberry' }, { text: 'blackboard' }, { text: 'vanilla oak' }];
+		const rule = new FuzzySearchRule('text', { query: 'blackbery', threshold: 0.2 });
+		const prepare = vi.spyOn(rule, 'prepareForCollection');
+
+		expect(indicesFor('on', rule, fuzzyCorpus)).toEqual([0]);
+		expect(prepare).toHaveBeenCalledTimes(1);
+		expect(prepare.mock.calls[0]?.[0]).toEqual([fuzzyCorpus[0], fuzzyCorpus[1]]);
+		prepare.mockRestore();
+	});
+
 	it('bypasses (falls through to predicate) at the default 0.4 threshold', () => {
 		const rule = new FuzzySearchRule('text', { query: 'cabernet' });
 

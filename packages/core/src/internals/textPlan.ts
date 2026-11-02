@@ -32,9 +32,8 @@
  * @packageDocumentation
  */
 
-import type { FilterRule } from '../rules/FilterRule.js';
-
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
+import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 import { FUSE_DEFAULT_THRESHOLD } from '../rules/fuseOptions.js';
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
 import { TextSearchRule } from '../rules/TextSearchRule.js';
@@ -53,7 +52,7 @@ export interface TextAuthoritativePlan {
 
 /**
  * Fuzzy trigram pre-filter — items sharing ≥ `minSharedTrigrams` of the pattern's distinct trigrams
- * are a superset of the Fuse matches; each survivor still needs the exact per-item Fuse confirm.
+ * are a superset of the Fuse matches; the survivors still need the exact Fuse confirm.
  */
 export interface TextCandidatePlan {
 	readonly minSharedTrigrams: number;
@@ -135,4 +134,30 @@ function planFuzzySearch(rule: FuzzySearchRule): TextPlan {
 		patternTrigrams: [...distinctTrigrams(normalizedPattern)],
 		strategy: 'candidate',
 	};
+}
+
+/**
+ * Confirm a `candidate` plan's survivors with the rule's exact Fuse pass, as one search: the rule is
+ * prepared over the survivors, so `action` answers each with a lookup instead of building and
+ * searching a one-item Fuse index for every survivor.
+ *
+ * @remarks
+ * Every candidate is an item: the trigram index posts nothing for an `undefined` slot.
+ *
+ * @param rule - The fuzzy rule the plan was compiled from
+ * @param items - The source data the candidate indices point into
+ * @param candidates - The candidate indices, ascending
+ * @returns The candidate indices whose items match, ascending
+ */
+export function confirmFuzzyCandidates(
+	rule: FilterRule,
+	items: readonly unknown[],
+	candidates: readonly number[],
+): number[] {
+	prepareRuleForCollection(
+		rule,
+		candidates.map((idx) => items[idx]),
+	);
+
+	return candidates.filter((idx) => rule.action(items[idx], rule));
 }

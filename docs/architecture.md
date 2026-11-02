@@ -6692,7 +6692,7 @@ never the memoized `getResultIndices()`, which would read a cached array and mea
 | `bayesian-suggest`                                                    | Top-3 suggestions from a synthetic session history (independent of corpus size) | 10k, full |
 | `geo-radius-query`                                                    | "Within X km of Y" — R-tree vs haversine scan                                   | 10k, full |
 | `text-search-query`                                                   | Whole-word `allWords` — inverted index vs scan                                  | 10k, full |
-| `fuzzy-search-strict`                                                 | Fuzzy search at t=0.2 — trigram candidates vs a per-item Fuse probe             | 10k, full |
+| `fuzzy-search-strict`                                                 | Fuzzy search at t=0.2 — trigram candidates vs a whole-corpus Fuse search        | 10k, full |
 | `fuzzy-search-loose`                                                  | Fuzzy search at t=0.4 — guardrail that the bypass costs nothing                 | 10k, full |
 | `replay-action-log-50`, `replay-action-log`, `replay-action-log-5000` | Replaying 50, 500 and 5000 logged actions                                       | 10k, full |
 

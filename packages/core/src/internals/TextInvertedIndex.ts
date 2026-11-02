@@ -110,8 +110,8 @@ export class TextInvertedIndex<T> {
 	/**
 	 * The candidate source-data indices for a fuzzy pattern — those sharing at least
 	 * `minSharedTrigrams` of the pattern's distinct trigrams. A provable SUPERSET of the Fuse
-	 * matches (the sound bound guarantees no real match is dropped); the caller MUST confirm each
-	 * with the exact per-item Fuse pass before treating it as a match.
+	 * matches (the sound bound guarantees no real match is dropped); the caller MUST confirm them
+	 * with the exact Fuse search before treating any as a match.
 	 *
 	 * @remarks
 	 * The count accumulator is a `Uint16Array(N)` (posting ids increment into it; a final scan
