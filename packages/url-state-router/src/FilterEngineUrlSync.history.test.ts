@@ -127,6 +127,24 @@ describe('FilterEngineUrlSync — own writes and the user\'s navigations', () =>
 		expect(engine.getRule('under-15')).toBeUndefined();
 	});
 
+	it('adds no history entry when Back loads a state, in push mode', () => {
+		const { engine, router } = mount({ historyMode: 'push' });
+
+		addPriceRule(engine, 'under-25', 25);
+		commit(router, 0);
+		addPriceRule(engine, 'under-15', 15);
+		commit(router, 0);
+
+		act(() => {
+			router.back();
+		});
+
+		// Loading the entry changes the engine, which makes it write; the URL already holds that state,
+		// so a pushed write would leave the same entry twice and Back would seem to do nothing.
+		expect(router.queued()).toEqual([]);
+		expect(router.param()).toBe(humanReadableSerializer.encode(engine.exportConfig()));
+	});
+
 	it('loads Back to a state it wrote whose location never rendered', () => {
 		const { engine, loadConfig, router } = mount({ historyMode: 'push' });
 

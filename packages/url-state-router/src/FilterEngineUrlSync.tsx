@@ -25,7 +25,10 @@
  * value written" is not enough to recognize an own write: the older value would look external, be
  * loaded, and drop the newer change. A pending value arriving through `PUSH` or `REPLACE` is that
  * late commit and is never loaded. A `POP` (Back, Forward, a reload) is always the user's, even to
- * a value this component wrote, so it loads unless the engine already holds that state.
+ * a value this component wrote, so it loads unless the engine already holds that state. Loading it
+ * changes the engine, and those changes write nothing: the URL already holds the state they reach,
+ * and in `'push'` mode a write would add a second entry for it, so the next Back would seem to do
+ * nothing.
  *
  * **Writes wait for a pending navigation.** React Router commits a navigation inside a transition,
  * so for a moment after the app navigates the router is on the new entry while the rendered
@@ -254,6 +257,9 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	 */
 	const writeTokenRef = useRef(0);
 
+	/** Whether the engine is loading a state from the URL, whose changes must not write it back. */
+	const loadingFromUrlRef = useRef(false);
+
 	/**
 	 * The rendered location and the router's `navigate`, as of the latest render. A write reads them
 	 * when it runs rather than closing over them, so the engine subscription and its pending
@@ -328,6 +334,10 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 			if (writeTimerRef.current !== null) {
 				clearTimeout(writeTimerRef.current);
 			}
+			// A state the URL holds, being loaded: nothing to write, and any pending write is superseded.
+			if (loadingFromUrlRef.current) {
+				return;
+			}
 			if (debounceMs <= 0) {
 				void writeUrl();
 
@@ -375,7 +385,12 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 		try {
 			const config = serializer.decode(serialized);
 
-			engine.loadConfig(config);
+			loadingFromUrlRef.current = true;
+			try {
+				engine.loadConfig(config);
+			} finally {
+				loadingFromUrlRef.current = false;
+			}
 			engineStateRef.current = serialized;
 			currentParamRef.current = serialized;
 		} catch (err) {

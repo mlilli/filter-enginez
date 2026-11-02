@@ -5597,8 +5597,10 @@ return unsubscribe;
   once the next location renders. A route that unmounts the component drops the waiting write with it; a component that
   stays mounted writes onto the new location.
 - **URL → Engine.** On every `location.search` change it decodes the parameter and calls `engine.loadConfig`, unless the
-  location is one of the component's own writes arriving or the engine already holds that state (below). A decode
-  failure is reported to `onError` and, with `tolerateMalformedUrls` (default `true`), leaves the engine as it was.
+  location is one of the component's own writes arriving or the engine already holds that state (below). The engine
+  changes a load makes write nothing, and cancel any pending write: the URL already holds the state they reach, and in
+  `'push'` mode a write would add a second entry for it, so the next Back would seem to do nothing. A decode failure is
+  reported to `onError` and, with `tolerateMalformedUrls` (default `true`), leaves the engine as it was.
 - **Across routes (opt-in).** Route navigations are the app's own. With `routeChangeMode` set, a navigation to another
   pathname whose URL lacks the parameter gets the current one re-attached, so filter state is retained across routes
   served by the same engine: `'replace'` folds it into the navigation's own history entry, so Back returns to the
@@ -5647,6 +5649,10 @@ useEffect((): (() => void) => {
     if (writeTimerRef.current !== null) {
       clearTimeout(writeTimerRef.current);
     }
+    // A state the URL holds, being loaded: nothing to write, and any pending write is superseded.
+    if (loadingFromUrlRef.current) {
+      return;
+    }
     if (debounceMs <= 0) {
       void writeUrl();
 
@@ -5694,7 +5700,12 @@ useEffect((): void => {
   try {
     const config = serializer.decode(serialized);
 
-    engine.loadConfig(config);
+    loadingFromUrlRef.current = true;
+    try {
+      engine.loadConfig(config);
+    } finally {
+      loadingFromUrlRef.current = false;
+    }
     engineStateRef.current = serialized;
     currentParamRef.current = serialized;
   } catch (err) {
