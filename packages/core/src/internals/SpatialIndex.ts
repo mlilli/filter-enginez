@@ -5,8 +5,8 @@
  * Per `docs/architecture.md` §6.2. Used for every `GeoProximityRule` bitmap build with a positive
  * radius (unless `acceleration.spatialIndex: 'off'`). Naive geo evaluation is O(items) haversine
  * computations per query; R-tree pruning narrows candidates to the radius's bounding box, then exact
- * distance check on the post-prune candidate set. Measured on 2026-10-15 over the synthetic wine
- * tiers (`benchmarks/RESULTS.md`): 298.5× faster than the scan at 10k items and 290.9× at 150k.
+ * distance check on the post-prune candidate set. Measured on 2026-11-02 over the synthetic wine
+ * tiers (`benchmarks/RESULTS.md`): 297.6× faster than the scan at 10k items and 257.1× at 150k.
  *
  * **Two-phase query.**
  *

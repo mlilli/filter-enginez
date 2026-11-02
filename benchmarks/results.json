@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-10-15T03:33:15.238Z",
+  "generatedAt": "2026-11-02T22:23:09.979Z",
   "reports": [
     {
       "outcomes": [
         {
           "cellLabel": "bitmap:on",
-          "meanMs": 0.021956309583927462,
-          "rmePct": 3.1712800648188306,
-          "samples": 45545
+          "meanMs": 0.022921701858940793,
+          "rmePct": 3.088252582428537,
+          "samples": 43627
         },
         {
           "cellLabel": "bitmap:off",
-          "meanMs": 0.9233738051708206,
-          "rmePct": 0.6297070195134833,
-          "samples": 1083
+          "meanMs": 0.9025627292418801,
+          "rmePct": 0.4626903299735926,
+          "samples": 1108
         }
       ],
       "scenarioId": "filter-intersection",
@@ -24,14 +24,14 @@
       "outcomes": [
         {
           "cellLabel": "bitmap:on",
-          "meanMs": 0.4198302712006743,
-          "rmePct": 4.544250937656426,
-          "samples": 2382
+          "meanMs": 0.43236439213143735,
+          "rmePct": 4.844753871970664,
+          "samples": 2313
         },
         {
           "cellLabel": "bitmap:off",
-          "meanMs": 15.512941723076914,
-          "rmePct": 1.31564148720922,
+          "meanMs": 15.453245538461541,
+          "rmePct": 1.9910654274836035,
           "samples": 65
         }
       ],
@@ -43,50 +43,50 @@
       "outcomes": [
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
-          "meanMs": 0.0865156776537805,
-          "rmePct": 1.9539379236996668,
-          "samples": 11559
+          "meanMs": 0.08628596548749082,
+          "rmePct": 2.2143284374626293,
+          "samples": 11590
         },
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
-          "meanMs": 9.905748772277324,
-          "rmePct": 0.6534284312630463,
-          "samples": 101
+          "meanMs": 10.062802940000056,
+          "rmePct": 0.6699305689288926,
+          "samples": 100
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
-          "meanMs": 0.08532584180886725,
-          "rmePct": 1.2209028837258418,
-          "samples": 11720
+          "meanMs": 0.0834324642082364,
+          "rmePct": 1.1706265792783022,
+          "samples": 11986
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
-          "meanMs": 9.798498786407666,
-          "rmePct": 0.6298840088320111,
-          "samples": 103
+          "meanMs": 9.908948891089125,
+          "rmePct": 0.5531951863909313,
+          "samples": 101
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08663759915099942,
-          "rmePct": 1.332419319483576,
-          "samples": 11543
+          "meanMs": 0.08446794332291381,
+          "rmePct": 1.3735086953910074,
+          "samples": 11839
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
-          "meanMs": 27.62754684374991,
-          "rmePct": 0.5903219995786892,
+          "meanMs": 27.981132812499997,
+          "rmePct": 2.326187245094758,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
-          "meanMs": 0.0864956278325592,
-          "rmePct": 1.43476922924576,
-          "samples": 11562
+          "meanMs": 0.08888369584926506,
+          "rmePct": 4.732366591500698,
+          "samples": 11251
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
-          "meanMs": 27.400363953125034,
-          "rmePct": 0.5594323421077333,
+          "meanMs": 27.57888217187505,
+          "rmePct": 0.5354398003354006,
           "samples": 64
         }
       ],
@@ -98,50 +98,50 @@
       "outcomes": [
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08551320418985889,
-          "rmePct": 1.004496213194322,
-          "samples": 11695
+          "meanMs": 0.08289699651862739,
+          "rmePct": 1.0267769912856373,
+          "samples": 12064
         },
         {
           "cellLabel": "bitmap:on · exclGraph:lazy · simCache:off",
-          "meanMs": 241.0767878124998,
-          "rmePct": 0.7422188821222171,
+          "meanMs": 244.42819467187525,
+          "rmePct": 1.3744572731760656,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:on",
-          "meanMs": 0.08553868796508854,
-          "rmePct": 1.3774537367871895,
-          "samples": 11691
+          "meanMs": 0.08369095514269735,
+          "rmePct": 1.3461823473404735,
+          "samples": 11949
         },
         {
           "cellLabel": "bitmap:on · exclGraph:off · simCache:off",
-          "meanMs": 249.71767059374994,
-          "rmePct": 0.6551268929217043,
+          "meanMs": 243.67705142187472,
+          "rmePct": 0.6988930603293857,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:on",
-          "meanMs": 0.08537393802291184,
-          "rmePct": 1.3203651206300073,
-          "samples": 11714
+          "meanMs": 0.08390684468875095,
+          "rmePct": 1.4503850822663902,
+          "samples": 11918
         },
         {
           "cellLabel": "bitmap:off · exclGraph:lazy · simCache:off",
-          "meanMs": 420.59589526562394,
-          "rmePct": 0.19886043394388425,
+          "meanMs": 419.1804875781257,
+          "rmePct": 0.25818615063540734,
           "samples": 64
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:on",
-          "meanMs": 0.08523394170293652,
-          "rmePct": 0.981941439681191,
-          "samples": 11733
+          "meanMs": 0.08689838312477526,
+          "rmePct": 1.3560041538838146,
+          "samples": 11508
         },
         {
           "cellLabel": "bitmap:off · exclGraph:off · simCache:off",
-          "meanMs": 425.0161289218747,
-          "rmePct": 0.24365017931550176,
+          "meanMs": 427.947465453125,
+          "rmePct": 0.3879424270762023,
           "samples": 64
         }
       ],
@@ -153,9 +153,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.003976216226112291,
-          "rmePct": 0.518351118712756,
-          "samples": 251496
+          "meanMs": 0.003916294661359889,
+          "rmePct": 0.2953749388845107,
+          "samples": 255344
         }
       ],
       "scenarioId": "similarity-find",
@@ -166,9 +166,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.025688692740471232,
-          "rmePct": 0.39870086283340594,
-          "samples": 38928
+          "meanMs": 0.025304609479048886,
+          "rmePct": 0.36440594712236035,
+          "samples": 39519
         }
       ],
       "scenarioId": "similarity-find",
@@ -179,9 +179,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.002037028019264367,
-          "rmePct": 0.6937422356226906,
-          "samples": 490912
+          "meanMs": 0.0020431903863887975,
+          "rmePct": 0.6940953140370948,
+          "samples": 489431
         }
       ],
       "scenarioId": "bayesian-suggest",
@@ -192,9 +192,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.002039764099371048,
-          "rmePct": 0.6707223777052924,
-          "samples": 490253
+          "meanMs": 0.0020037209580954073,
+          "rmePct": 0.6955276765987929,
+          "samples": 499072
         }
       ],
       "scenarioId": "bayesian-suggest",
@@ -205,15 +205,15 @@
       "outcomes": [
         {
           "cellLabel": "rtree:auto",
-          "meanMs": 0.005095269039699759,
-          "rmePct": 10.457264522174906,
-          "samples": 196261
+          "meanMs": 0.00505946407789585,
+          "rmePct": 2.003378928306161,
+          "samples": 197650
         },
         {
           "cellLabel": "rtree:off",
-          "meanMs": 1.520980044073323,
-          "rmePct": 1.4072343006228571,
-          "samples": 658
+          "meanMs": 1.5056474285709232,
+          "rmePct": 1.20174954113048,
+          "samples": 665
         }
       ],
       "scenarioId": "geo-radius-query",
@@ -224,14 +224,14 @@
       "outcomes": [
         {
           "cellLabel": "rtree:auto",
-          "meanMs": 0.09925915493812483,
-          "rmePct": 0.7561698997673547,
-          "samples": 10075
+          "meanMs": 0.11164509534450844,
+          "rmePct": 13.96118165838494,
+          "samples": 8957
         },
         {
           "cellLabel": "rtree:off",
-          "meanMs": 28.876596953128224,
-          "rmePct": 1.0057753489700516,
+          "meanMs": 28.705893312501303,
+          "rmePct": 0.8837137358637615,
           "samples": 64
         }
       ],
@@ -243,15 +243,15 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 0.011512202544260882,
-          "rmePct": 16.99097844988376,
-          "samples": 87255
+          "meanMs": 0.011221732146914333,
+          "rmePct": 17.242378811741762,
+          "samples": 89116
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 5.162925701031818,
-          "rmePct": 1.5993682635366966,
-          "samples": 194
+          "meanMs": 5.104869489794433,
+          "rmePct": 1.1726450557782528,
+          "samples": 196
         }
       ],
       "scenarioId": "text-search-query",
@@ -262,14 +262,14 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 0.18995983494749258,
-          "rmePct": 14.595473859491673,
-          "samples": 5265
+          "meanMs": 0.1909034644014524,
+          "rmePct": 13.982717816793027,
+          "samples": 5239
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 76.4368796093736,
-          "rmePct": 1.6424715648768962,
+          "meanMs": 74.7075755468754,
+          "rmePct": 0.3492149303082481,
           "samples": 64
         }
       ],
@@ -281,15 +281,15 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 4.72998585377313,
-          "rmePct": 1.4943501859540087,
-          "samples": 212
+          "meanMs": 0.3984759047807981,
+          "rmePct": 0.5384766793204331,
+          "samples": 2510
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 12.995680688311158,
-          "rmePct": 1.1034001412460854,
-          "samples": 77
+          "meanMs": 9.867662941174144,
+          "rmePct": 1.0172771251645405,
+          "samples": 102
         }
       ],
       "scenarioId": "fuzzy-search-strict",
@@ -300,14 +300,14 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 74.71214065625055,
-          "rmePct": 0.3818990461371143,
-          "samples": 64
+          "meanMs": 8.969133544642059,
+          "rmePct": 1.8811710506976658,
+          "samples": 112
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 186.3885123749983,
-          "rmePct": 0.20346762162116025,
+          "meanMs": 168.42587959374856,
+          "rmePct": 1.044965149576615,
           "samples": 64
         }
       ],
@@ -319,15 +319,15 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 18.74436139062527,
-          "rmePct": 0.9365941852491941,
-          "samples": 64
+          "meanMs": 15.388147196970586,
+          "rmePct": 0.916209399391864,
+          "samples": 66
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 18.645507187501163,
-          "rmePct": 1.0155038131445244,
-          "samples": 64
+          "meanMs": 15.38191159090925,
+          "rmePct": 0.8379762637751118,
+          "samples": 66
         }
       ],
       "scenarioId": "fuzzy-search-loose",
@@ -338,14 +338,14 @@
       "outcomes": [
         {
           "cellLabel": "textIndex:auto",
-          "meanMs": 270.4690605781248,
-          "rmePct": 0.18721354838909848,
+          "meanMs": 248.30357096875065,
+          "rmePct": 1.2704609323369656,
           "samples": 64
         },
         {
           "cellLabel": "textIndex:off",
-          "meanMs": 271.5292564531251,
-          "rmePct": 0.21572760326102183,
+          "meanMs": 248.81666417187444,
+          "rmePct": 1.2402929222578987,
           "samples": 64
         }
       ],
@@ -357,9 +357,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.077244597821876,
-          "rmePct": 0.5968659702993176,
-          "samples": 12947
+          "meanMs": 0.08212429399692078,
+          "rmePct": 0.8967230452620224,
+          "samples": 12177
         }
       ],
       "scenarioId": "replay-action-log-50",
@@ -370,9 +370,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 0.07861843215417248,
-          "rmePct": 0.5906996720747245,
-          "samples": 12720
+          "meanMs": 0.08224227787830754,
+          "rmePct": 0.9149213023318586,
+          "samples": 12160
         }
       ],
       "scenarioId": "replay-action-log-50",
@@ -383,9 +383,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 8.869620938054174,
-          "rmePct": 1.278576128824494,
-          "samples": 113
+          "meanMs": 8.583067316238314,
+          "rmePct": 0.7656547654515069,
+          "samples": 117
         }
       ],
       "scenarioId": "replay-action-log",
@@ -396,9 +396,9 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 8.76422939999864,
-          "rmePct": 0.9822325984010808,
-          "samples": 115
+          "meanMs": 8.679818931036444,
+          "rmePct": 0.8308968464685663,
+          "samples": 116
         }
       ],
       "scenarioId": "replay-action-log",
@@ -409,8 +409,8 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 1927.3031940156245,
-          "rmePct": 0.9770799608440444,
+          "meanMs": 2061.295911437501,
+          "rmePct": 8.159489187165708,
           "samples": 64
         }
       ],
@@ -422,8 +422,8 @@
       "outcomes": [
         {
           "cellLabel": "defaults",
-          "meanMs": 2181.3603782031237,
-          "rmePct": 0.7054323423063289,
+          "meanMs": 2524.9867832187488,
+          "rmePct": 7.155750277452098,
           "samples": 64
         }
       ],

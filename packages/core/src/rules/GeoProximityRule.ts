@@ -9,8 +9,8 @@
  *
  * While bitmaps are engaged, the engine builds this rule's bitmap through the R-tree spatial
  * index (`internals/SpatialIndex.ts`): a bounding-box prune, then the exact haversine check on
- * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries on 2026-10-15
- * over the synthetic wine tiers: 298.5× faster than the scan at 10k items and 290.9× at 150k.
+ * the surviving candidates only. `benchmarks/RESULTS.md` measured radius queries on 2026-11-02
+ * over the synthetic wine tiers: 297.6× faster than the scan at 10k items and 257.1× at 150k.
  *
  * An unlimited radius survives JSON: `JSON.stringify` writes `radiusKm: Infinity` as `null`, and
  * {@link GeoProximityRule.deserialize} reads a `null` radius back as `Infinity`.

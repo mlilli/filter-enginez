@@ -233,8 +233,8 @@ and (g) notifies subscribers. The dispatcher's own job is (c) alone.
 **The composition.** Three layers, each cheap on its own, each composing:
 
 1. **Roaring Bitmaps** — one compressed bitmap per active rule. Filter intersection = bitwise AND across bitmaps: 0.02
-   ms over the 10k synthetic wine tier and 0.42 ms over the 150k tier, with warm bitmaps (`benchmarks/RESULTS.md`, run
-   of 2026-10-15).
+   ms over the 10k synthetic wine tier and 0.43 ms over the 150k tier, with warm bitmaps (`benchmarks/RESULTS.md`, run
+   of 2026-11-02).
 2. **Mutual Exclusion Graph** — pre-computed pairwise table of rules that share zero items. Lazy by default;
    `engine.precomputeExclusions()` warms it, and `acceleration.exclusionGraph: 'eager'` keeps it warm.
 3. **Memoized Simulation** — `simulate({ withRule: X })` results cached in an LRU (100 entries), keyed by the
@@ -245,7 +245,7 @@ and (g) notifies subscribers. The dispatcher's own job is (c) alone.
 intersection fast, so simulation per option becomes a bitmap build plus an AND. The exclusion graph answers "do these
 two rules share any item?" in O(1) once built. The memoization layer returns the answer outright when the same
 hypothetical is asked again. Measured over 40 options on a 10k corpus (`benchmarks/RESULTS.md`, `simulate-per-option`):
-27.6 ms on the predicate path, 9.9 ms with bitmaps, 0.09 ms from the cache.
+28.0 ms on the predicate path, 10.1 ms with bitmaps, 0.09 ms from the cache.
 
 §6 covers each layer's implementation.
 
@@ -3363,14 +3363,14 @@ For each of 20 color options:
     └─ cache.set(key, result)
 ```
 
-Measured by `simulate-per-option` (`benchmarks/RESULTS.md`: 40 options of one field, two standing rules) on 2026-10-15,
+Measured by `simulate-per-option` (`benchmarks/RESULTS.md`: 40 options of one field, two standing rules) on 2026-11-02,
 over the synthetic wine tiers of 10k and 150k items:
 
 | Path                                                          | 10k items | 150k items |
 | ------------------------------------------------------------- | --------- | ---------- |
-| Predicate evaluator, no cache                                 | 27.6 ms   | 420.6 ms   |
-| Bitmaps, no cache (each candidate's bitmap built, then ANDed) | 9.9 ms    | 241.1 ms   |
-| Warm cache                                                    | 0.09 ms   | 0.09 ms    |
+| Predicate evaluator, no cache                                 | 28.0 ms   | 419.2 ms   |
+| Bitmaps, no cache (each candidate's bitmap built, then ANDed) | 10.1 ms   | 244.4 ms   |
+| Warm cache                                                    | 0.09 ms   | 0.08 ms    |
 
 The exclusion-graph short-circuit is consulted only once the graph is built (`'eager'`, or after
 `precomputeExclusions()`), and then only for a plain `withRule` question in flat-map mode with conjunctive groups; its
@@ -4002,8 +4002,8 @@ so a candidate can never be used unconfirmed:
 `TEXT_INDEX_AUTO_THRESHOLD` (500, aligned with the bitmap auto-threshold — below it a single scan is sub-millisecond and
 the posting-build cost is not repaid); `'on'` engages at any size; `'off'` always uses the predicate scan. The index
 serves the bitmap build, so it is in effect only while bitmaps are engaged (`acceleration.bitmap: 'on'` engages them at
-any size). Measured on 2026-10-15 over the 150k synthetic wine tier (`benchmarks/RESULTS.md`): `allWords` 402×,
-fuzzy@0.2 about 2.5×, fuzzy@0.4 1.0× (the bypass).
+any size). Measured on 2026-11-02 over the 150k synthetic wine tier (`benchmarks/RESULTS.md`): `allWords` 391×,
+fuzzy@0.2 about 19×, fuzzy@0.4 1.0× (the bypass).
 
 ### §8a.3. Constraints both inherit
 
@@ -6734,15 +6734,15 @@ thread rather than making it faster, so there is no in-process cell to time (§1
 
 `RESULTS.md` has one Markdown table per scenario and tier: each cell's mean, its 95% relative margin of error, the
 sample count, a bar scaled to the slowest cell, and the cell's mean as a multiple of the fastest cell's. `results.json`
-holds the same figures unrounded, with the run's `generatedAt` timestamp. An excerpt of the run of 2026-10-15:
+holds the same figures unrounded, with the run's `generatedAt` timestamp. An excerpt of the run of 2026-11-02:
 
 ```markdown
 ### Filter intersection — 10k
 
 | Cell         |      Mean | ± 95% CI | Samples | Relative                                 |
 | :----------- | --------: | -------: | ------: | :--------------------------------------- |
-| `bitmap:on`  | 0.0220 ms |    ±3.2% |   45545 | `█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░` 1.0×  |
-| `bitmap:off` | 0.9234 ms |    ±0.6% |    1083 | `████████████████████████████████` 42.1× |
+| `bitmap:on`  | 0.0229 ms |    ±3.1% |   43627 | `█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░` 1.0×  |
+| `bitmap:off` | 0.9026 ms |    ±0.5% |    1108 | `████████████████████████████████` 39.4× |
 ```
 
 ---
