@@ -1,5 +1,15 @@
 # @filter-enginez/url-state-router
 
+## 0.0.8
+
+### Patch Changes
+
+- 1536d00: `<FilterEngineUrlSync>` no longer writes back a state it has just loaded from the URL. With
+  `historyMode: 'push'`, Back loaded the previous entry and the engine changes that load made pushed it again, so the
+  next Back seemed to do nothing.
+
+  <!-- markdownlint-disable-file MD041 -->
+
 ## 0.0.7
 
 ### Patch Changes
