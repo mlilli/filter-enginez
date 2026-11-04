@@ -1,5 +1,48 @@
 # @filter-enginez/core
 
+## 0.2.3
+
+### Patch Changes
+
+- 47d2884: `DateRangeRule` has a day mode, and its Date mode can name its calendar. With `mode: 'day'`, values, bounds
+  and `today` are `YYYY-MM-DD` strings compared as strings, with no `Date` and no time zone, and presets count from the
+  `today` the caller passes ("last 7 days" is the seven days ending on it). In Date mode, `timeZone: 'utc'` or `'local'`
+  sets the calendar that `'this-month'` and `'this-year'` start in and that a date string without an offset is read in;
+  without it the rule behaves as before. Both survive `exportConfig` / `loadConfig`. The constructor now checks the
+  config and throws `FilterEngineRuleError` with the new code `RULE_INVALID_CONFIG` for an unknown `mode`, `preset` or
+  `timeZone`, a day-mode bound or `today` that is not a real calendar day, or a day-mode preset without `today`.
+  `DateRangeRule` takes its config type as a parameter (Date mode by default), so `DateRangeRule.deserialize` now
+  returns a rule whose bounds may be either kind.
+
+  <!-- markdownlint-disable-file MD041 -->
+
+- 68b1a08: `TextSearchRule` takes two new options. `diacritics: 'ignore'` strips accents from both sides before
+  comparing, so `'Cafe'` finds `'Café'` and `'Zoe'` finds `'Zoë'`; the default, `'match'`, compares them as written.
+  `locale` folds case by that language's rules (`toLocaleLowerCase`), so under `'tr'` the dotless `'ı'` matches `'I'`
+  and `'i'` matches `'İ'`. Both apply in every mode, and an `'allWords'` rule with either is still served by the
+  inverted word index, from postings folded the same way, so the index and the predicate scan return the same items. The
+  constructor throws `FilterEngineRuleError` with code `RULE_INVALID_CONFIG` for any other `diacritics` value or a
+  `locale` that is not a BCP 47 tag, and a new `TextSearchRule.deserialize` makes the same checks when a config is
+  loaded. Without either option the rule matches exactly as before.
+
+  <!-- markdownlint-disable-file MD041 -->
+
+- 4afe0b5: `rulesFor<T>()` returns the rule builders typed against the item type `T`. Each `field` is a `FieldPath<T>`
+  (a key, or a dotted path through nested objects, five levels deep), a list of them, a function of the item, or
+  `undefined` for the item itself; `value` and `inSet` also type their values against the field, so
+  `rulesFor<Transaction>().value('acountId', id)` and a number for a string field both fail to compile. The plain
+  builders still take any string, for paths built at run time and for array indices. At run time `rulesFor` returns the
+  plain builders themselves. `FieldPath`, `PathValue`, `TypedField` and `TypedRuleBuilders` are exported. `RuleClass` is
+  now `new (...args: never[]) => FilterRule` instead of taking `any[]`: every rule class still fits, and a value of that
+  type is no longer callable without saying what it is passed.
+
+  This release ships with `@filter-enginez/react-signals` 0.0.7, `@filter-enginez/react-rxjs` 0.0.7 and
+  `@filter-enginez/url-state-router` 0.0.9. An app that pins exact versions to get day-mode dates, accent-insensitive
+  search, the typed builders and React 18 / react-router 7 support pins `@filter-enginez/core` 0.2.3 with those.
+
+  <!-- markdownlint-disable-file MD041 -->
+  <!-- cspell:ignore acount -->
+
 ## 0.2.2
 
 ### Patch Changes
