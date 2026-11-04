@@ -34,9 +34,13 @@ export {
 	type RegexRuleSerializedConfig,
 } from './RegexRule.js';
 export {
+	type DateRangeConfig,
+	type DateRangeDayConfig,
 	type DateRangePreset,
 	DateRangeRule,
 	type DateRangeRuleConfig,
+	type DateRangeTimeZone,
+	resolveDayPreset,
 	resolvePreset,
 } from './DateRangeRule.js';
 export {

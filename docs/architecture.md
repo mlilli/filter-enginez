@@ -383,6 +383,7 @@ packages/core/src/
 │   ├── internal.ts             # ~50 LOC of lodash replacements
 │   ├── getPath.ts              # FieldExtractor string-path resolver
 │   ├── BloomFilter.ts          # Bit-array primitive behind BloomMembershipRule
+│   ├── calendarDay.ts          # YYYY-MM-DD checks + day arithmetic for DateRangeRule's day mode
 │   ├── murmur3.ts              # Hash used by BloomFilter + MinHash
 │   ├── base64.ts               # Isomorphic encode/decode — no atob/btoa dependency
 │   ├── geo.ts                  # Haversine + bounding-box math for GeoProximityRule
@@ -427,9 +428,12 @@ export {
   type CompositeRuleConfig,
   type CompositionOp,
   dateRange,
+  type DateRangeConfig,
+  type DateRangeDayConfig,
   type DateRangePreset,
   DateRangeRule,
   type DateRangeRuleConfig,
+  type DateRangeTimeZone,
   exists,
   ExistsRule,
   // Abstract base
@@ -469,6 +473,7 @@ export {
 
   type RegexRuleConfig,
   type RegexRuleSerializedConfig,
+  resolveDayPreset,
   resolvePreset,
   type RuleClass,
   // Registry
@@ -891,6 +896,7 @@ The full code list, by class:
 | `REGISTRY_UNKNOWN_TYPE`           | `RuleRegistryError`          | `ruleRegistry.get` / `deserialize` (so config loading, URL state and the worker tier) for an unregistered type                                                                                                                     |
 | `RULE_TYPE_NAME_MISSING`          | `FilterEngineRuleError`      | `FilterRule.serialize` on a class that never declared `static readonly ruleTypeName`                                                                                                                                               |
 | `RULE_NOT_SERIALIZABLE`           | `FilterEngineRuleError`      | `PredicateRule.serialize`: a predicate function has no serialized form                                                                                                                                                             |
+| `RULE_INVALID_CONFIG`             | `FilterEngineRuleError`      | `new DateRangeRule` (and `dateRange`): an unknown `mode`, `preset` or `timeZone`, a day-mode bound or `today` that is not a real `YYYY-MM-DD` day, or a day-mode preset without `today`                                            |
 | `RULE_INVALID_SERIALIZED_CONFIG`  | `FilterEngineRuleError`      | A rule's `static deserialize` hook (`RegexRule`, `BloomMembershipRule`, `DateRangeRule`, the numeric rules) or a persisted devtools snapshot: a payload that does not rebuild, or a bound not a number or `null`                   |
 | `RULE_NOT_FOUND`                  | `FilterEngineRuleError`      | `BitmapIndex.getBitmap` for a rule id with no registered rule                                                                                                                                                                      |
 | `MODE_EXPRESSION_ACTIVE`          | `FilterEngineModeError`      | `FilterEngine.addRule` while an expression is set — flat-map rules are ignored in expression mode, so the rule would never apply                                                                                                   |
@@ -2222,20 +2228,84 @@ each item from the start of its value.
 export type DateRangePreset = 'all-time' | 'last-30-days' | 'last-7-days' | 'last-90-days' | 'this-month' | 'this-year';
 
 /**
- * Configuration for `DateRangeRule`.
+ * The calendar a Date-mode rule reads its presets and its offset-less date strings in.
+ */
+export type DateRangeTimeZone = 'local' | 'utc';
+
+/**
+ * Configuration for a Date-mode `DateRangeRule` (the default mode).
  *
  * Provide either:
  *   - `start` and/or `end` for absolute bounds
- *   - `preset` for a relative-range shortcut (resolved at evaluation time)
+ *   - `preset` for a relative-range shortcut (resolved against `Date.now()` at evaluation time)
  *
- * If both are supplied, `preset` takes precedence.
+ * If both are supplied, `preset` takes precedence. Without `timeZone`, presets use local time and
+ * a date string is read as `new Date()` reads it; with it, both use the named calendar.
  */
 export interface DateRangeRuleConfig {
   readonly end?: Date;
+  readonly mode?: 'date';
   readonly preset?: DateRangePreset;
   readonly start?: Date;
+  readonly timeZone?: DateRangeTimeZone;
 }
+
+/**
+ * Configuration for a day-mode `DateRangeRule`: values, bounds and `today` are `YYYY-MM-DD`
+ * calendar-day strings, compared as strings, and both bounds are inclusive.
+ *
+ * Provide either `start` and/or `end` for absolute bounds, or `preset` with `today`, the calendar
+ * day the preset counts from (required for every preset but `'all-time'`). If both are supplied,
+ * `preset` takes precedence.
+ */
+export interface DateRangeDayConfig {
+  readonly end?: string;
+  readonly mode: 'day';
+  readonly preset?: DateRangePreset;
+  readonly start?: string;
+  readonly today?: string;
+}
+
+/**
+ * Either mode's configuration.
+ */
+export type DateRangeConfig = DateRangeDayConfig | DateRangeRuleConfig;
 ```
+
+`DateRangeRule` has two modes, and the second exists because the first cannot say which calendar day a value is on.
+
+- **Date mode** (the default) takes `Date`, date-string or Unix-ms values and `Date` bounds, and resolves a preset
+  against `Date.now()` each time it runs. `timeZone` names the calendar a preset's month and year start in, and the one
+  a date string without an offset (`2026-03-01`, `2026-03-01T10:00`) is read in: `'utc'` or `'local'`. Without it the
+  rule behaves as it always has: presets in local time, and a string read the way `new Date()` reads it, a date-only
+  string as UTC midnight and a date-time as local time. West of UTC, that mix puts UTC midnight on March 1 on
+  February 28.
+- **Day mode** (`mode: 'day'`) takes `YYYY-MM-DD` strings for values, bounds and `today`, and compares them as strings:
+  the shape sorts in date order, so a range is two comparisons, with no `Date` and no time zone anywhere
+  (`lib/calendarDay.ts`). A preset counts from `today`, so the caller decides which calendar day it is; "last 7 days" is
+  the seven days ending on `today`, both bounds inclusive. A value that is not a real calendar day fails the rule.
+
+```ts
+import { createFilterEngine, dateRange } from '@filter-enginez/core';
+
+interface Transaction {
+  readonly postedOn: string; // 'YYYY-MM-DD'
+}
+declare const transactions: readonly Transaction[];
+declare const today: string; // the user's calendar day, e.g. '2026-11-03'
+
+const engine = createFilterEngine<Transaction>({ sourceData: transactions });
+
+engine.addRule('posted', dateRange('postedOn', { mode: 'day', preset: 'this-month', today }));
+engine.addRule('q1', dateRange('postedOn', { end: '2026-03-31', mode: 'day', start: '2026-01-01' }));
+```
+
+The constructor checks the config and throws `FilterEngineRuleError` with code `RULE_INVALID_CONFIG` for an unknown
+`mode`, `preset` or `timeZone`, a day-mode `start`, `end` or `today` that is not a real calendar day, or a day-mode
+preset other than `'all-time'` without `today`. `deserialize` makes the same checks under
+`RULE_INVALID_SERIALIZED_CONFIG`. Every key survives `exportConfig` / `loadConfig`, `today` included, so a saved view
+that stores a day-mode preset also stores the day it counted from: set `today` again when the view is applied, or "this
+month" stays the month it was saved in.
 
 #### `HierarchicalRule`
 
@@ -4296,13 +4366,13 @@ document that crossed JSON (a `?f=` URL, devtools persistence over `localStorage
 `null` wherever a rule held an open bound, and each rule with a numeric bound reads that `null` back as open in its
 `static deserialize` hook:
 
-| Rule                    | Key                     | A `null` revives as                                                     |
-| ----------------------- | ----------------------- | ----------------------------------------------------------------------- |
-| `RangeRule`             | `min` / `max`           | `-Infinity` / `Infinity`                                                |
-| `NumericComparisonRule` | `value`                 | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>` and `>=`  |
-| `GeoProximityRule`      | `radiusKm`              | `Infinity`                                                              |
-| `FuzzySearchRule`       | `threshold`, `distance` | `Infinity`                                                              |
-| `DateRangeRule`         | `start` / `end`         | absent (an ISO string is how a set bound travels; `null` is never 1970) |
+| Rule                    | Key                       | A `null` revives as                                                                                         |
+| ----------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `RangeRule`             | `min` / `max`             | `-Infinity` / `Infinity`                                                                                    |
+| `NumericComparisonRule` | `value`                   | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>` and `>=`                                      |
+| `GeoProximityRule`      | `radiusKm`                | `Infinity`                                                                                                  |
+| `FuzzySearchRule`       | `threshold`, `distance`   | `Infinity`                                                                                                  |
+| `DateRangeRule`         | `start` / `end` / `today` | absent (an ISO string, or a `YYYY-MM-DD` day in day mode, is how a set bound travels; `null` is never 1970) |
 
 The worker bridge moves rules by structured clone, which carries the infinities themselves, and the same hooks keep
 them. Two cases cannot survive JSON and are documented rather than encoded: a bound on the wrong side (a `RangeRule`
@@ -6904,8 +6974,8 @@ roaring-wasm either way.
 
 | Entry                                      | Budget  |
 | ------------------------------------------ | ------- |
-| `core` (default entry)                     | 19.5 kB |
-| `core without bitmaps` (with dependencies) | 32 kB   |
+| `core` (default entry)                     | 21 kB   |
+| `core without bitmaps` (with dependencies) | 32.5 kB |
 | `core/storage/browser`                     | 2 kB    |
 | `core/keyboard/browser`                    | 1 kB    |
 | `reactive-signals`                         | 3 kB    |
@@ -6920,17 +6990,17 @@ roaring-wasm either way.
 | `worker-bridge`                            | 5 kB    |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 19.4 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
+nearest half kilobyte. `core` measures about 20.7 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
 its missing-peer detection (§6.1), filter groups composed into every evaluation path, bitmap-backed results, the
 devtools snapshot codec with cross-reload persistence, devtools failure reporting, the rules' revival of open bounds and
 checking of options from JSON (§9.3), array-valued membership and its facet counts, `FuzzySearchRule`'s Fuse option
-passthrough with its per-collection index (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry.
-`core without bitmaps` measures about 31.7 kB: about 18.3 kB of core and the rest its dependencies (fuse.js, rbush,
-`@preact/signals-core` and microdiff). The same app with `initializeBitmapAcceleration()` added measures about 126 kB
-when its bundler inlines roaring-wasm, and stays near 32 kB when the bundler splits code and fetches roaring-wasm as its
-own chunk. `reactive-rxjs` measures about 3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which
-answers every public `FilterEngine` member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to
-`.size-limit.json`.
+passthrough with its per-collection index (§4.3), `DateRangeRule`'s day mode with its calendar-day arithmetic and config
+checks (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry. `core without bitmaps` measures about
+32.1 kB: about 18.7 kB of core and the rest its dependencies (fuse.js, rbush, `@preact/signals-core` and microdiff). The
+same app with `initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines roaring-wasm, and
+stays near 32 kB when the bundler splits code and fetches roaring-wasm as its own chunk. `reactive-rxjs` measures about
+3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine`
+member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;
 `angular-rxjs` is the smallest binding because Angular consumes `Observable`s natively, leaving only DI to plumb.

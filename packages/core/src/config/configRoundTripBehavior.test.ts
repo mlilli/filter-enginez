@@ -196,6 +196,14 @@ const CASES_BY_TYPE: ReadonlyMap<string, readonly RoundTripCase[]> = new Map<str
 			}),
 		},
 		{ label: 'preset all-time', rule: () => new DateRangeRule('listedAt', { preset: 'all-time' }) },
+		{ label: 'UTC calendar', rule: () => new DateRangeRule('listedAt', { preset: 'this-month', timeZone: 'utc' }) },
+		{ label: 'explicit date mode', rule: () => new DateRangeRule('listedAt', { mode: 'date', start: new Date('2024-06-01T00:00:00.000Z') }) },
+		{ label: 'day mode, closed', rule: () => new DateRangeRule('listedAt', { end: '2025-12-31', mode: 'day', start: '2024-01-15' }) },
+		{ label: 'day mode, open end', rule: () => new DateRangeRule('listedAt', { mode: 'day', start: '2024-06-01' }) },
+		{
+			label: 'day mode, preset with today',
+			rule: () => new DateRangeRule('listedAt', { mode: 'day', preset: 'last-30-days', today: '2024-06-15' }),
+		},
 	]],
 	['ExistsRule', [{ label: 'price present', rule: () => new ExistsRule('price') }]],
 	['FuzzySearchRule', [

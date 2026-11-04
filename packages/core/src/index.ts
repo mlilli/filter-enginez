@@ -41,9 +41,12 @@ export {
 	type CompositeRuleConfig,
 	type CompositionOp,
 	dateRange,
+	type DateRangeConfig,
+	type DateRangeDayConfig,
 	type DateRangePreset,
 	DateRangeRule,
 	type DateRangeRuleConfig,
+	type DateRangeTimeZone,
 	exists,
 	ExistsRule,
 	// Abstract base
@@ -83,6 +86,7 @@ export {
 
 	type RegexRuleConfig,
 	type RegexRuleSerializedConfig,
+	resolveDayPreset,
 	resolvePreset,
 	type RuleClass,
 	// Registry

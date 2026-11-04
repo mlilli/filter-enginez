@@ -10,7 +10,8 @@
  * placeholder. The static `deserialize` is exercised across each spread branch (start/end/preset
  * present vs absent), a `null` bound reviving as open, a Unix-ms bound, the rejection of a bound
  * that is not a date (unparseable string, wrong type), and the `'<function>'` field branch. Every
- * `resolvePreset` case is checked via the exported helper.
+ * `resolvePreset` case is checked via the exported helper. Day mode, `timeZone`, and the config
+ * checks are in `./DateRangeRule.day.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -145,8 +146,8 @@ describe('DateRangeRule', () => {
 
 			expect(restored.config.start).toBeInstanceOf(Date);
 			expect(restored.config.end).toBeInstanceOf(Date);
-			expect(restored.config.start?.toISOString()).toBe('2025-10-01T00:00:00.000Z');
-			expect(restored.config.end?.toISOString()).toBe('2025-12-31T00:00:00.000Z');
+			expect((restored.config.start as Date).toISOString()).toBe('2025-10-01T00:00:00.000Z');
+			expect((restored.config.end as Date).toISOString()).toBe('2025-12-31T00:00:00.000Z');
 		});
 
 		it('reconstructs a preset-only config without start/end', () => {
@@ -185,7 +186,7 @@ describe('DateRangeRule', () => {
 		it('reconstructs a Unix-ms bound', () => {
 			const restored = DateRangeRule.deserialize({ config: { start: 0 }, field: 'at', type: 'DateRangeRule' });
 
-			expect(restored.config.start?.toISOString()).toBe('1970-01-01T00:00:00.000Z');
+			expect((restored.config.start as Date).toISOString()).toBe('1970-01-01T00:00:00.000Z');
 		});
 
 		it.each([

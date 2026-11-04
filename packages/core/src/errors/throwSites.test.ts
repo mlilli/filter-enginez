@@ -20,6 +20,7 @@ import { createFilterEngine } from '../createFilterEngine.js';
 import { deserializeSnapshot, serializeSnapshot } from '../devtools/snapshotCodec.js';
 import { BloomFilter } from '../lib/BloomFilter.js';
 import { BloomMembershipRule } from '../rules/BloomMembershipRule.js';
+import { DateRangeRule } from '../rules/DateRangeRule.js';
 import { inSet, predicate, value } from '../rules/factories.js';
 import { FilterRule } from '../rules/FilterRule.js';
 import { RegexRule } from '../rules/RegexRule.js';
@@ -239,6 +240,8 @@ describe('rule errors (FilterEngineRuleError)', () => {
 		['GeoProximityRule', { center: { lat: null, lng: 0 }, radiusKm: 5 }, 'GeoProximityRule config.center.lat must be a finite number'],
 		['FuzzySearchRule', { distance: 'far', query: 'a' }, 'FuzzySearchRule config.distance must be a number'],
 		['DateRangeRule', { start: 'soon' }, 'DateRangeRule config.start must be a date string'],
+		['DateRangeRule', { mode: 'day', start: '2024-02-30' }, 'DateRangeRule config.start must be a YYYY-MM-DD calendar day'],
+		['DateRangeRule', { mode: 'day', preset: 'this-year' }, 'DateRangeRule config.today must be a YYYY-MM-DD calendar day'],
 	])('resolveConfig: a %s bound that is not a number or null → RULE_INVALID_SERIALIZED_CONFIG', (type, config, message) => {
 		const error = caught(() => resolveConfig({
 			rules: [{ id: 'bound', rule: { config, field: 'color', type }}],
@@ -248,6 +251,14 @@ describe('rule errors (FilterEngineRuleError)', () => {
 		expect(error).toBeInstanceOf(FilterEngineRuleError);
 		expect(error).toMatchObject({ code: 'RULE_INVALID_SERIALIZED_CONFIG', name: 'FilterEngineRuleError' });
 		expect((error as Error).message).toContain(message);
+	});
+
+	it('new DateRangeRule: a day-mode bound that is not a calendar day → RULE_INVALID_CONFIG', () => {
+		const error = caught(() => new DateRangeRule('postedOn', { end: '2025-13-01', mode: 'day' }));
+
+		expect(error).toBeInstanceOf(FilterEngineRuleError);
+		expect(error).toMatchObject({ code: 'RULE_INVALID_CONFIG', name: 'FilterEngineRuleError' });
+		expect((error as Error).message).toBe('DateRangeRule config.end must be a YYYY-MM-DD calendar day; got "2025-13-01".');
 	});
 
 	it('snapshotCodec: a persisted expression that revives as a leaf → RULE_INVALID_SERIALIZED_CONFIG', () => {

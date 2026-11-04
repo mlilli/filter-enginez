@@ -27,7 +27,7 @@ import type { ArrayMatchOptions } from './arrayMatch.js';
 
 import { BloomMembershipRule } from './BloomMembershipRule.js';
 import { BooleanRule } from './BooleanRule.js';
-import { DateRangeRule, type DateRangeRuleConfig } from './DateRangeRule.js';
+import { type DateRangeConfig, DateRangeRule, type DateRangeRuleConfig } from './DateRangeRule.js';
 import { ExistsRule } from './ExistsRule.js';
 import { FuzzySearchRule, type FuzzySearchRuleConfig } from './FuzzySearchRule.js';
 import { GeoProximityRule, type GeoProximityRuleConfig } from './GeoProximityRule.js';
@@ -123,8 +123,8 @@ export function regex(field: FieldExtractor, config: RegexRuleConfig): RegexRule
 	return new RegexRule(field, config);
 }
 
-/** Create a `DateRangeRule` — date range with relative-preset support. */
-export function dateRange(field: FieldExtractor, config: DateRangeRuleConfig): DateRangeRule {
+/** Create a `DateRangeRule` — date range with relative-preset support, in Date mode or day mode. */
+export function dateRange<C extends DateRangeConfig = DateRangeRuleConfig>(field: FieldExtractor, config: C): DateRangeRule<C> {
 	return new DateRangeRule(field, config);
 }
 

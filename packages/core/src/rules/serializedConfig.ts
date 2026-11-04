@@ -53,6 +53,19 @@ export function invalidConfig(where: string, expected: string, value: unknown): 
 }
 
 /**
+ * Build the error a rule's constructor throws for a config it cannot run: the same words as
+ * {@link invalidConfig}, under the code that says the config came from code rather than a payload.
+ *
+ * @param where - The rule type and key that failed, e.g. `DateRangeRule config.today`
+ * @param expected - What the key must hold
+ * @param value - What it held instead
+ * @returns A `FilterEngineRuleError` with code `RULE_INVALID_CONFIG`
+ */
+export function invalidRuleConfig(where: string, expected: string, value: unknown): FilterEngineRuleError {
+	return new FilterEngineRuleError('RULE_INVALID_CONFIG', `${where} must be ${expected}; got ${describeValue(value)}.`);
+}
+
+/**
  * The field extractor a serialized rule names: its `field`, with the `'<function>'` placeholder
  * (written for a function extractor, which cannot be serialized) read as `undefined`.
  *

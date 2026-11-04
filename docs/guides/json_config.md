@@ -73,13 +73,13 @@ written like this, whether you write it by hand or it comes out of `exportConfig
 
 Each rule with a numeric bound reads `null` as the open bound for that position:
 
-| Rule                    | Key                     | `null` loads as                                                     |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------- |
-| `RangeRule`             | `min` / `max`           | `-Infinity` / `Infinity`                                            |
-| `NumericComparisonRule` | `value`                 | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>`, `>=` |
-| `GeoProximityRule`      | `radiusKm`              | `Infinity` (no radius limit)                                        |
-| `FuzzySearchRule`       | `threshold`, `distance` | `Infinity` (no limit)                                               |
-| `DateRangeRule`         | `start` / `end`         | no bound on that side                                               |
+| Rule                    | Key                      | `null` loads as                                                     |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------- |
+| `RangeRule`             | `min` / `max`            | `-Infinity` / `Infinity`                                            |
+| `NumericComparisonRule` | `value`                  | `Infinity` under `<`, `<=`, `==`, `!=`; `-Infinity` under `>`, `>=` |
+| `GeoProximityRule`      | `radiusKm`               | `Infinity` (no radius limit)                                        |
+| `FuzzySearchRule`       | `threshold`, `distance`  | `Infinity` (no limit)                                               |
+| `DateRangeRule`         | `start` / `end`, `today` | no bound on that side; no `today`                                   |
 
 That is what lets an open range survive every JSON path — `exportConfig` → `loadConfig`, a `url-state-router` link, a
 saved view, a request body — with the same matches it had before. Two consequences of `null` standing for "open":
@@ -247,8 +247,10 @@ base class and the rule casts it. The rules with numeric bounds (`RangeRule`, `N
 `GeoProximityRule`, `FuzzySearchRule`, `DateRangeRule`) check each bound as they revive it, accepting a number or `null`
 and rejecting anything else, so a string or a missing key never compares as `0`. `FuzzySearchRule` also checks its other
 Fuse options (a finite number, a boolean, or `"all"` / `"any"` for `tokenMatch`), and `InSetRule`, `InSetofSetsRule` and
-`HierarchicalRule` check `arrayMatch` (`"any"` or `"all"`). Nothing else is checked. If configs arrive from outside your
-own code, validate them against the rule types you allow — a schema validator at the edge, or a hand-written allowlist.
+`HierarchicalRule` check `arrayMatch` (`"any"` or `"all"`). `DateRangeRule` checks its `mode`, `preset` and `timeZone`,
+and in day mode that `start`, `end` and `today` are real `YYYY-MM-DD` calendar days. Nothing else is checked. If configs
+arrive from outside your own code, validate them against the rule types you allow — a schema validator at the edge, or a
+hand-written allowlist.
 
 ---
 
