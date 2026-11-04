@@ -4,6 +4,7 @@
  * bitmap index) is covered in `BitmapIndex.text.test.ts`; this file pins the branch decisions.
  */
 
+// cspell:ignore ISPARTA ısparta İstanbul ıspa
 import { describe, expect, it } from 'vitest';
 
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
@@ -20,6 +21,16 @@ describe('compileTextPlan — TextSearchRule', () => {
 		if (plan.strategy === 'authoritative') {
 			expect(plan.queryWords).toEqual(['oak', 'leather']);
 		}
+	});
+
+	it('carries the rule\'s fold, and query words folded by it', () => {
+		const plan = compileTextPlan(new TextSearchRule('desc', { diacritics: 'ignore', locale: 'tr', mode: 'allWords', query: 'Café ISPARTA' }));
+
+		expect(plan).toEqual({
+			fold: { caseSensitive: false, diacritics: 'ignore', locale: 'tr' },
+			queryWords: ['cafe', 'ısparta'],
+			strategy: 'authoritative',
+		});
 	});
 
 	it('bypasses case-sensitive allWords (the lowercase index cannot serve it)', () => {

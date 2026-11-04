@@ -31,6 +31,7 @@ import type { RoaringBitmap32 } from './roaringBitmap.js';
 
 import { isConjunctive } from '../composition/composeFlatExpression.js';
 import { FilterEngineRuleError } from '../errors/index.js';
+import { DEFAULT_TEXT_FOLD } from '../lib/textFold.js';
 import { CompositeRule } from '../rules/CompositeRule.js';
 import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
@@ -49,7 +50,7 @@ import {
 } from './accelerationModes.js';
 import { createRoaringBitmap, isBitmapAccelerationReady } from './roaringInit.js';
 import { SpatialIndex } from './SpatialIndex.js';
-import { TextInvertedIndex } from './TextInvertedIndex.js';
+import { TextIndexCache } from './TextIndexCache.js';
 import { compileTextPlan, confirmFuzzyCandidates } from './textPlan.js';
 
 /**
@@ -77,13 +78,8 @@ export class BitmapIndex<T> {
 	 */
 	private readonly _spatialIndexes = new Map<FieldExtractor, SpatialIndex<T>>();
 
-	/**
-	 * Per-field inverted-text-index cache, keyed by the text rule's `field` extractor (NOT the
-	 * rule) — same rationale as the spatial cache: postings are a pure function of (source data,
-	 * field), so all text rules on one field share an index and query changes never rebuild it.
-	 * Each index self-invalidates on a source-data version bump; the map is dropped on `clear()`.
-	 */
-	private readonly _textIndexes = new Map<FieldExtractor, TextInvertedIndex<T>>();
+	/** The inverted text indexes, one per text field and fold — see `TextIndexCache`. */
+	private readonly _textIndexes = new TextIndexCache<T>();
 
 	constructor(
 		private readonly _store: InternalStore<T>,
@@ -532,7 +528,7 @@ export class BitmapIndex<T> {
 		if (plan.strategy === 'bypass') {
 			return null;
 		}
-		const index = this._getTextIndexFor(rule);
+		const index = this._textIndexes.get(this._store, rule, plan.strategy === 'authoritative' ? plan.fold : DEFAULT_TEXT_FOLD);
 
 		if (plan.strategy === 'authoritative') {
 			return index.queryAllWords(plan.queryWords);
@@ -562,22 +558,5 @@ export class BitmapIndex<T> {
 		}
 
 		return this._store.sourceData.value.length >= TEXT_INDEX_AUTO_THRESHOLD;
-	}
-
-	/**
-	 * Get (lazily building) the `TextInvertedIndex` for a text rule's field. Keyed by the rule's
-	 * `field` extractor so every text rule on the same field shares one index (postings are a pure
-	 * function of source data + field — the geo R-tree cache's rationale). The word + trigram maps
-	 * inside build independently on first use.
-	 */
-	private _getTextIndexFor(rule: FuzzySearchRule | TextSearchRule): TextInvertedIndex<T> {
-		let index = this._textIndexes.get(rule.field);
-
-		if (index === undefined) {
-			index = new TextInvertedIndex<T>(this._store, (item) => rule.extractText(item));
-			this._textIndexes.set(rule.field, index);
-		}
-
-		return index;
 	}
 }

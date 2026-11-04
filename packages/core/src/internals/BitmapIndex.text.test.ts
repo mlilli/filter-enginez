@@ -8,10 +8,12 @@
  * both must reproduce the scalar rule bit-for-bit, including a trigram candidate that Fuse then
  * REJECTS ('blackboard' vs 'blackberry'). Also covers bypass fall-through (default-threshold /
  * substring), field-keyed index sharing, distinct-field separation, multi-rule `computeResults`,
- * and `clear()`. Drives a real WASM Roaring backend, so `beforeAll` awaits init.
+ * and `clear()`. The same parity holds for every fold an `'allWords'` rule can ask for (`diacritics`,
+ * `locale`, both), each answered from an index built with that fold. Drives a real WASM Roaring
+ * backend, so `beforeAll` awaits init.
  */
 
-// cspell:ignore blackbery
+// cspell:ignore blackbery ISPARTA ısparta İstanbul ıspa
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { FilterRule } from '../rules/FilterRule.js';
@@ -245,5 +247,47 @@ describe('BitmapIndex — text-index auto floor (S3)', () => {
 		index.getBitmap('r');
 		expect(spy).toHaveBeenCalled();
 		spy.mockRestore();
+	});
+});
+
+describe('BitmapIndex — allWords parity under every fold', () => {
+	/** Accented, Turkish and plain text, and one non-string, on the same field. */
+	const NOTES: readonly Wine[] = [
+		{ text: 'Café au lait' },
+		{ text: 'cafe noir' },
+		{ text: 'Zoë at ISPARTA' },
+		{ text: 'İstanbul and ısparta' },
+		{ text: 'plain notes' },
+		{ text: 42 },
+	];
+	const FOLDS = [{}, { diacritics: 'ignore' }, { locale: 'tr' }, { diacritics: 'ignore', locale: 'tr' }] as const;
+	const QUERIES = ['cafe', 'Café', 'zoe', 'ısparta', 'istanbul', 'ISPARTA'];
+
+	it.each(FOLDS.flatMap((fold) => QUERIES.map((query) => [fold, query] as const)))(
+		'index path matches the predicate scan for %o %j',
+		(fold, query) => {
+			const rule = (): TextSearchRule => new TextSearchRule('text', { ...fold, mode: 'allWords', query });
+
+			expect(indicesFor('on', rule(), NOTES)).toEqual(indicesFor('off', rule(), NOTES));
+		},
+	);
+
+	it('answers each fold from its own index (spot check)', () => {
+		expect(indicesFor('on', new TextSearchRule('text', { mode: 'allWords', query: 'cafe' }), NOTES)).toEqual([1]);
+		expect(indicesFor('on', new TextSearchRule('text', { diacritics: 'ignore', mode: 'allWords', query: 'cafe' }), NOTES)).toEqual([0, 1]);
+		expect(indicesFor('on', new TextSearchRule('text', { locale: 'tr', mode: 'allWords', query: 'ısparta' }), NOTES)).toEqual([2, 3]);
+	});
+
+	it('keeps two folds on one field apart in one engine', () => {
+		const store = new InternalStore<Wine>(NOTES);
+
+		store.rules.value = new Map<RuleId, FilterRule>([
+			['plain', new TextSearchRule('text', { mode: 'allWords', query: 'cafe' })],
+			['ignore', new TextSearchRule('text', { diacritics: 'ignore', mode: 'allWords', query: 'cafe' })],
+		]);
+		const index = new BitmapIndex<Wine>(store, 'bitmap', 'auto', 'on');
+
+		expect(sorted(index.getBitmap('plain').toArray())).toEqual([1]);
+		expect(sorted(index.getBitmap('ignore').toArray())).toEqual([0, 1]);
 	});
 });

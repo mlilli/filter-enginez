@@ -25,18 +25,20 @@
  * `isCaseSensitive` matches a subset of what the lowercased comparison matches, and the norm and
  * `findAllMatches` options never change which items match.
  *
- * All normalization is to lowercase — matching the index (which lowercases field text) and Fuse's
- * case-insensitive default — so `authoritative` query words and `candidate` pattern trigrams are
- * already lowercased when they leave here.
+ * `authoritative` query words leave here folded by the rule's own fold (`lib/textFold`: lowercase,
+ * or by `locale`'s case rules, with accents stripped under `diacritics: 'ignore'`), and the plan
+ * carries that fold so `BitmapIndex` answers from an index built with it. `candidate` pattern
+ * trigrams are lowercased, matching the default-fold index and Fuse's case-insensitive default.
  *
  * @packageDocumentation
  */
 
+import { foldText, type TextFold } from '../lib/textFold.js';
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
 import { type FilterRule, prepareRuleForCollection } from '../rules/FilterRule.js';
 import { FUSE_DEFAULT_THRESHOLD } from '../rules/fuseOptions.js';
 import { FuzzySearchRule } from '../rules/FuzzySearchRule.js';
-import { TextSearchRule } from '../rules/TextSearchRule.js';
+import { textFoldOf, TextSearchRule } from '../rules/TextSearchRule.js';
 import { computeFuzzyTrigramBound } from './fuzzyTrigramBound.js';
 
 /** The index can't help — evaluate the rule by the per-item predicate scan. */
@@ -44,8 +46,12 @@ export interface TextBypassPlan {
 	readonly strategy: 'bypass';
 }
 
-/** `allWords` — the AND of these words' postings IS the exact passing set; no confirm needed. */
+/**
+ * `allWords` — the AND of these words' postings IS the exact passing set; no confirm needed. The
+ * words are folded by `fold`, and only an index built with the same fold may serve them.
+ */
 export interface TextAuthoritativePlan {
+	readonly fold: TextFold;
 	readonly queryWords: readonly string[];
 	readonly strategy: 'authoritative';
 }
@@ -92,7 +98,8 @@ function planTextSearch(rule: TextSearchRule): TextPlan {
 	if (mode !== 'allWords' || isCaseSensitive === true || query.length === 0) {
 		return BYPASS_PLAN;
 	}
-	const queryWords = extractWords(query.toLowerCase());
+	const fold = textFoldOf(rule.config);
+	const queryWords = extractWords(foldText(query, fold));
 
 	// A query with no word characters (e.g. punctuation only) is a rule no-op — let the predicate
 	// scan handle it rather than intersecting zero postings.
@@ -100,7 +107,7 @@ function planTextSearch(rule: TextSearchRule): TextPlan {
 		return BYPASS_PLAN;
 	}
 
-	return { queryWords, strategy: 'authoritative' };
+	return { fold, queryWords, strategy: 'authoritative' };
 }
 
 /**

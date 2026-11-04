@@ -177,7 +177,9 @@ tasting notes and keeps about a third.
 Substring and `'tokenized'` text matching are **never** index-served, by design — native `String.includes` already wins.
 Only `TextSearchRule` in case-insensitive `'allWords'` mode and `FuzzySearchRule` consult the index, and a fuzzy rule
 bypasses it whenever its options change what the query means (`ignoreDiacritics`, `useExtendedSearch`, `useTokenSearch`)
-or it searches several `keys`.
+or it searches several `keys`. An `'allWords'` rule with `diacritics: 'ignore'` or a `locale` is still index-served,
+from postings folded its way: the first such rule on a field builds a second word index for that fold, a cost paid once
+per field and fold, after which it is shared like the default one.
 
 ---
 

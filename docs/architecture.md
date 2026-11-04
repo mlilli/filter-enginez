@@ -333,6 +333,7 @@ packages/core/src/
 │   ├── SimulationCache.ts      # LRU-memoized simulation
 │   ├── SpatialIndex.ts         # R-tree wrapper
 │   ├── TextInvertedIndex.ts    # Roaring inverted text index — 5th axis (§8a.2)
+│   ├── TextIndexCache.ts       # One TextInvertedIndex per text field and fold
 │   ├── createAccelerationStack.ts # Builds + wires the acceleration axes; predicate/bitmap dispatch
 │   ├── accelerationModes.ts    # Acceleration-mode vocabulary + auto-engagement thresholds
 │   ├── invalidateForAction.ts  # Which caches an action invalidates, run before the write
@@ -387,6 +388,7 @@ packages/core/src/
 │   ├── murmur3.ts              # Hash used by BloomFilter + MinHash
 │   ├── base64.ts               # Isomorphic encode/decode — no atob/btoa dependency
 │   ├── geo.ts                  # Haversine + bounding-box math for GeoProximityRule
+│   ├── textFold.ts             # Case + accent folding shared by TextSearchRule and the word index
 │   └── textTokens.ts           # Tokenizer shared by the text index + trigram bound
 └── config/
     ├── index.ts
@@ -877,42 +879,42 @@ identifiers and a `name` read from `constructor.name` would say `d` in productio
 
 The full code list, by class:
 
-| Code                              | Class                        | Raised by                                                                                                                                                                                                                          |
-| --------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CONFIG_UNKNOWN_RULE_ID`          | `FilterEngineConfigError`    | `loadConfig` / `resolveConfig`: an expression leaf names a rule id the document does not define                                                                                                                                    |
-| `CONFIG_VERSION_UNSUPPORTED`      | `FilterEngineConfigError`    | `ConfigMigrator.migrate` (so `loadConfig` too): the document is newer than this engine                                                                                                                                             |
-| `CONFIG_MIGRATION_MISSING`        | `FilterEngineConfigError`    | `ConfigMigrator.migrate`: no step is registered for an intermediate version                                                                                                                                                        |
-| `BLOOM_FILTER_INVALID_OPTIONS`    | `FilterEngineConfigError`    | `new BloomFilter`, `BloomFilter.forCapacity`, `BloomFilter.deserialize`: a size, hash count or rate is out of range                                                                                                                |
-| `BLOOM_FILTER_INVALID_PAYLOAD`    | `FilterEngineConfigError`    | `BloomFilter.deserialize`: `bits` is not base64 (decoder error as `cause`) or does not match `sizeBits`                                                                                                                            |
-| `SIMILARITY_INVALID_OPTIONS`      | `FilterEngineConfigError`    | `new MinHash`, `new LSH`, or a similarity config with neither `attributes` nor `signatureFn`                                                                                                                                       |
-| `SIMILARITY_NOT_CONFIGURED`       | `FilterEngineConfigError`    | A `SimilaritySearch` query before a config or the source-data accessors are set                                                                                                                                                    |
-| `SIMILARITY_SIGNATURE_MISMATCH`   | `FilterEngineConfigError`    | `MinHash.jaccardEstimate`, `LSH.insert`, `LSH.queryCandidates`: a signature of the wrong length                                                                                                                                    |
-| `URL_STATE_MALFORMED`             | `FilterEngineConfigError`    | `@filter-enginez/url-state-router` serializers' `decode`: a truncated, corrupt or untagged URL value (parser error as `cause`)                                                                                                     |
-| `URL_STATE_UNKNOWN_SERIALIZER`    | `FilterEngineConfigError`    | `resolveSerializer` with a name that is not a built-in serializer                                                                                                                                                                  |
-| `WORKER_FACTORY_NOT_FOUND`        | `FilterEngineConfigError`    | `exposeFilterEngineWorker`'s `init`, surfaced by `wrapInWorker`: no factory under that name                                                                                                                                        |
-| `BINDING_ENGINE_NOT_PROVIDED`     | `FilterEngineConfigError`    | `useFilterEngine` (React, Vue) or `getFilterEngine` (Svelte) with no engine provided above the component                                                                                                                           |
-| `REGISTRY_DUPLICATE`              | `RuleRegistryError`          | `ruleRegistry.register` with a type name already registered                                                                                                                                                                        |
-| `REGISTRY_TYPE_NAME_MISMATCH`     | `RuleRegistryError`          | `ruleRegistry.register` with a class whose `ruleTypeName` is not the registered name                                                                                                                                               |
-| `REGISTRY_UNKNOWN_TYPE`           | `RuleRegistryError`          | `ruleRegistry.get` / `deserialize` (so config loading, URL state and the worker tier) for an unregistered type                                                                                                                     |
-| `RULE_TYPE_NAME_MISSING`          | `FilterEngineRuleError`      | `FilterRule.serialize` on a class that never declared `static readonly ruleTypeName`                                                                                                                                               |
-| `RULE_NOT_SERIALIZABLE`           | `FilterEngineRuleError`      | `PredicateRule.serialize`: a predicate function has no serialized form                                                                                                                                                             |
-| `RULE_INVALID_CONFIG`             | `FilterEngineRuleError`      | `new DateRangeRule` (and `dateRange`): an unknown `mode`, `preset` or `timeZone`, a day-mode bound or `today` that is not a real `YYYY-MM-DD` day, or a day-mode preset without `today`                                            |
-| `RULE_INVALID_SERIALIZED_CONFIG`  | `FilterEngineRuleError`      | A rule's `static deserialize` hook (`RegexRule`, `BloomMembershipRule`, `DateRangeRule`, the numeric rules) or a persisted devtools snapshot: a payload that does not rebuild, or a bound not a number or `null`                   |
-| `RULE_NOT_FOUND`                  | `FilterEngineRuleError`      | `BitmapIndex.getBitmap` for a rule id with no registered rule                                                                                                                                                                      |
-| `MODE_EXPRESSION_ACTIVE`          | `FilterEngineModeError`      | `FilterEngine.addRule` while an expression is set — flat-map rules are ignored in expression mode, so the rule would never apply                                                                                                   |
-| `MODE_WORKER_UNSUPPORTED`         | `FilterEngineModeError`      | A synchronous `engine.core` member a worker-backed engine has no main-thread mirror for (`applyFiltersAndQuery`, `simulate`, `getResultIndices`, the store internals, …; §11.2); the message names the async call to await instead |
-| `MODE_WORKER_NOT_INITIALIZED`     | `FilterEngineModeError`      | A worker host method called before `init`                                                                                                                                                                                          |
-| `MODE_WORKER_ALREADY_INITIALIZED` | `FilterEngineModeError`      | A second `init` on a worker host, which keeps one engine for its lifetime                                                                                                                                                          |
-| `MODE_ACCELERATION_NOT_READY`     | `FilterEngineModeError`      | `BitmapIndex` or `TextInvertedIndex` building a bitmap before `initializeBitmapAcceleration()` has resolved; the engine checks readiness first and never raises it                                                                 |
-| `MODE_ACCELERATION_PEER_MISSING`  | `FilterEngineModeError`      | `initializeBitmapAcceleration` without the optional peer dependency `roaring-wasm` installed, on that call and every later one; the message is the install command (§6.1)                                                          |
-| `ENGINE_DESTROYED`                | `FilterEngineDestroyedError` | Any public `FilterEngine` method, or any `wrapInWorker` facade method, after `destroy()`                                                                                                                                           |
-| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: roaring-wasm is installed but it or its WASM module failed to load (a chunk that did not fetch, a module that did not compile; original error as `cause`), on that call and every later one        |
-| `DEVTOOLS_INDEX_OUT_OF_RANGE`     | `FilterEngineError`          | `TimeTravel.jumpTo`, `ActionLog.setCurrentIndex`: an index outside the action log                                                                                                                                                  |
-| `STORAGE_UNAVAILABLE`             | `FilterEngineError`          | `IndexedDBAdapter` in a runtime without `indexedDB`                                                                                                                                                                                |
-| `STORAGE_OPERATION_FAILED`        | `FilterEngineError`          | `IndexedDBAdapter` open, load, save or remove failed (the request's error as `cause`)                                                                                                                                              |
-| `WORKER_LOAD_FAILED`              | `FilterEngineError`          | `wrapInWorker`: the worker fired `error` before its ready handshake — it failed to load or evaluate (the event as `cause`); the worker is terminated                                                                               |
-| `DEVTOOLS_EXTENSION_FAILED`       | `FilterEngineError`          | Reported to `devtools.onError`, never thrown: the Redux DevTools extension threw (as `cause`), and the bridge disconnected                                                                                                         |
-| `DEVTOOLS_PERSISTENCE_FAILED`     | `FilterEngineError`          | Reported to `devtools.onError`, never thrown: loading, saving or the final save of the persisted action log failed (as `cause`)                                                                                                    |
+| Code                              | Class                        | Raised by                                                                                                                                                                                                                                                                                                            |
+| --------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONFIG_UNKNOWN_RULE_ID`          | `FilterEngineConfigError`    | `loadConfig` / `resolveConfig`: an expression leaf names a rule id the document does not define                                                                                                                                                                                                                      |
+| `CONFIG_VERSION_UNSUPPORTED`      | `FilterEngineConfigError`    | `ConfigMigrator.migrate` (so `loadConfig` too): the document is newer than this engine                                                                                                                                                                                                                               |
+| `CONFIG_MIGRATION_MISSING`        | `FilterEngineConfigError`    | `ConfigMigrator.migrate`: no step is registered for an intermediate version                                                                                                                                                                                                                                          |
+| `BLOOM_FILTER_INVALID_OPTIONS`    | `FilterEngineConfigError`    | `new BloomFilter`, `BloomFilter.forCapacity`, `BloomFilter.deserialize`: a size, hash count or rate is out of range                                                                                                                                                                                                  |
+| `BLOOM_FILTER_INVALID_PAYLOAD`    | `FilterEngineConfigError`    | `BloomFilter.deserialize`: `bits` is not base64 (decoder error as `cause`) or does not match `sizeBits`                                                                                                                                                                                                              |
+| `SIMILARITY_INVALID_OPTIONS`      | `FilterEngineConfigError`    | `new MinHash`, `new LSH`, or a similarity config with neither `attributes` nor `signatureFn`                                                                                                                                                                                                                         |
+| `SIMILARITY_NOT_CONFIGURED`       | `FilterEngineConfigError`    | A `SimilaritySearch` query before a config or the source-data accessors are set                                                                                                                                                                                                                                      |
+| `SIMILARITY_SIGNATURE_MISMATCH`   | `FilterEngineConfigError`    | `MinHash.jaccardEstimate`, `LSH.insert`, `LSH.queryCandidates`: a signature of the wrong length                                                                                                                                                                                                                      |
+| `URL_STATE_MALFORMED`             | `FilterEngineConfigError`    | `@filter-enginez/url-state-router` serializers' `decode`: a truncated, corrupt or untagged URL value (parser error as `cause`)                                                                                                                                                                                       |
+| `URL_STATE_UNKNOWN_SERIALIZER`    | `FilterEngineConfigError`    | `resolveSerializer` with a name that is not a built-in serializer                                                                                                                                                                                                                                                    |
+| `WORKER_FACTORY_NOT_FOUND`        | `FilterEngineConfigError`    | `exposeFilterEngineWorker`'s `init`, surfaced by `wrapInWorker`: no factory under that name                                                                                                                                                                                                                          |
+| `BINDING_ENGINE_NOT_PROVIDED`     | `FilterEngineConfigError`    | `useFilterEngine` (React, Vue) or `getFilterEngine` (Svelte) with no engine provided above the component                                                                                                                                                                                                             |
+| `REGISTRY_DUPLICATE`              | `RuleRegistryError`          | `ruleRegistry.register` with a type name already registered                                                                                                                                                                                                                                                          |
+| `REGISTRY_TYPE_NAME_MISMATCH`     | `RuleRegistryError`          | `ruleRegistry.register` with a class whose `ruleTypeName` is not the registered name                                                                                                                                                                                                                                 |
+| `REGISTRY_UNKNOWN_TYPE`           | `RuleRegistryError`          | `ruleRegistry.get` / `deserialize` (so config loading, URL state and the worker tier) for an unregistered type                                                                                                                                                                                                       |
+| `RULE_TYPE_NAME_MISSING`          | `FilterEngineRuleError`      | `FilterRule.serialize` on a class that never declared `static readonly ruleTypeName`                                                                                                                                                                                                                                 |
+| `RULE_NOT_SERIALIZABLE`           | `FilterEngineRuleError`      | `PredicateRule.serialize`: a predicate function has no serialized form                                                                                                                                                                                                                                               |
+| `RULE_INVALID_CONFIG`             | `FilterEngineRuleError`      | `new DateRangeRule` (and `dateRange`): an unknown `mode`, `preset` or `timeZone`, a day-mode bound or `today` that is not a real `YYYY-MM-DD` day, or a day-mode preset without `today`; `new TextSearchRule` (and `text`): a `diacritics` other than `'ignore'` / `'match'`, or a `locale` that is not a BCP 47 tag |
+| `RULE_INVALID_SERIALIZED_CONFIG`  | `FilterEngineRuleError`      | A rule's `static deserialize` hook (`RegexRule`, `BloomMembershipRule`, `DateRangeRule`, `TextSearchRule`, the numeric rules) or a persisted devtools snapshot: a payload that does not rebuild, or a bound not a number or `null`                                                                                   |
+| `RULE_NOT_FOUND`                  | `FilterEngineRuleError`      | `BitmapIndex.getBitmap` for a rule id with no registered rule                                                                                                                                                                                                                                                        |
+| `MODE_EXPRESSION_ACTIVE`          | `FilterEngineModeError`      | `FilterEngine.addRule` while an expression is set — flat-map rules are ignored in expression mode, so the rule would never apply                                                                                                                                                                                     |
+| `MODE_WORKER_UNSUPPORTED`         | `FilterEngineModeError`      | A synchronous `engine.core` member a worker-backed engine has no main-thread mirror for (`applyFiltersAndQuery`, `simulate`, `getResultIndices`, the store internals, …; §11.2); the message names the async call to await instead                                                                                   |
+| `MODE_WORKER_NOT_INITIALIZED`     | `FilterEngineModeError`      | A worker host method called before `init`                                                                                                                                                                                                                                                                            |
+| `MODE_WORKER_ALREADY_INITIALIZED` | `FilterEngineModeError`      | A second `init` on a worker host, which keeps one engine for its lifetime                                                                                                                                                                                                                                            |
+| `MODE_ACCELERATION_NOT_READY`     | `FilterEngineModeError`      | `BitmapIndex` or `TextInvertedIndex` building a bitmap before `initializeBitmapAcceleration()` has resolved; the engine checks readiness first and never raises it                                                                                                                                                   |
+| `MODE_ACCELERATION_PEER_MISSING`  | `FilterEngineModeError`      | `initializeBitmapAcceleration` without the optional peer dependency `roaring-wasm` installed, on that call and every later one; the message is the install command (§6.1)                                                                                                                                            |
+| `ENGINE_DESTROYED`                | `FilterEngineDestroyedError` | Any public `FilterEngine` method, or any `wrapInWorker` facade method, after `destroy()`                                                                                                                                                                                                                             |
+| `ACCELERATION_INIT_FAILED`        | `FilterEngineError`          | `initializeBitmapAcceleration`: roaring-wasm is installed but it or its WASM module failed to load (a chunk that did not fetch, a module that did not compile; original error as `cause`), on that call and every later one                                                                                          |
+| `DEVTOOLS_INDEX_OUT_OF_RANGE`     | `FilterEngineError`          | `TimeTravel.jumpTo`, `ActionLog.setCurrentIndex`: an index outside the action log                                                                                                                                                                                                                                    |
+| `STORAGE_UNAVAILABLE`             | `FilterEngineError`          | `IndexedDBAdapter` in a runtime without `indexedDB`                                                                                                                                                                                                                                                                  |
+| `STORAGE_OPERATION_FAILED`        | `FilterEngineError`          | `IndexedDBAdapter` open, load, save or remove failed (the request's error as `cause`)                                                                                                                                                                                                                                |
+| `WORKER_LOAD_FAILED`              | `FilterEngineError`          | `wrapInWorker`: the worker fired `error` before its ready handshake — it failed to load or evaluate (the event as `cause`); the worker is terminated                                                                                                                                                                 |
+| `DEVTOOLS_EXTENSION_FAILED`       | `FilterEngineError`          | Reported to `devtools.onError`, never thrown: the Redux DevTools extension threw (as `cause`), and the bridge disconnected                                                                                                                                                                                           |
+| `DEVTOOLS_PERSISTENCE_FAILED`     | `FilterEngineError`          | Reported to `devtools.onError`, never thrown: loading, saving or the final save of the persisted action log failed (as `cause`)                                                                                                                                                                                      |
 
 **Two rules carry behavior, not just a class.** `destroy()` stays idempotent and `engine.isDestroyed` reports it; every
 other public method of a destroyed engine throws, because a destroyed engine has dropped its subscribers and flushed its
@@ -2049,13 +2051,31 @@ export type TextSearchMode = 'allWords' | 'endsWith' | 'exact' | 'startsWith' | 
 
 /**
  * Configuration for `TextSearchRule`.
+ *
+ * - `diacritics` — `'ignore'` strips accents from both sides before comparing (`'Cafe'` finds
+ *   `'Café'`, `'Zoe'` finds `'Zoë'`); `'match'` (the default) compares them as written
+ * - `locale` — a BCP 47 tag whose case rules fold case (`toLocaleLowerCase`), e.g. `'tr'` for Turkish
+ *   dotted and dotless I; without it case folds by `toLowerCase()`. Unused when `caseSensitive`.
  */
 export interface TextSearchRuleConfig {
   readonly caseSensitive?: boolean;
+  readonly diacritics?: 'ignore' | 'match';
+  readonly locale?: string;
   readonly mode: TextSearchMode;
   readonly query: string;
 }
 ```
+
+Case-insensitive matching folds both sides with `toLowerCase()` by default. `locale` folds case by that language's rules
+instead (`toLocaleLowerCase`: under `'tr'`, `'I'` folds to the dotless `'ı'` and `'İ'` to `'i'`), and
+`diacritics: 'ignore'` strips accents from both sides (NFD, then every combining mark removed), so `'Cafe'` finds
+`'Café'` and `'Zoe'` finds `'Zoë'`. Case is folded before accents are stripped; the other order would turn a Turkish
+`'İ'` into a dotless `'ı'`. Both options apply in all six modes, through one function (`lib/textFold.ts`) that the
+inverted word index also builds its postings with: an `'allWords'` rule with either option is answered from an index of
+its own fold (§8a.2), so the indexed path and the predicate scan agree. A case-sensitive rule strips accents if asked
+and ignores `locale`. The constructor throws `FilterEngineRuleError` with code `RULE_INVALID_CONFIG` for a `diacritics`
+other than `'ignore'` or `'match'`, or a `locale` that is not a well-formed BCP 47 tag; a `static deserialize` hook
+makes the same checks under `RULE_INVALID_SERIALIZED_CONFIG`.
 
 #### `FuzzySearchRule` (depends on `fuse.js`)
 
@@ -4050,11 +4070,14 @@ substring matching with native `String.includes` is already faster than k probes
 **The design** — `internals/TextInvertedIndex.ts` + `internals/textPlan.ts`, wired into
 `BitmapIndex._buildBitmapForRule` beside the geo path (the `SpatialIndex` precedent). Per-field
 `word -> RoaringBitmap32` and `trigram -> RoaringBitmap32` postings, built lazily and separately, invalidated on the
-source-data version counter, living inside `BitmapIndex`. `compileTextPlan(rule)` returns one of three DISTINCT shapes
-so a candidate can never be used unconfirmed:
+source-data version counter, living inside `BitmapIndex`. Field text is folded before it is tokenized, by the same
+function as the predicate (`lib/textFold.ts`); `internals/TextIndexCache.ts` keeps one index per field and fold, so a
+`TextSearchRule` with `diacritics` or `locale` gets postings of its own fold, built when such a rule first asks, while
+fuzzy rules and plain `allWords` rules share the default, lowercase one. `compileTextPlan(rule)` returns one of three
+DISTINCT shapes so a candidate can never be used unconfirmed:
 
 - **`allWords`** (a new whole-word `TextSearchMode`, case-insensitive) is **authoritative** — an exact AND of the query
-  words' postings, no confirm.
+  words' postings, no confirm. The plan carries the rule's fold, and its query words are folded by it.
 - **`FuzzySearchRule`** (single-field, strict-enough threshold) is a **candidate** — a trigram-overlap pre-filter via
   the provably-sound bound `minShared = D - 3e` with `e = maxFuseErrors(m, t)` (`internals/fuzzyTrigramBound.ts`,
   guarded by a Fuse-version-pinned fuzz test), then an exact Fuse confirm on the survivors.
@@ -4151,93 +4174,95 @@ export class RuleRegistry {
 <!-- excerpt: packages/core/src/rules/ruleRegistry.ts#deserialize -->
 <!-- prettier-ignore -->
 ```ts
-/**
- * Reconstruct a rule instance from its serialized form.
- *
- * **Three paths, checked in this order:**
- *
- *   1. **`CompositeRule`** — rebuilt by `_deserializeComposite`, which deserializes each
- *      nested child through the registry first (the generic path would leave a composite's
- *      `config.rules` as plain objects with no `action`).
- *   2. **Per-class `static deserialize(json)` hook** — when present on the rule class, it's
- *      called with the class as `this` and the result returned. Used by rules with
- *      non-JSON-safe config values: `RegexRule` (rebuild `RegExp` from `{ source, flags }`),
- *      `DateRangeRule` (rebuild `Date` instances from ISO strings), and the rules with numeric
- *      bounds — `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` —
- *      which read the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
- *      can opt into this same hook pattern by adding their own static `deserialize` method.
- *   3. **Generic path** — fallback for rules whose config is already JSON-safe (most of the
- *      built-in catalog). Constructs the instance via `new ruleClass(field, config)` so
- *      class-field initializers (most importantly `action`) actually run, then overwrites
- *      `config` with the serialized payload to handle constructors that transform their
- *      input (e.g., `InSetRule` wraps `initialSet` in `{ set: [...initialSet] }`). A
- *      try/catch around the two-arg call covers rules whose second-arg shape is
- *      structurally incompatible with the serialized config (`InSetRule`'s `initialSet`
- *      expects an iterable, not an object); for those we fall back to single-arg
- *      construction and rely entirely on the post-construct config assignment.
- *
- * **Why the generic path constructs rather than using `Object.create`.**
- * `Object.create(ruleClass.prototype)` would give the correct prototype chain but no
- * instance fields — and `action` is declared as a class-field arrow function
- * (`override action: FilterRuleAction = (item, rule) => {...}`), not a prototype method, so
- * the instance would have `action === undefined`. Invoking the constructor runs the field
- * initializers; the overwriting `config` assignment handles constructors that transform
- * their input.
- *
- * @throws `RuleRegistryError` if the type is not registered
- */
-deserialize(json: SerializedRule): FilterRule {
-  const ruleClass = this.get(json.type);
+  /**
+   * Reconstruct a rule instance from its serialized form.
+   *
+   * **Three paths, checked in this order:**
+   *
+   *   1. **`CompositeRule`** — rebuilt by `_deserializeComposite`, which deserializes each
+   *      nested child through the registry first (the generic path would leave a composite's
+   *      `config.rules` as plain objects with no `action`).
+   *   2. **Per-class `static deserialize(json)` hook** — when present on the rule class, it's
+   *      called with the class as `this` and the result returned. Used by rules with
+   *      non-JSON-safe config values: `RegexRule` (rebuild `RegExp` from `{ source, flags }`),
+   *      `DateRangeRule` (rebuild `Date` instances from ISO strings), `TextSearchRule` (check its
+   *      case and accent options before constructing), and the rules with numeric bounds —
+   *      `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` — which read
+   *      the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
+   *      can opt into this same hook pattern by adding their own static `deserialize` method.
+   *   3. **Generic path** — fallback for rules whose config is already JSON-safe (most of the
+   *      built-in catalog). Constructs the instance via `new ruleClass(field, config)` so
+   *      class-field initializers (most importantly `action`) actually run, then overwrites
+   *      `config` with the serialized payload to handle constructors that transform their
+   *      input (e.g., `InSetRule` wraps `initialSet` in `{ set: [...initialSet] }`). A
+   *      try/catch around the two-arg call covers rules whose second-arg shape is
+   *      structurally incompatible with the serialized config (`InSetRule`'s `initialSet`
+   *      expects an iterable, not an object); for those we fall back to single-arg
+   *      construction and rely entirely on the post-construct config assignment.
+   *
+   * **Why the generic path constructs rather than using `Object.create`.**
+   * `Object.create(ruleClass.prototype)` would give the correct prototype chain but no
+   * instance fields — and `action` is declared as a class-field arrow function
+   * (`override action: FilterRuleAction = (item, rule) => {...}`), not a prototype method, so
+   * the instance would have `action === undefined`. Invoking the constructor runs the field
+   * initializers; the overwriting `config` assignment handles constructors that transform
+   * their input.
+   *
+   * @throws `RuleRegistryError` if the type is not registered
+   */
+  deserialize(json: SerializedRule): FilterRule {
+    const ruleClass = this.get(json.type);
 
-  // Composite rules carry their children as nested `SerializedRule` objects (see
-  // `CompositeRule.serialize`), not live instances. Rebuild each child through the registry
-  // before constructing the parent — the generic path below only reconstructs the top-level
-  // rule and would leave a composite's `config.rules` as plain objects with no `action`.
-  if (ruleClass === CompositeRule) {
-    return this._deserializeComposite(json);
+    // Composite rules carry their children as nested `SerializedRule` objects (see
+    // `CompositeRule.serialize`), not live instances. Rebuild each child through the registry
+    // before constructing the parent — the generic path below only reconstructs the top-level
+    // rule and would leave a composite's `config.rules` as plain objects with no `action`.
+    if (ruleClass === CompositeRule) {
+      return this._deserializeComposite(json);
+    }
+
+    // Per-class custom hook — checked via duck-typing for a `static deserialize` method. Called
+    // with the class as `this`, so an inherited hook that constructs `new this(...)` revives a
+    // registered subclass as itself.
+    const customDeserialize = (ruleClass as unknown as {
+      deserialize?: (this: RuleClass, json: SerializedRule) => FilterRule;
+    }).deserialize;
+
+    if (typeof customDeserialize === 'function') {
+      return customDeserialize.call(ruleClass, json);
+    }
+
+    const field = json.field === '<function>' ? undefined : (json.field);
+    const RuleClassCtor = ruleClass;
+
+    let instance: FilterRule;
+
+    try {
+      // Common path — every built-in rule whose constructor accepts (field, config)
+      // directly and has no hook: ValueRule, BooleanRule, TextSearchRule,
+      // HierarchicalRule, etc.
+
+      instance = new RuleClassCtor(field, json.config);
+    } catch {
+      // Fallback — a rule with no hook whose second constructor arg is structurally
+      // incompatible with the serialized config, for example a consumer rule declared as
+      // `(field, values: readonly string[])` that spreads its second arg: passing
+      // `{ values: [...] }` throws "object is not iterable". (The built-ins of that shape,
+      // such as `InSetRule`, have their own hooks.) Single-arg construction + post-construct
+      // config assignment is correct for these.
+
+      instance = new RuleClassCtor(field);
+    }
+    // Always overwrite config with the serialized payload — covers both the
+    // constructor-transformed cases (InSetRule wrapping the array) AND any mismatch between
+    // "what the constructor accepts" vs "what serialize() writes back out." Without this
+    // assignment, the engine would see the constructor's default config, not the
+    // consumer's intent.
+    (instance as { config: unknown }).config = json.config;
+
+    return instance;
   }
-
-  // Per-class custom hook — checked via duck-typing for a `static deserialize` method. Called
-  // with the class as `this`, so an inherited hook that constructs `new this(...)` revives a
-  // registered subclass as itself.
-  const customDeserialize = (ruleClass as unknown as {
-    deserialize?: (this: RuleClass, json: SerializedRule) => FilterRule;
-  }).deserialize;
-
-  if (typeof customDeserialize === 'function') {
-    return customDeserialize.call(ruleClass, json);
-  }
-
-  const field = json.field === '<function>' ? undefined : (json.field);
-  const RuleClassCtor = ruleClass;
-
-  let instance: FilterRule;
-
-  try {
-    // Common path — every built-in rule whose constructor accepts (field, config)
-    // directly and has no hook: ValueRule, BooleanRule, TextSearchRule,
-    // HierarchicalRule, etc.
-
-    instance = new RuleClassCtor(field, json.config);
-  } catch {
-    // Fallback — a rule with no hook whose second constructor arg is structurally
-    // incompatible with the serialized config, for example a consumer rule declared as
-    // `(field, values: readonly string[])` that spreads its second arg: passing
-    // `{ values: [...] }` throws "object is not iterable". (The built-ins of that shape,
-    // such as `InSetRule`, have their own hooks.) Single-arg construction + post-construct
-    // config assignment is correct for these.
-
-    instance = new RuleClassCtor(field);
-  }
-  // Always overwrite config with the serialized payload — covers both the
-  // constructor-transformed cases (InSetRule wrapping the array) AND any mismatch between
-  // "what the constructor accepts" vs "what serialize() writes back out." Without this
-  // assignment, the engine would see the constructor's default config, not the
-  // consumer's intent.
-  (instance as { config: unknown }).config = json.config;
-
-  return instance;
-}
+  
 ```
 
 Every registry failure throws `RuleRegistryError` with one of three codes: `REGISTRY_DUPLICATE` and
@@ -6974,7 +6999,7 @@ roaring-wasm either way.
 
 | Entry                                      | Budget  |
 | ------------------------------------------ | ------- |
-| `core` (default entry)                     | 21 kB   |
+| `core` (default entry)                     | 21.5 kB |
 | `core without bitmaps` (with dependencies) | 32.5 kB |
 | `core/storage/browser`                     | 2 kB    |
 | `core/keyboard/browser`                    | 1 kB    |
@@ -6990,17 +7015,18 @@ roaring-wasm either way.
 | `worker-bridge`                            | 5 kB    |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
-nearest half kilobyte. `core` measures about 20.7 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
+nearest half kilobyte. `core` measures about 21.1 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
 its missing-peer detection (§6.1), filter groups composed into every evaluation path, bitmap-backed results, the
 devtools snapshot codec with cross-reload persistence, devtools failure reporting, the rules' revival of open bounds and
 checking of options from JSON (§9.3), array-valued membership and its facet counts, `FuzzySearchRule`'s Fuse option
 passthrough with its per-collection index (§4.3), `DateRangeRule`'s day mode with its calendar-day arithmetic and config
-checks (§4.3), and the R-tree's cap geometry (§6.2) are all in its default entry. `core without bitmaps` measures about
-32.1 kB: about 18.7 kB of core and the rest its dependencies (fuse.js, rbush, `@preact/signals-core` and microdiff). The
-same app with `initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines roaring-wasm, and
-stays near 32 kB when the bundler splits code and fetches roaring-wasm as its own chunk. `reactive-rxjs` measures about
-3.0 kB, most of it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine`
-member (§11.2). `tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
+checks (§4.3), `TextSearchRule`'s case and accent folding with a word index per fold (§4.3, §8a.2), and the R-tree's cap
+geometry (§6.2) are all in its default entry. `core without bitmaps` measures about 32.5 kB: about 19.1 kB of core and
+the rest its dependencies (fuse.js, rbush, `@preact/signals-core` and microdiff). The same app with
+`initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines roaring-wasm, and stays near 32 kB
+when the bundler splits code and fetches roaring-wasm as its own chunk. `reactive-rxjs` measures about 3.0 kB, most of
+it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine` member (§11.2).
+`tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;
 `angular-rxjs` is the smallest binding because Angular consumes `Observable`s natively, leaving only DI to plumb.

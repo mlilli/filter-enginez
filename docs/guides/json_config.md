@@ -248,8 +248,9 @@ base class and the rule casts it. The rules with numeric bounds (`RangeRule`, `N
 and rejecting anything else, so a string or a missing key never compares as `0`. `FuzzySearchRule` also checks its other
 Fuse options (a finite number, a boolean, or `"all"` / `"any"` for `tokenMatch`), and `InSetRule`, `InSetofSetsRule` and
 `HierarchicalRule` check `arrayMatch` (`"any"` or `"all"`). `DateRangeRule` checks its `mode`, `preset` and `timeZone`,
-and in day mode that `start`, `end` and `today` are real `YYYY-MM-DD` calendar days. Nothing else is checked. If configs
-arrive from outside your own code, validate them against the rule types you allow — a schema validator at the edge, or a
+and in day mode that `start`, `end` and `today` are real `YYYY-MM-DD` calendar days; `TextSearchRule` checks
+`diacritics` (`"ignore"` or `"match"`) and that `locale` is a BCP 47 tag. Nothing else is checked. If configs arrive
+from outside your own code, validate them against the rule types you allow — a schema validator at the edge, or a
 hand-written allowlist.
 
 ---

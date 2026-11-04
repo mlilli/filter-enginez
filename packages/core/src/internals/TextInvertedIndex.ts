@@ -22,9 +22,12 @@
  * on the bitmap path, which waits for exactly that; a direct query before then throws
  * `MODE_ACCELERATION_NOT_READY`.
  *
- * **Normalization.** Field text and query tokens are lowercased — matching Fuse's case-insensitive
- * default and the `allWords` case-insensitive path. Case-sensitive `allWords` and multi-key fuzzy
- * are bypassed upstream (see `textPlan`), so the lowercase index never has to serve them.
+ * **Normalization.** Field text is folded by the index's {@link TextFold} (`lib/textFold`) before it
+ * is tokenized, and the query words a plan carries are folded the same way. The default fold
+ * lowercases, matching Fuse's case-insensitive default, and is the only one fuzzy candidates use; a
+ * `TextSearchRule` with `diacritics` or `locale` gets an index of its own fold from `BitmapIndex`, so
+ * its postings and its predicate always agree. Case-sensitive `allWords` and multi-key fuzzy are
+ * bypassed upstream (see `textPlan`), so no index ever has to serve them.
  *
  * **Lazy build + version invalidation.** Each posting map builds on first use and rebuilds when the
  * store's `sourceDataVersion` advances (a whole rebuild — the same coarse invalidation the bitmap
@@ -38,12 +41,13 @@
 import type { InternalStore } from '../store/InternalStore.js';
 import type { RoaringBitmap32 } from './roaringBitmap.js';
 
+import { DEFAULT_TEXT_FOLD, foldText, type TextFold } from '../lib/textFold.js';
 import { distinctTrigrams, extractWords } from '../lib/textTokens.js';
 import { createRoaringBitmap } from './roaringInit.js';
 
 /**
- * Per-field inverted text index. Constructed + cached by `BitmapIndex`; not used directly by
- * consumers (though exported for advanced use + the benchmark suite).
+ * Per-field, per-fold inverted text index. Constructed + cached by `BitmapIndex`; not used directly
+ * by consumers (though exported for advanced use + the benchmark suite).
  *
  * @typeParam T - The source-data item type
  */
@@ -58,10 +62,12 @@ export class TextInvertedIndex<T> {
 	 * @param _getText - Extracts the item's text field as a string (or `undefined` when the field
 	 *   is missing / non-string). Supplied by `BitmapIndex` from the rule's field extractor so the
 	 *   index and the rule's predicate resolve fields identically.
+	 * @param _fold - How field text is normalized before tokenizing; lowercase by default
 	 */
 	constructor(
 		private readonly _store: InternalStore<T>,
 		private readonly _getText: (item: T) => string | undefined,
+		private readonly _fold: TextFold = DEFAULT_TEXT_FOLD,
 	) {}
 
 	/**
@@ -216,7 +222,7 @@ export class TextInvertedIndex<T> {
 			if (text === undefined) {
 				continue;
 			}
-			for (const token of tokenize(text.toLowerCase())) {
+			for (const token of tokenize(foldText(text, this._fold))) {
 				let posting = map.get(token);
 
 				if (posting === undefined) {

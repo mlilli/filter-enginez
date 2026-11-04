@@ -190,9 +190,10 @@ export class RuleRegistry {
 	 *   2. **Per-class `static deserialize(json)` hook** — when present on the rule class, it's
 	 *      called with the class as `this` and the result returned. Used by rules with
 	 *      non-JSON-safe config values: `RegexRule` (rebuild `RegExp` from `{ source, flags }`),
-	 *      `DateRangeRule` (rebuild `Date` instances from ISO strings), and the rules with numeric
-	 *      bounds — `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` —
-	 *      which read the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
+	 *      `DateRangeRule` (rebuild `Date` instances from ISO strings), `TextSearchRule` (check its
+	 *      case and accent options before constructing), and the rules with numeric bounds —
+	 *      `RangeRule`, `NumericComparisonRule`, `GeoProximityRule`, `FuzzySearchRule` — which read
+	 *      the `null` JSON writes for `±Infinity` as an open bound. Custom subclasses
 	 *      can opt into this same hook pattern by adding their own static `deserialize` method.
 	 *   3. **Generic path** — fallback for rules whose config is already JSON-safe (most of the
 	 *      built-in catalog). Constructs the instance via `new ruleClass(field, config)` so
