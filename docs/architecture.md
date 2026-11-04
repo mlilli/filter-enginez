@@ -438,6 +438,7 @@ export {
   type DateRangeTimeZone,
   exists,
   ExistsRule,
+  type FieldPath,
   // Abstract base
   FilterRule,
   fuzzy,
@@ -462,6 +463,7 @@ export {
   type NumericComparisonOp,
   NumericComparisonRule,
   type NumericComparisonRuleConfig,
+  type PathValue,
   predicate,
 
   PredicateRule,
@@ -483,11 +485,14 @@ export {
   RuleRegistry,
   RuleRegistryError,
   type RuleRegistryErrorCode,
+  rulesFor,
   text,
   type TextSearchMode,
   TextSearchRule,
   type TextSearchRuleConfig,
   type TreeNode,
+  type TypedField,
+  type TypedRuleBuilders,
   // Factory functions (ergonomic constructors)
   value,
   // Concrete rule classes
@@ -2675,6 +2680,134 @@ export function inSetofSets<V>(
 }
 ```
 
+#### §4.5a. Typed builders: `rulesFor<T>()`
+
+<!-- cspell:ignore acount -->
+
+The factory functions take a field as a plain string, so a typo in a path is found only when the rule filters nothing.
+`rulesFor<T>()` returns the same functions typed against the item type: each `field` is a `FieldPath<T>` (a key, or a
+dotted path through nested objects), a list of them tried in order, a function of the item, or `undefined` for the item
+itself, and `value` and `inSet` type their values against the field's own type (for `inSet` on an array field, its
+element type). `FieldPath` descends five levels, stops at values that are not plain objects (arrays, dates, maps, sets,
+functions), and leaves out keys containing `.` or `[`, which a dotted path cannot name; for those, and for array indices
+such as `'tags[0]'`, the plain builders still take any string. At run time `rulesFor` returns the plain builders
+themselves, so it costs nothing.
+
+```ts
+import { createFilterEngine, rulesFor } from '@filter-enginez/core';
+
+interface Transaction {
+  readonly accountId: string;
+  readonly amount: number;
+  readonly payee: { readonly name: string };
+}
+declare const transactions: readonly Transaction[];
+
+const engine = createFilterEngine<Transaction>({ sourceData: transactions });
+const rules = rulesFor<Transaction>();
+
+engine.addRule('account', rules.value('accountId', 'checking'));
+engine.addRule('payee', rules.text('payee.name', { diacritics: 'ignore', mode: 'substring', query: 'cafe' }));
+// @ts-expect-error -- not a field of Transaction
+engine.addRule('typo', rules.value('acountId', 'checking'));
+// @ts-expect-error -- `amount` is a number
+engine.addRule('wrong-type', rules.value('amount', 'ten'));
+```
+
+<!-- excerpt: packages/core/src/rules/typedFactories.ts#typed-rule-builders -->
+<!-- prettier-ignore -->
+```ts
+/** A value `FieldPath` stops at: anything that is not a plain object with keys to name. */
+type FieldLeaf =
+  | Date
+  | ReadonlyMap<unknown, unknown>
+  | ReadonlySet<unknown>
+  | RegExp
+  | bigint
+  | boolean
+  | number
+  | string
+  | symbol
+  | ((...args: never[]) => unknown)
+  | null
+  | undefined
+  | readonly unknown[];
+
+/** One level shallower than each depth, for {@link FieldPath}'s recursion limit. */
+type ShallowerDepth = [never, 0, 1, 2, 3];
+
+/**
+ * Every field of `T` a string path can name: each key, and `key.path` for a key whose value is a plain
+ * object, five levels deep. Keys containing `.` or `[` are left out, since a dotted path cannot name them.
+ *
+ * @typeParam T - The item type
+ */
+export type FieldPath<T, Depth extends number = 4> = [Depth] extends [never]
+  ? never
+  : T extends FieldLeaf
+    ? never
+    : {
+      [K in keyof T & string]: K extends `${string}.${string}` | `${string}[${string}`
+        ? never
+        : K | (NonNullable<T[K]> extends FieldLeaf ? never : `${K}.${FieldPath<NonNullable<T[K]>, ShallowerDepth[Depth]>}`);
+    }[keyof T & string];
+
+/**
+ * The type of the field a {@link FieldPath} names, `undefined` included where a step can be missing.
+ *
+ * @typeParam T - The item type
+ * @typeParam P - The path
+ */
+export type PathValue<T, P extends string> = T extends unknown
+  ? P extends `${infer Key}.${infer Rest}`
+    ? Key extends keyof T ? PathValue<T[Key], Rest> : undefined
+    : P extends keyof T ? T[P] : undefined
+  : never;
+
+/** What an `inSet` value is compared with: the element of an array field, or the field itself. */
+type SetMember<V> = V extends readonly (infer Element)[] ? Element : V;
+
+/**
+ * A field, typed against the item: a {@link FieldPath}, paths tried in order, a function of the item,
+ * or `undefined` for the item itself.
+ *
+ * @typeParam T - The item type
+ */
+export type TypedField<T> = FieldPath<T> | ((item: T) => unknown) | undefined | readonly FieldPath<T>[];
+
+/**
+ * The rule builders of `./factories.ts`, with each field typed against `T`, and the values of `value`
+ * and `inSet` against the field's type.
+ *
+ * @typeParam T - The item type
+ */
+export interface TypedRuleBuilders<T> {
+  bloomMembership(field: TypedField<T>, filter: BloomFilter): BloomMembershipRule;
+  bool(field: TypedField<T>, val: boolean | undefined): BooleanRule;
+  dateRange<C extends DateRangeConfig = DateRangeRuleConfig>(field: TypedField<T>, config: C): DateRangeRule<C>;
+  exists(field: TypedField<T>): ExistsRule;
+  fuzzy(field: TypedField<T>, config: FuzzySearchRuleConfig): FuzzySearchRule;
+  geo(field: TypedField<T>, config: GeoProximityRuleConfig): GeoProximityRule;
+  hierarchical(field: TypedField<T>, config: HierarchicalRuleConfig): HierarchicalRule;
+  inSet<P extends FieldPath<T>>(
+    field: P,
+    initialSetOrConfig: InSetRuleConfig<SetMember<PathValue<T, P>>> | readonly SetMember<PathValue<T, P>>[],
+  ): InSetRule<SetMember<PathValue<T, P>>>;
+  inSet<V>(
+    field: ((item: T) => unknown) | undefined | readonly FieldPath<T>[],
+    initialSetOrConfig: InSetRuleConfig<V> | readonly V[],
+  ): InSetRule<V>;
+  inSetofSets<V>(field: TypedField<T>, initialSets?: readonly (readonly V[])[], options?: ArrayMatchOptions): InSetofSetsRule<V>;
+  numCompare(field: TypedField<T>, config: NumericComparisonRuleConfig): NumericComparisonRule;
+  predicate(field: TypedField<T>, predicateFn: (item: T, rule: PredicateRule<T>) => boolean): PredicateRule<T>;
+  range(field: TypedField<T>, config: RangeRuleConfig): RangeRule;
+  regex(field: TypedField<T>, config: RegexRuleConfig): RegexRule;
+  text(field: TypedField<T>, config: TextSearchRuleConfig): TextSearchRule;
+  value<P extends FieldPath<T>>(field: P, targetValue: PathValue<T, P> | undefined): ValueRule<PathValue<T, P>>;
+  value<V>(field: ((item: T) => V) | undefined | readonly FieldPath<T>[], targetValue: V | undefined): ValueRule<V>;
+}
+```
+
 ---
 
 ## §5. `CompositeRule` + Expression Algebra
@@ -4233,7 +4366,7 @@ export class RuleRegistry {
     }
 
     const field = json.field === '<function>' ? undefined : (json.field);
-    const RuleClassCtor = ruleClass;
+    const RuleClassCtor = ruleClass as GenericRuleConstructor;
 
     let instance: FilterRule;
 

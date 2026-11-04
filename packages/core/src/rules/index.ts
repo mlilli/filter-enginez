@@ -91,3 +91,12 @@ export {
 	text,
 	value,
 } from './factories.js';
+
+// ─── Typed builders (each field checked against the item type) ─────────────
+export {
+	type FieldPath,
+	type PathValue,
+	rulesFor,
+	type TypedField,
+	type TypedRuleBuilders,
+} from './typedFactories.js';

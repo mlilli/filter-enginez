@@ -20,7 +20,7 @@
  * @packageDocumentation
  */
 
-import type { SerializedRule } from '../types.js';
+import type { FieldExtractor, SerializedRule } from '../types.js';
 
 import { defineErrorName, FilterEngineRuleError, type FilterEngineRuleErrorCode } from '../errors/index.js';
 import { BloomMembershipRule } from './BloomMembershipRule.js';
@@ -42,11 +42,20 @@ import { TextSearchRule } from './TextSearchRule.js';
 import { ValueRule } from './ValueRule.js';
 
 /**
- * The shape of a rule class — a constructor accepting any arguments and returning a
- * `FilterRule` instance.
+ * The shape of a rule class — a constructor returning a `FilterRule` instance, whatever its parameters.
+ *
+ * @remarks
+ * `never[]` is the parameter list every constructor accepts as a type: `(field, config: RangeRuleConfig)`,
+ * `(op, rules)` and a consumer subclass's own all fit, with no `any`. It cannot be called as it stands;
+ * the registry's generic `deserialize` path narrows it to the one call it makes.
  */
+export type RuleClass = new (...args: never[]) => FilterRule;
 
-export type RuleClass = new (...args: any[]) => FilterRule;
+/**
+ * How the generic `deserialize` path calls a rule's constructor: with its field and the serialized
+ * config, or, when that throws, with the field alone.
+ */
+type GenericRuleConstructor = new (field: FieldExtractor, config?: unknown) => FilterRule;
 
 /**
  * The machine-readable failure modes of {@link RuleRegistry} — the `REGISTRY_*` subset of
@@ -238,7 +247,7 @@ export class RuleRegistry {
 		}
 
 		const field = json.field === '<function>' ? undefined : (json.field);
-		const RuleClassCtor = ruleClass;
+		const RuleClassCtor = ruleClass as GenericRuleConstructor;
 
 		let instance: FilterRule;
 

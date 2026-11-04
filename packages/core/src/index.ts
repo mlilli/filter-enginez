@@ -49,6 +49,7 @@ export {
 	type DateRangeTimeZone,
 	exists,
 	ExistsRule,
+	type FieldPath,
 	// Abstract base
 	FilterRule,
 	fuzzy,
@@ -73,6 +74,7 @@ export {
 	type NumericComparisonOp,
 	NumericComparisonRule,
 	type NumericComparisonRuleConfig,
+	type PathValue,
 	predicate,
 
 	PredicateRule,
@@ -94,11 +96,14 @@ export {
 	RuleRegistry,
 	RuleRegistryError,
 	type RuleRegistryErrorCode,
+	rulesFor,
 	text,
 	type TextSearchMode,
 	TextSearchRule,
 	type TextSearchRuleConfig,
 	type TreeNode,
+	type TypedField,
+	type TypedRuleBuilders,
 	// Factory functions (ergonomic constructors)
 	value,
 	// Concrete rule classes
