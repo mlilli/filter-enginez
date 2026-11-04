@@ -215,7 +215,7 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	const location = useLocation();
 	const navigationType = useNavigationType();
 	const navigate = useNavigate();
-
+	// eslint-disable-next-line @eslint-react/no-use-context -- the peer range includes React 18, which has no `use`
 	const routerSource: RouterSource = { dataRouter: useContext(DataRouterContext), navigator: useContext(NavigationContext).navigator };
 
 	/**

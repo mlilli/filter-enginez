@@ -6972,6 +6972,14 @@ overrides dedupe React 19 without reaching `compat/react18`'s exact 18.3.1, and 
 18 for the testing library and react-router 7, whose peer ranges the override would otherwise rewrite. Dependabot
 excludes `compat/**`, so those pins move only by hand.
 
+One consequence of a second React in the workspace: pnpm's hidden hoist (`node_modules/.pnpm/node_modules`) can hold
+`compat/react18`'s React 18, and pnpm's `.bin` shims put that hoist on `NODE_PATH`. `@eslint-react` reads the React
+version from `react` as it resolves from the current directory and turns its React 19 rules off below 19, so from the
+repository root, where the pre-commit hook's lint-staged runs `eslint --fix`, it once saw React 18 and deleted the
+`eslint-disable` comments above as unused. The root therefore has its own `react` devDependency on React 19 (with
+`@types/react` 19 beside it, so the documentation's compiled blocks still find React's types from the root), which that
+lookup finds first, and `tests/tooling/rootReactVersion.test.ts` holds it there.
+
 ---
 
 ## §22. Build and Distribution

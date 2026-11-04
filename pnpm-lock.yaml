@@ -198,6 +198,9 @@ importers:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      '@types/react':
+        specifier: ^19.2.15
+        version: 19.3.0
       '@vitest/coverage-v8':
         specifier: ^5.0.5
         version: 5.0.5(vitest@5.0.5)
@@ -237,6 +240,9 @@ importers:
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
+      react:
+        specifier: ^19.2.7
+        version: 19.3.1
       size-limit:
         specifier: ^14.3.0
         version: 14.3.0

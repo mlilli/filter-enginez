@@ -56,7 +56,7 @@ export const FilterEngineProvider = <T = unknown>({
 	const erased = engine as unknown as SignalsEngine<unknown>;
 
 	return (
-
+		// eslint-disable-next-line @eslint-react/no-context-provider -- the peer range includes React 18, which renders only `.Provider`
 		<FilterEngineContext.Provider value={erased}>{children}</FilterEngineContext.Provider>
 	);
 };

@@ -110,7 +110,11 @@ minimumReleaseAge: 10080
 # react/react-dom 19 request in the install to a single 19.x copy WITHOUT narrowing the bindings' real
 # peer range. The `@>=19` selector leaves alone the one deliberate React 18, `compat/react18`'s exact
 # 18.3.1, which the React adapters' tests and type check run against; pnpm gives that importer its own
-# react-dom 18 / react-router 7 / testing-library instances, whose peers are React 18. `^19.2.7` ==
+# react-dom 18 / react-router 7 / testing-library instances, whose peers are React 18. That React 18 can
+# take the hidden hoist, which pnpm's `.bin` shims put on `NODE_PATH`; the root's own `react` (and
+# `@types/react`) devDependency
+# keeps a lookup from the repository root (the pre-commit hook's ESLint) on React 19
+# (`tests/tooling/rootReactVersion.test.ts`). `^19.2.7` ==
 # `>=19.2.7 <20`, so it satisfies react-router 8 and stays capped below the next major (per the cap rule
 # below).
 #
