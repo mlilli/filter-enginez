@@ -46,6 +46,7 @@ export const FilterEngineProvider = <T = unknown>({
 	const erased = engine as unknown as RxJsEngine<unknown>;
 
 	return (
-		<FilterEngineContext value={erased}>{children}</FilterEngineContext>
+
+		<FilterEngineContext.Provider value={erased}>{children}</FilterEngineContext.Provider>
 	);
 };

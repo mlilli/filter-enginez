@@ -4,8 +4,8 @@
  *
  * @remarks
  * Per `docs/architecture.md` §12.1. The Provider is a thin wrapper around the
- * `FilterEngineContext` provider (rendered as `<FilterEngineContext>`, React 19's form) — no
- * extra state, no lifecycle ownership of the engine. The caller constructs the engine (via
+ * `FilterEngineContext` provider (rendered as `<FilterEngineContext.Provider>`, the form React 18
+ * and 19 both render; the shorter `<FilterEngineContext>` is React 19's alone) — no extra state, no lifecycle ownership of the engine. The caller constructs the engine (via
  * `createSignalsEngine(createFilterEngine({ ... }))`), passes it in, and is responsible for
  * `engine.dispose()` / `core.destroy()` when the engine leaves scope.
  *
@@ -56,6 +56,7 @@ export const FilterEngineProvider = <T = unknown>({
 	const erased = engine as unknown as SignalsEngine<unknown>;
 
 	return (
-		<FilterEngineContext value={erased}>{children}</FilterEngineContext>
+
+		<FilterEngineContext.Provider value={erased}>{children}</FilterEngineContext.Provider>
 	);
 };

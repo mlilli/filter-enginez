@@ -51,6 +51,11 @@
  * parses it as text; see its own header before renaming it.
  */
 
+import type { Plugin } from 'vite';
+
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 import { COVERAGE_EXCLUDE } from './vitest.coverage.config.js';
@@ -75,6 +80,38 @@ const BROWSER_TEST_PACKAGES: readonly string[] = [
 	'url-state-router',
 	'worker-bridge',
 ];
+
+/** The React packages whose tests also run on React 18 and react-router 7 (the `react18` project). */
+const REACT_18_TEST_PACKAGES: readonly string[] = ['react-rxjs', 'react-signals', 'url-state-router'];
+
+/** What `compat/react18` holds at the 7.x / 18.x lines: React, ReactDOM, react-router, the testing library. */
+const REACT_18_SPECIFIERS = /^(?:@testing-library\/react|react|react-dom|react-router)(?:\/.*)?$/u;
+
+/** `require`, as if from `compat/react18`. */
+const requireFromReact18 = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), 'compat/react18/package.json'));
+
+/**
+ * Resolve React, ReactDOM, react-router and the testing library as `compat/react18` would.
+ *
+ * @remarks
+ * The `react18` project's tests are the same files as `jsdom`'s, in packages that install React 19,
+ * so their bare imports must be pointed elsewhere. pnpm gives `compat/react18` its own react-dom,
+ * react-router and testing-library instances whose peers are React 18, so resolving from there gives
+ * one coherent React 18 world.
+ *
+ * ⚠ It resolves with Node's `require.resolve`, not Vite's resolver, because the two pick different
+ * files from react-router 7's `exports`: Vite takes the CommonJS `index.js`, while `react-router/dom`'s
+ * own `require("react-router")` gets `index.mjs` through Node's `module-sync` condition. Two files are
+ * two router contexts, and every `useLocation` then throws outside its `<Router>`. Resolving the way
+ * Node does keeps the test's imports and the packages' own on the same files.
+ */
+const resolveFromReact18: Plugin = {
+	enforce: 'pre',
+	name: 'resolve-from-react18',
+	resolveId(source: string): string | null {
+		return REACT_18_SPECIFIERS.test(source) ? requireFromReact18.resolve(source) : null;
+	},
+};
 
 /**
  * Build a Vitest `include` glob that scopes to the `*.test.{ts,tsx}` files under
@@ -141,6 +178,18 @@ export default defineConfig({
 					environment: 'jsdom',
 					include: [buildPackageTestGlob(BROWSER_TEST_PACKAGES)],
 					name: 'jsdom',
+				},
+			},
+			{
+				// The React adapters' tests again, on React 18 and react-router 7: the oldest lines their peer
+				// ranges allow (`compat/react18`), so the ranges stay true. The `jsdom` project is the React 19 /
+				// react-router 8 half.
+				extends: true,
+				plugins: [resolveFromReact18],
+				test: {
+					environment: 'jsdom',
+					include: [buildPackageTestGlob(REACT_18_TEST_PACKAGES)],
+					name: 'react18',
 				},
 			},
 			{

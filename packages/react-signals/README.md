@@ -10,7 +10,7 @@ the `./keyboard` sub-export.
 pnpm add @filter-enginez/react-signals
 ```
 
-Peer dependencies: `react@^19.0.0` — supplied by your app.
+Peer dependencies: `react@^18.3.0 || ^19.0.0` — supplied by your app.
 
 Sub-exports: `@filter-enginez/react-signals/keyboard`.
 

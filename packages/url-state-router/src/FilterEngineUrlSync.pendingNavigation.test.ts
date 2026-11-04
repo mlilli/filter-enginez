@@ -15,7 +15,7 @@
 
 import { range } from '@filter-enginez/core';
 import { render, screen, waitFor } from '@testing-library/react';
-import { createElement, Fragment, type ReactElement, Suspense, use, useLayoutEffect } from 'react';
+import { createElement, Fragment, type ReactElement, Suspense, useLayoutEffect } from 'react';
 import { type Location, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -45,13 +45,20 @@ interface GatedRoute {
  */
 function gatedRoute(text: string): GatedRoute {
 	let release = (): void => undefined;
+	let isOpen = false;
 	const gate = new Promise<undefined>((resolve) => {
 		release = (): void => {
+			isOpen = true;
 			resolve(undefined);
 		};
 	});
 	const Gated = (): ReactElement => {
-		use(gate);
+		if (!isOpen) {
+			// Suspend by throwing the pending promise, the protocol React 18 and 19 both follow (`use` is
+			// React 19's), so the case runs on both: React renders the route again once it settles.
+			// eslint-disable-next-line @typescript-eslint/only-throw-error -- a thrown promise is how a component suspends
+			throw gate;
+		}
 
 		return createElement('p', null, text);
 	};

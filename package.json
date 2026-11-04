@@ -49,7 +49,7 @@
     "test:min": "vitest --watch=false --passWithNoTests --reporter=dot 2>&1 | grep -E \"FAIL|[0-9]+:[0-9]+$\"",
     "test:ui": "vitest --watch=false --passWithNoTests --ui",
     "test:watch": "vitest --passWithNoTests",
-    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tests/tooling/tsconfig.json",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tests/tooling/tsconfig.json && tsc --noEmit -p compat/react18/tsconfig.json",
     "typecheck:build": "tsc --build",
     "version:bump": "node scripts/version-bump.mjs"
   },

@@ -1,0 +1,14 @@
+{
+  "name": "@filter-enginez/compat-react18",
+  "private": true,
+  "description": "Test-only: React 18 and react-router 7, for running the React adapters' tests and type check against the oldest lines their peer ranges allow. React 18's typings are installed as @types/react-18 so they never take @types/react's place in pnpm's hoist. Never published.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@types/react-18": "npm:@types/react@18.3.31",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router": "7.18.5"
+  }
+}

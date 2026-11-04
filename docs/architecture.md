@@ -6905,11 +6905,14 @@ package's own `tsconfig.json` (which includes tests) with `--noEmit`.
 ### §21.1. Per-package testing
 
 Every package runs off the ROOT `vitest.config.ts`, which partitions packages into a `node` project and a `jsdom`
-project (the two React bindings, `url-state-router` and `worker-bridge`); no package carries its own Vitest config.
-Tests are co-located as SIBLINGS: `packages/<name>/src/**/<Module>.test.ts` sits directly beside `<Module>.ts`. There is
-not a single `__tests__/` directory in the repo, and the only top-level test tree is `tests/tooling/` — a third Vitest
-project for repo-level invariants that belong to no single package. The example apps' own suites, Playwright included,
-live in the examples repository (§21.4).
+project (the two React bindings, `url-state-router` and `worker-bridge`); no package carries its own Vitest config. A
+`react18` project runs the two React bindings' and `url-state-router`'s tests a second time, on React 18 and
+react-router 7 — the oldest lines their peer ranges (`react@^18.3.0 || ^19.0.0`, `react-router@^7.18.2 || ^8.3.0`) allow
+— while `jsdom` covers React 19 and react-router 8 (§21.6). Tests are co-located as SIBLINGS:
+`packages/<name>/src/**/<Module>.test.ts` sits directly beside `<Module>.ts`. There is not a single `__tests__/`
+directory in the repo, and the only top-level test tree is `tests/tooling/` — a third Vitest project for repo-level
+invariants that belong to no single package. The example apps' own suites, Playwright included, live in the examples
+repository (§21.4).
 
 ### §21.2. Coverage policy
 
@@ -6944,6 +6947,30 @@ builds against packed tarballs of these packages.
 `wrapInWorker` and `exposeFilterEngineWorker` over an in-process `MessageChannel`, so the Comlink round trip, transfers
 and lifecycle are exercised end-to-end in CI. Parity tests confirm the engine API behaves the same main-thread and
 worker-bridged.
+
+### §21.6. React 18 and react-router 7
+
+The React packages develop against React 19 and react-router 8, and their peer ranges also take React 18.3 and
+react-router 7.18.2, so both halves are tested. `compat/react18` is a private, never-published workspace package that
+pins React 18.3.1, react-dom 18.3.1, react-router 7.18.5 and the testing library, so pnpm gives it instances whose peers
+are React 18. Two checks run against it:
+
+- **Tests.** The `react18` Vitest project runs the same test files as `jsdom`, with a resolver plugin that answers
+  `react`, `react-dom`, `react-router` and `@testing-library/react` (and their subpaths) as `compat/react18` would. It
+  resolves with Node's `require.resolve` rather than Vite's resolver: the two pick different files from react-router 7's
+  `exports` (Vite the CommonJS `index.js`, Node's `require` the `index.mjs` its `module-sync` condition names), and two
+  files are two router contexts.
+- **Types.** `pnpm typecheck` compiles the three packages' source with `compat/react18/tsconfig.json`, whose `paths`
+  send `react`, its JSX runtimes and `react-router` to React 18's typings and react-router 7's own declarations. React
+  18's typings are installed as `@types/react-18`, so they never take `@types/react`'s place in pnpm's hidden hoist,
+  where every other package's declarations look for React's types.
+
+Two React 19 forms are avoided for this: the provider renders as `<Context.Provider>`, and `url-state-router` reads its
+router contexts with `useContext` rather than `use` (each site carries the `@eslint-react` disable that says why). A
+test that suspends throws its pending promise, the protocol both React lines follow. The workspace's `react@>=19`
+overrides dedupe React 19 without reaching `compat/react18`'s exact 18.3.1, and `peerDependencyRules` accepts that React
+18 for the testing library and react-router 7, whose peer ranges the override would otherwise rewrite. Dependabot
+excludes `compat/**`, so those pins move only by hand.
 
 ---
 

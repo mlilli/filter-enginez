@@ -83,6 +83,12 @@ updates:
     # got two copies, and ESLint refuses to load the plugin twice. With this
     # strategy an in-range release moves only the lockfile.
     versioning-strategy: increase-if-necessary
+    # `compat/react18` pins React 18 and react-router 7 ON PURPOSE: the React adapters' tests and type
+    # check run there against the oldest lines their peer ranges allow. The `react` group below takes
+    # majors, so without this it would move those pins to the newest line and the run would test nothing.
+    # Its patch updates come by hand, with the peer floors they stand for.
+    exclude-paths:
+      - "compat/**"
     ignore:
       # The types track the Node major the repo runs on (`.nvmrc`), not the newest Node.
       # Moving to a new Node major is one deliberate change: `.nvmrc`, `engines` and

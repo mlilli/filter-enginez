@@ -1,0 +1,35 @@
+// The React adapters' source, type-checked against React 18's typings and react-router 7's own types
+// (part of `pnpm typecheck`). `paths` sends every `react`, `react/jsx-runtime` and `react-router`
+// this program resolves to this folder's copies, the source's imports and react-router's own
+// declarations included. React 18's typings sit under the alias `@types/react-18`: installed as
+// `@types/react`, they would take that name's place in pnpm's hidden hoist, where every other
+// package's declarations find React's types. The JSX runtimes need entries of their own, since the
+// automatic runtime's import does not reach a wildcard, and the source imports nothing from react-dom. `extends` replaces `paths` wholesale, so the base config's `rbush` entry is
+// restated, relative to this file. Tests and test support are left out: they are not what a
+// consumer compiles, and they run on React 18 through Vitest's `react18` project.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "paths": {
+      "rbush": ["../../packages/core/src/types/rbush.d.ts"],
+      "react": ["./node_modules/@types/react-18/index.d.ts"],
+      "react/jsx-runtime": ["./node_modules/@types/react-18/jsx-runtime.d.ts"],
+      "react/jsx-dev-runtime": ["./node_modules/@types/react-18/jsx-dev-runtime.d.ts"],
+      "react-router": ["./node_modules/react-router/dist/development/index.d.mts"]
+    }
+  },
+  "include": [
+    "../../packages/react-rxjs/src/**/*",
+    "../../packages/react-signals/src/**/*",
+    "../../packages/url-state-router/src/**/*"
+  ],
+  "exclude": [
+    "../../packages/*/src/**/*.test.ts",
+    "../../packages/*/src/**/*.test.tsx",
+    "../../packages/*/src/test-support/**"
+  ]
+}

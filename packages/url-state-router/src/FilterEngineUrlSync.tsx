@@ -48,7 +48,7 @@
 
 import type { FilterEngine, FilterEngineConfig } from '@filter-enginez/core';
 
-import { use, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import {
 	UNSAFE_DataRouterContext as DataRouterContext,
 	type Location,
@@ -215,7 +215,8 @@ export const FilterEngineUrlSync = <T = unknown>(props: FilterEngineUrlSyncProps
 	const location = useLocation();
 	const navigationType = useNavigationType();
 	const navigate = useNavigate();
-	const routerSource: RouterSource = { dataRouter: use(DataRouterContext), navigator: use(NavigationContext).navigator };
+
+	const routerSource: RouterSource = { dataRouter: useContext(DataRouterContext), navigator: useContext(NavigationContext).navigator };
 
 	/**
 	 * Origin tracking — the parameter values this component navigated to whose locations have not

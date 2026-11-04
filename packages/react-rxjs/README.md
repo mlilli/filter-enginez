@@ -11,7 +11,7 @@ and Cmd/Ctrl-Y for redo) live in the `./keyboard` sub-export.
 pnpm add @filter-enginez/react-rxjs
 ```
 
-Peer dependencies: `react@^19.0.0` — supplied by your app.
+Peer dependencies: `react@^18.3.0 || ^19.0.0` — supplied by your app.
 
 Sub-exports: `@filter-enginez/react-rxjs/keyboard`.
 

@@ -14,7 +14,9 @@ navigates inside React transitions renders them out of order; Back, Forward and 
 pnpm add @filter-enginez/url-state-router
 ```
 
-Peer dependencies: `react@>=19.2.7`, `react-router@^8.3.0` — supplied by your app.
+Peer dependencies: `react@^18.3.0 || ^19.0.0`, `react-router@^7.18.2 || ^8.3.0` — supplied by your app. The component
+imports `react-router` itself, so an app on `react-router-dom` 7 installs `react-router` at the same version (7.x's
+`react-router-dom` re-exports it); with two copies, the router's context would not reach the component.
 
 Sub-exports: `@filter-enginez/url-state-router/serializers`.
 
