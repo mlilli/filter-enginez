@@ -229,20 +229,11 @@ overrides:
 # cannot reach. **An ignore that matches nothing is worse than useless**: it is a standing claim that a
 # risk was weighed, and it keeps looking true long after the risk is gone.
 #
-#   - GHSA-vfj7-8cjw-p6xm (braces, high) — ACCEPTED BECAUSE THERE IS NO FIX. Stack-exhaustion DoS via
-#     deeply-nested brace patterns. Verified 2026-10-04: `braces@3.0.3` is the LATEST published version
-#     and `micromatch@4.0.8` is likewise latest and still declares `braces: ^3.0.3`, so the advisory's
-#     "Patched versions: None" is accurate — there is nothing to upgrade to, and an override cannot
-#     invent a patched release. Every path is dev tooling, through `micromatch` under `markdownlint-cli2`,
-#     none reachable from a shipped library package. The attack needs a hostile glob PATTERN, and every
-#     glob in this repo comes from a committed config file rather than from input. Re-review when braces
-#     publishes a fix or micromatch drops it.
-#
 #   - GHSA-238p-pmpm-9mq7 (katex, low) — ACCEPTED: the vulnerable code is never executed. Reached via
 #     `markdownlint-cli2 > markdownlint > micromark-extension-math > katex`, and **`.markdownlint-cli2.yaml` enables no
 #     math extension**, so KaTeX never renders anything. Patched only in `>=0.18.2` against a resolved `0.16.47` — in
 #     0.x semver a minor bump is a breaking one, so an override would force a breaking change on a transitive dep to fix
-#     a path that does not run. Lowest severity of the three. Re-review when markdownlint drops the math extension or a
+#     a path that does not run. The lower severity of the two. Re-review when markdownlint drops the math extension or a
 #     0.16.x patch appears.
 #
 #   - GHSA-g3hv-75wg-m249 (minimatch, moderate) — ACCEPTED: NO IN-MAJOR FIX, the patched major breaks a caller, and no
@@ -254,6 +245,9 @@ overrides:
 #     config file. Re-review when eslint or typedoc moves to minimatch 11, or a new package starts depending on it.
 #
 #   Not suppressed here, and why:
+#
+#   - GHSA-vfj7-8cjw-p6xm (braces) — GitHub withdrew the advisory on 2026-10-23, so pnpm audit no longer reports it
+#     and an ignore would suppress NOTHING. It was accepted while it stood, because no fixed version existed.
 #
 #   - GHSA-rj75-hqrm-r3gf (postcss-selector-parser) — its only path is `@tailwindcss/typography` in an example app,
 #     and the examples repository (https://github.com/mlilli/filter-enginez-examples) overrides it to a patched 6.x.
@@ -279,6 +273,5 @@ overrides:
 #     would suppress NOTHING.
 auditConfig:
   ignoreGhsas:
-    - GHSA-vfj7-8cjw-p6xm
     - GHSA-238p-pmpm-9mq7
     - GHSA-g3hv-75wg-m249

@@ -15,8 +15,8 @@
  * hidden at all:
  *
  * 🔴 **Every justification is conditional on a dependency tree that moves, and nothing re-evaluates
- * the conditions.** The re-review triggers in `SECURITY.md` are prose ("re-review when `braces`
- * publishes a fix"), and no gate evaluates prose. `pnpm audit` cannot tell you the premise expired —
+ * the conditions.** The re-review triggers in `SECURITY.md` are prose ("re-review when eslint or
+ * typedoc moves to minimatch 11"), and no gate evaluates prose. `pnpm audit` cannot tell you the premise expired —
  * suppression is exactly what stops it from mentioning the package at all. So without this script an
  * unfixable high in dev tooling would stay invisible on the day it became fixable, which is the moment
  * you most want to hear about it.
@@ -27,14 +27,14 @@
  *
  * ## Why a script rather than a vitest guard
  *
- * It needs the network, which a vitest guard must not — so it is run by hand, or by CI on a
- * schedule. The one precondition that needs **no** network (that no math extension is
- * enabled, which is what makes the KaTeX advisory unreachable) is ALSO asserted in
+ * It needs the network, which a vitest guard must not — so it is run by hand, and every Monday by
+ * `.github/workflows/audit.yml`. The one precondition that needs **no** network (that no math
+ * extension is enabled, which is what makes the KaTeX advisory unreachable) is ALSO asserted in
  * `tests/tooling/acceptedAdvisoryParity.test.ts`, because it is the only one a change inside this repo
  * can invalidate, and it is free to check there.
  *
  * 🟢 The division is deliberate: static preconditions are guarded continuously, registry preconditions
- * are re-checked on demand. Neither is left to memory.
+ * are re-checked weekly and on demand. Neither is left to memory.
  */
 
 import { readFileSync } from 'node:fs';
@@ -42,35 +42,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/**
- * Compare two dot-separated numeric versions.
- *
- * @remarks
- * Deliberately NOT a `semver` dependency. Every version this script compares is a plain `x.y.z`
- * release (`3.0.3`), `semver` is not a root dependency, and adding one to a
- * supply-chain script to parse four numbers would be its own small joke. Prereleases would need real
- * semver — if one ever appears here, that is the moment to take the dependency rather than to extend
- * this.
- *
- * @param {string} left - A version string.
- * @param {string} right - A version string.
- * @returns {number} Negative when `left` sorts first, positive when `right` does, zero when equal.
- */
-function compareVersions(left, right) {
-	const l = left.split('.').map(Number);
-	const r = right.split('.').map(Number);
-
-	for (let i = 0; i < Math.max(l.length, r.length); i++) {
-		const diff = (l[i] ?? 0) - (r[i] ?? 0);
-
-		if (diff !== 0) {
-			return diff;
-		}
-	}
-
-	return 0;
-}
 
 /**
  * The subset of a registry manifest this script reads.
@@ -143,27 +114,6 @@ function lockfileDependents(name) {
  */
 const ACCEPTED = [
 	{
-		async check() {
-			const braces = await latestManifest('braces');
-			const micromatch = await latestManifest('micromatch');
-			const fixed = compareVersions(braces.version, '3.0.3') > 0;
-			// Bracket access, not dotted: `noPropertyAccessFromIndexSignature` is on, and a dotted read of
-			// an index-signature key is the error TS4111 that `tsconfig.node.json` exists to catch.
-			const requires = micromatch.dependencies?.['braces'] ?? '(none)';
-
-			return {
-				action: fixed
-					? `braces ${braces.version} is published — drop the override-free acceptance and upgrade`
-					: `micromatch moved to ${requires} — re-check whether a patched braces is now reachable`,
-				detail: `braces latest=${braces.version} (vulnerable <=3.0.3), micromatch@${micromatch.version} requires braces ${requires}`,
-				holds: !fixed && requires.startsWith('^3'),
-			};
-		},
-		ghsa: 'GHSA-vfj7-8cjw-p6xm',
-		premise: 'braces has no published fix, and micromatch still requires the vulnerable major',
-		severity: 'high',
-	},
-	{
 		// Static — no network. Mirrored in acceptedAdvisoryParity.test.ts, which runs continuously.
 		check() {
 			const config = readFileSync(join(ROOT, '.markdownlint-cli2.yaml'), 'utf8');
@@ -183,6 +133,8 @@ const ACCEPTED = [
 		async check() {
 			const eslint = await latestManifest('eslint');
 			const typedoc = await latestManifest('typedoc');
+			// Bracket access, not dotted: `noPropertyAccessFromIndexSignature` is on, and a dotted read of
+			// an index-signature key is the error TS4111 that `tsconfig.node.json` exists to catch.
 			const eslintRange = eslint.dependencies?.['minimatch'] ?? '(none)';
 			const typedocRange = typedoc.dependencies?.['minimatch'] ?? '(none)';
 			// Each of these was read for `optimizationLevel`; none sets it, so each runs at the default 1.

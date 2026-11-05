@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Weekly audit: new advisories against the lockfile, and the premises of the accepted ones.
+#
+# `pnpm audit` fails on any advisory that matches a resolved version and that
+# `auditConfig.ignoreGhsas` in pnpm-workspace.yaml does not accept.
+# `scripts/recheck-accepted-advisories.mjs` fails when the premise of an accepted advisory stops
+# holding: a fix is published, a dependent moves to the patched major, or a new caller appears.
+#
+# Both can change without a commit here, because the advisory database and the registry move on
+# their own. So this runs on a schedule rather than on push, and it is not a required check: an
+# advisory published today should not block an unrelated pull request. A red run is the signal, and
+# GitHub emails it. See SECURITY.md → "Accepted advisories".
+#
+# Neither step needs `node_modules`: `pnpm audit` reads pnpm-lock.yaml, and the recheck script reads
+# the lockfile, `.markdownlint-cli2.yaml` and the registry. So nothing is installed, and there are no
+# commit hooks to switch off.
+#
+# GitHub disables a scheduled workflow after 60 days without activity in a public repository. If the
+# runs stop, re-enable it on the Actions tab.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Audit
+
+on:
+  schedule:
+    # Mondays at 07:23 UTC. Off the hour, when scheduled runs queue least.
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit (advisories · accepted premises)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack (pins pnpm from package.json packageManager)
+        run: corepack enable
+
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Advisories against the lockfile (pnpm audit)
+        run: pnpm audit
+
+      # Runs even when the audit fails, so one red run reports both.
+      - name: Premises of the accepted advisories
+        if: ${{ !cancelled() }}
+        run: node scripts/recheck-accepted-advisories.mjs
