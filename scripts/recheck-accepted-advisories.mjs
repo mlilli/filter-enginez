@@ -103,6 +103,36 @@ async function latestManifest(name) {
 }
 
 /**
+ * The names of the packages whose lockfile snapshot depends on `name`, sorted and deduplicated.
+ *
+ * @remarks
+ * Local, no network: it reads `pnpm-lock.yaml`'s `snapshots` section, where each entry lists the
+ * versions it resolved for its dependencies. A premise that names the callers of a vulnerable package
+ * uses it to notice a new caller, whose options nobody has read yet.
+ *
+ * @param {string} name - The dependency to look for.
+ * @returns {string[]} The dependents' package names.
+ */
+function lockfileDependents(name) {
+	const lockfile = readFileSync(join(ROOT, 'pnpm-lock.yaml'), 'utf8');
+	const snapshots = lockfile.slice(lockfile.indexOf('\nsnapshots:\n'));
+	const dependents = new Set();
+	let current = '';
+
+	for (const line of snapshots.split('\n')) {
+		const entry = /^ {2}'?(?<key>@?[^@\s']+)@/u.exec(line);
+
+		if (entry?.groups !== undefined) {
+			current = entry.groups['key'] ?? '';
+		} else if (line.startsWith(`      ${name}: `) || line.startsWith(`      '${name}': `)) {
+			dependents.add(current);
+		}
+	}
+
+	return [...dependents].sort();
+}
+
+/**
  * The accepted advisories and the PRECONDITION each acceptance rests on.
  *
  * @remarks
@@ -148,6 +178,42 @@ const ACCEPTED = [
 		ghsa: 'GHSA-238p-pmpm-9mq7',
 		premise: 'no math extension is enabled, so KaTeX never renders',
 		severity: 'low',
+	},
+	{
+		async check() {
+			const eslint = await latestManifest('eslint');
+			const typedoc = await latestManifest('typedoc');
+			const eslintRange = eslint.dependencies?.['minimatch'] ?? '(none)';
+			const typedocRange = typedoc.dependencies?.['minimatch'] ?? '(none)';
+			// Each of these was read for `optimizationLevel`; none sets it, so each runs at the default 1.
+			const known = [
+				'@eslint/config-array',
+				'@typescript-eslint/typescript-estree',
+				'eslint',
+				'eslint-plugin-jsx-a11y-x',
+				'typedoc',
+			];
+			const dependents = lockfileDependents('minimatch');
+			const unread = dependents.filter((dependent) => !known.includes(dependent));
+			const pinned = eslintRange.startsWith('^10') && typedocRange.startsWith('^10');
+			let action = `${unread.join(', ')} now depend(s) on minimatch — check whether it sets optimizationLevel >= 2`;
+
+			if (dependents.length === 0) {
+				action = 'nothing in the lockfile depends on minimatch any more — retire this acceptance';
+			} else if (!pinned) {
+				action = 'eslint or typedoc moved to another minimatch major — upgrade to a patched one and retire this acceptance';
+			}
+
+			return {
+				action,
+				detail: `eslint@${eslint.version} requires minimatch ${eslintRange}, typedoc@${typedoc.version} requires ${typedocRange}; `
+					+ `lockfile dependents: ${dependents.join(', ') || 'none'}`,
+				holds: pinned && dependents.length > 0 && unread.length === 0,
+			};
+		},
+		ghsa: 'GHSA-g3hv-75wg-m249',
+		premise: 'eslint and typedoc still require minimatch 10, and no caller in the lockfile sets optimizationLevel >= 2',
+		severity: 'moderate',
 	},
 ];
 

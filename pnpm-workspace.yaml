@@ -112,7 +112,8 @@ minimumReleaseAge: 10080
 # 🟢 Each cap is the NEXT major above the installed version, and each floor is the resolved version,
 # so the bounds are lockfile-neutral BY CONSTRUCTION: the tree satisfies every one. The advisory floors
 # are recorded here rather than in the ranges, because a floor below the installed version only reads
-# as precision — `esbuild >=0.28.1`, `postcss >=8.5.18`, `linkify-it >=5.0.2`, `markdown-it >=14.1.2`.
+# as precision — `esbuild >=0.28.1`, `postcss >=8.5.18`, `linkify-it >=5.0.2`. `markdown-it` and `re2js` are the
+# exceptions: their floors are the advisory fixes themselves (see their notes below).
 # ⚠ `esbuild`'s cap is `<0.29.0`, not `<1.0.0`: in 0.x the MINOR is the breaking boundary, so a `<1`
 # cap on a 0.x package is not a cap at all.
 #
@@ -171,6 +172,20 @@ minimumReleaseAge: 10080
 # ⚠ THIS OVERRIDE IS DOING REAL WORK even though no ignore entry mentions it. Deleting it restores
 # markdownlint-cli2's exact `1.8.0` pin and the advisory comes straight back. Retire the override only when
 # markdownlint-cli2 moves past 1.8.0 upstream.
+#
+# ── `re2js` ────────────────────────────────────────────────────────────────────────────────────────
+#
+# **`re2js`** is overridden for GHSA-gg6h-894w-4m9c (quadratic-time lookbehind matching, patched in 2.8.7), for the
+# same reason as `smol-toml`: `markdownlint@0.42.0` is the LATEST published version and pins `re2js: "2.8.6"` EXACTLY
+# (verified 2026-11-05), so no bump reaches the fix. markdownlint compiles its own rules' patterns with re2js, so the
+# override moves a library markdownlint really runs; it stays inside the 2.x major, and `pnpm lint:markdown` is the
+# check that markdownlint still works on it. Retire the override when markdownlint moves past 2.8.6 upstream.
+#
+# ── `markdown-it` ──────────────────────────────────────────────────────────────────────────────────
+#
+# The floor is 15.0.3, the release that fixes GHSA-gfr2-rv44-r23c and GHSA-vfgh-jcmw-g37q (quadratic-time parsing of
+# multi-line link reference definitions and of inline HTML).
+#
 # pnpm applies an override to peer ranges too: the `react@>=19` selector below rewrites the testing
 # library's and react-router 7's `^18 || ^19` React peers to `^19.2.7`, and would then report
 # `compat/react18`'s deliberate React 18 as an unmet peer on every install. These rules say React 18.3.1
@@ -190,14 +205,15 @@ overrides:
   postcss: '>=8.5.29 <9.0.0'
   cookie: '>=0.7.0 <2.0.0'
   linkify-it: '>=6.1.0 <7.0.0'
-  markdown-it: '>=15.0.2 <16.0.0'
+  markdown-it: '>=15.0.3 <16.0.0'
+  re2js: '>=2.9.1 <3.0.0'
   smol-toml: '>=1.9.0 <2.0.0'
   'brace-expansion@^5.0.0': '>=5.0.8 <6.0.0'
 
 # ─── Accepted / false-positive advisories (kept out of `pnpm audit` noise) ─────────────────────────
 # `auditConfig.ignoreGhsas` (pnpm 11 reads it from this file, not from package.json's `pnpm` field)
 # suppresses the specific GHSA IDs below from `pnpm audit`. Each is individually justified; a NEW
-# advisory on any of these packages still surfaces. Reviewed 2026-10-13. See SECURITY.md → "Accepted
+# advisory on any of these packages still surfaces. Reviewed 2026-11-05. See SECURITY.md → "Accepted
 # advisories".
 #
 # 🟢 **pnpm 12's audit matches advisories against RESOLVED versions, not declared ranges.** An override
@@ -226,15 +242,26 @@ overrides:
 #     `markdownlint-cli2 > markdownlint > micromark-extension-math > katex`, and **`.markdownlint-cli2.yaml` enables no
 #     math extension**, so KaTeX never renders anything. Patched only in `>=0.18.2` against a resolved `0.16.47` — in
 #     0.x semver a minor bump is a breaking one, so an override would force a breaking change on a transitive dep to fix
-#     a path that does not run. Lowest severity of the two. Re-review when markdownlint drops the math extension or a
+#     a path that does not run. Lowest severity of the three. Re-review when markdownlint drops the math extension or a
 #     0.16.x patch appears.
+#
+#   - GHSA-g3hv-75wg-m249 (minimatch, moderate) — ACCEPTED: NO IN-MAJOR FIX, the patched major breaks a caller, and no
+#     caller reaches the vulnerable code. Patched only in `>=11.0.1` against a resolved `10.2.6`; every dependent
+#     (eslint, `@eslint/config-array`, `@typescript-eslint/typescript-estree`, `eslint-plugin-jsx-a11y-x`, typedoc)
+#     declares `^10`, and minimatch 11 removed `Minimatch#matchOne`, which typedoc's file discovery calls, so an
+#     override would break `pnpm docs:api`. The amplification runs only at `optimizationLevel` 2 or higher, and none of
+#     those five sets the option (the default is 1). Every path is dev tooling, and every pattern comes from a committed
+#     config file. Re-review when eslint or typedoc moves to minimatch 11, or a new package starts depending on it.
 #
 #   Not suppressed here, and why:
 #
 #   - GHSA-rj75-hqrm-r3gf (postcss-selector-parser) — its only path is `@tailwindcss/typography` in an example app,
-#     so the examples repository (https://github.com/mlilli/filter-enginez-examples) carries the acceptance for as
-#     long as the path exists there. This lockfile resolves no `postcss-selector-parser`, so an entry here would
-#     suppress NOTHING.
+#     and the examples repository (https://github.com/mlilli/filter-enginez-examples) overrides it to a patched 6.x.
+#     This lockfile resolves no `postcss-selector-parser`, so an entry here would suppress NOTHING.
+#
+#   - GHSA-mrhx-c7xc-m3w5 (zod), GHSA-gg6h-894w-4m9c (re2js), GHSA-gfr2-rv44-r23c + GHSA-vfgh-jcmw-g37q (markdown-it)
+#     — fixed in this tree. zod's dependents (`eslint-plugin-react-hooks`, `@eslint-react/shared`) accept `^4.0.0`, so
+#     the lockfile alone moves it past 4.6.6; re2js and markdown-it are the overrides above.
 #
 #   - GHSA-mh99-v99m-4gvg (brace-expansion) and GHSA-r4xh-jqrq-34v2 (smol-toml) — the `overrides` above remove every
 #     vulnerable copy (brace-expansion resolves to 5.x past `5.0.6`; smol-toml to `1.9.0` only), so pnpm's
@@ -254,3 +281,4 @@ auditConfig:
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
     - GHSA-238p-pmpm-9mq7
+    - GHSA-g3hv-75wg-m249
