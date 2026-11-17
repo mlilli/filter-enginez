@@ -96,6 +96,24 @@ export interface WireDevtoolsState {
 }
 
 /**
+ * One slice of a worker-hosted engine's source data, as `getSourceDataRange` returns it.
+ *
+ * @typeParam T - The item type the engine holds
+ */
+export interface SourceDataRange<T> {
+	/** The records from `offset`, at most `count` of them, in source order. */
+	readonly items: readonly T[];
+	/**
+	 * Identifies the source data the slice was read from. It changes whenever the engine's source
+	 * data is replaced, so slices with equal revisions come from the same source data; a reader
+	 * assembling several slices compares it to detect a replacement in between.
+	 */
+	readonly revision: number;
+	/** The length of the whole source data. */
+	readonly total: number;
+}
+
+/**
  * The Promise-based engine facade exposed by `wrapInWorker(...)`.
  *
  * @typeParam T - The item type the underlying engine operates over
@@ -104,6 +122,28 @@ export interface FilterEngineAsync<T> {
 	// ─── Source data + working set ─────────────────────────────────────────
 
 	getSourceData(): Promise<readonly T[]>;
+
+	/**
+	 * Read `count` records of the source data starting at `offset`, plus its total length and
+	 * revision.
+	 *
+	 * @remarks
+	 * `getSourceData()` ships the whole corpus as one structured clone, which the main thread
+	 * deserializes in one task: hundreds of milliseconds for a large corpus on a mobile CPU. Reading
+	 * it in slices spreads that cost over many short tasks; `createSourceDataPuller` does exactly that
+	 * and is what the reactive adapters use. `getSourceDataRange(0, 0)` reads only `total` and
+	 * `revision`.
+	 *
+	 * Optional, so an engine implemented over another transport (HTTP, say) stays a valid
+	 * `FilterEngineAsync`; readers fall back to `getSourceData()` without it. `wrapInWorker`'s facade
+	 * always provides it.
+	 *
+	 * @param offset - Index of the first record; an integer from 0. Past the end, `items` is empty.
+	 * @param count - Maximum number of records to return; an integer from 0
+	 * @returns The slice, the source data's length, and its revision
+	 * @throws {RangeError} When `offset` or `count` is not a non-negative integer
+	 */
+	getSourceDataRange?(offset: number, count: number): Promise<SourceDataRange<T>>;
 	resetWorkingSet(): Promise<void>;
 	setSourceData(items: readonly T[]): Promise<void>;
 	setWorkingSet(items: readonly T[]): Promise<void>;

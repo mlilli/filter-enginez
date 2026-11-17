@@ -93,7 +93,7 @@
     "name": "worker-bridge",
     "path": "packages/worker-bridge/dist/index.js",
     "ignore": ["@filter-enginez/core", "comlink"],
-    "limit": "5 kB",
+    "limit": "5.5 kB",
     "gzip": true
   }
 ]

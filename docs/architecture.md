@@ -6203,6 +6203,77 @@ without their item arrays (`next` and `previous` are empty — read the data thr
 transferred indices). The reactive adapters (`createSignalsEngineFromAsync`, `createRxJsEngineFromAsync`) rehydrate the
 rules through `ruleRegistry` and keep a synchronous mirror, which is what most consumers subscribe to.
 
+### §15.5. Source-data transfer
+
+The reactive adapters keep a main-thread copy of the source data, because the result indices that cross on every change
+(transferred typed arrays) are joined against it. It is the one large payload that is structured-cloned, and a message
+is deserialized in a single main-thread task: 150,000 wines in one `getSourceData()` message are a task of about 700 ms
+on a 4×-throttled CPU. So the adapters copy it with `createSourceDataPuller`, which reads
+`getSourceDataRange(offset, count)` slices of `sourceDataChunkSize` records (7,500 by default, under 45 ms each in the
+same measurement), one request after the other, so the page handles input between them.
+
+The worker router answers a range from the engine's current source array and pairs it with a `revision` that it bumps
+whenever that array is a different one. Core keeps one array per `setSourceData` and never mutates it, so array identity
+is exactly "the same source data". The puller uses the revision twice: a copy that sees it move between slices starts
+over (three attempts, then one `getSourceData()` message, a consistent snapshot by construction), and a later pull first
+reads an empty range and returns the array it already holds when the revision has not moved. Rules, expressions, groups,
+`reset()` and time travel never replace the source data, so the adapters' `reset` refresh costs one small round trip.
+
+<!-- excerpt: packages/worker-bridge/src/createSourceDataPuller.ts#chunked-pull -->
+<!-- prettier-ignore -->
+```ts
+// One chunked copy. `undefined` when the revision moved under it and the copy must start over.
+const pullChunked = async (): Promise<PulledSourceData<T> | undefined> => {
+  const first = await readRange(0, chunkSize);
+  const items = new Array<T>(first.total);
+  let offset = 0;
+  let chunk: readonly T[] = first.items;
+
+  for (;;) {
+    for (const item of chunk) {
+      items[offset] = item;
+      offset += 1;
+    }
+    if (offset >= first.total) {
+      return { items, revision: first.revision };
+    }
+    const next = await readRange(offset, chunkSize);
+
+    // An empty chunk short of `total` can only come from a source that changed; never loop on it.
+    if (next.revision !== first.revision || next.items.length === 0) {
+      return undefined;
+    }
+    chunk = next.items;
+  }
+};
+
+return async (): Promise<readonly T[]> => {
+  if (asyncEngine.getSourceDataRange === undefined) {
+    return asyncEngine.getSourceData();
+  }
+  if (lastPull !== undefined && (await readRange(0, 0)).revision === lastPull.revision) {
+    return lastPull.items;
+  }
+  for (let attempt = 0; attempt < MAX_CHUNKED_ATTEMPTS; attempt++) {
+    const pulled = await pullChunked();
+
+    if (pulled !== undefined) {
+      lastPull = pulled;
+
+      return pulled.items;
+    }
+  }
+  // The source data kept changing under the copy: one message is a consistent snapshot.
+  lastPull = undefined;
+
+  return asyncEngine.getSourceData();
+};
+```
+
+`getSourceDataRange` is optional on `FilterEngineAsync` (an engine over HTTP or another transport stays valid without
+it) and required on `WorkerHostedEngine`, so the worker router and `wrapInWorker`'s facade always provide it. Without it
+the puller falls back to `getSourceData()`.
+
 ---
 
 ## §16. Storage Adapters
@@ -7180,7 +7251,7 @@ roaring-wasm either way.
 | `angular-rxjs`                             | 3 kB    |
 | `redux-bridge`                             | 4 kB    |
 | `url-state-router`                         | 3 kB    |
-| `worker-bridge`                            | 5 kB    |
+| `worker-bridge`                            | 5.5 kB  |
 
 Each budget sits at the measured size rounded up to the next 0.5 kB, so a regression shows as soon as it crosses the
 nearest half kilobyte. `core` measures about 21.1 kB: the error hierarchy (§2.5), the on-demand load of roaring-wasm and
@@ -7194,6 +7265,7 @@ the rest its dependencies (fuse.js, rbush, `@preact/signals-core` and microdiff)
 `initializeBitmapAcceleration()` added measures about 126 kB when its bundler inlines roaring-wasm, and stays near 32 kB
 when the bundler splits code and fetches roaring-wasm as its own chunk. `reactive-rxjs` measures about 3.0 kB, most of
 it the worker-backed adapter and its `engine.core` shim, which answers every public `FilterEngine` member (§11.2).
+`worker-bridge` measures about 5.0 kB, including the chunked source-data copy (§15.5).
 `tests/tooling/sizeLimitBudgets.test.ts` holds this table to `.size-limit.json`.
 
 `similarity/` and `suggestions/` sit behind their own subpaths (§2.4) so that `core`'s default entry carries neither;

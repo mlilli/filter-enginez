@@ -103,6 +103,12 @@ export function exposeFilterEngineWorker<ItemTypes extends Readonly<Record<strin
 	// until `init({ factoryName })` from the main thread populates them.
 	let engine: FilterEngine<unknown> | undefined;
 
+	// `getSourceDataRange`'s revision: bumped whenever the engine's source data is a different array
+	// from the one the previous range call read. Core keeps one array per `setSourceData` and never
+	// mutates it, so array identity is exactly "the same source data".
+	let rangeSource: undefined | readonly unknown[];
+	let rangeRevision = 0;
+
 	/**
 	 * The router object Comlink exposes. Every consumer-facing method on `FilterEngineAsync`
 	 * gets a thin proxy here that delegates to the constructed engine. Methods called before
@@ -318,6 +324,23 @@ export function exposeFilterEngineWorker<ItemTypes extends Readonly<Record<strin
 		},
 		getSourceData() {
 			return ensure(engine).getSourceData();
+		},
+		// One slice per call, so the main thread deserializes a large corpus over many short tasks
+		// (see `createSourceDataPuller`). The slice is a fresh array; the records are cloned on posting.
+		getSourceDataRange(offset, count) {
+			if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(count) || count < 0) {
+				throw new RangeError(
+					`getSourceDataRange: offset and count must be non-negative integers, got ${offset} and ${count}.`,
+				);
+			}
+			const source = ensure(engine).getSourceData();
+
+			if (source !== rangeSource) {
+				rangeSource = source;
+				rangeRevision += 1;
+			}
+
+			return { items: source.slice(offset, offset + count), revision: rangeRevision, total: source.length };
 		},
 
 		async init(config, callbacks) {

@@ -134,20 +134,54 @@ big question and punishes asking ten small ones, and the API is shaped to make t
 
 ---
 
+## The main thread's copy of the source data
+
+The reactive adapters (`createSignalsEngineFromAsync`, `createRxJsEngineFromAsync`) keep a copy of the source data on
+the main thread, because the result indices that arrive on every filter change are joined against it. That copy is the
+one large payload that is cloned rather than transferred: 150,000 wines are about 140 MB of structured clone.
+
+A message is deserialized in a single main-thread task, so the adapters do not ask for the copy in one message. They
+read it with `getSourceDataRange(offset, count)`, 7,500 records at a time, one request after the other, and assemble the
+slices in order. Each slice is its own task — under 45 ms for 7,500 wines on a CPU throttled 4×, where the one-message
+copy took about 700 ms — and the page handles input and paints between them. `sourceDataChunkSize` sets the slice size;
+lower it when your records are much larger than a wine:
+
+```ts
+import type { Wine } from '@filter-enginez/mock-data/wine';
+import { createSignalsEngineFromAsync } from '@filter-enginez/reactive-signals/worker';
+import type { FilterEngineAsync } from '@filter-enginez/worker-bridge';
+
+declare const asyncEngine: FilterEngineAsync<Wine>;
+
+const engine = await createSignalsEngineFromAsync(asyncEngine, { sourceDataChunkSize: 2_000 });
+```
+
+The copy is made at boot and again only when the worker's source data is replaced (`setSourceData`). Every slice carries
+a `revision` that changes when it is: a copy that sees the revision move between slices starts over, so it never mixes
+two corpora, and a `reset` or a time-travel jump checks the revision with an empty range and keeps the copy the adapter
+already holds.
+
+`createSourceDataPuller(engine, chunkSize?)` is the function the adapters use, exported for code that reads the source
+data itself. `getSourceDataRange` is optional on `FilterEngineAsync`: an engine over another transport may leave it out,
+and the adapters then copy that engine's source data with `getSourceData()`, in one message.
+
+---
+
 ## The async surface is not a 1:1 mirror
 
 `FilterEngineAsync<T>` wraps almost all of `FilterEngine`'s methods in promises. The differences, all of them:
 
-| Difference                        | Detail                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------- |
-| `computeResults()`                | **Absent.** No async equivalent — `getResultIndices()` is the transferable path        |
-| `snapshot()`                      | **Absent** from the async surface                                                      |
-| `destroy()`                       | **Async only** — tears down the proxy and (by default) terminates the worker           |
-| 5 devtools methods                | **Async only**: action log, devtools state, jump-to-index, undo, redo                  |
-| `getFilteredFieldValuesExcept(…)` | Returns `Float64Array`, not `readonly number[]`; `fieldKey` widens to `string`         |
-| `loadConfig(config)`              | **No options parameter** — so no custom `registry`; register inside the worker instead |
-| `exportConfig()`                  | **No options parameter** — so no `label` or `metadata`                                 |
-| `subscribe(listener)`             | Returns `Promise<Unsubscribe>`; the facade wraps the listener in Comlink's `proxy()`   |
+| Difference                        | Detail                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------- |
+| `computeResults()`                | **Absent.** No async equivalent — `getResultIndices()` is the transferable path         |
+| `snapshot()`                      | **Absent** from the async surface                                                       |
+| `destroy()`                       | **Async only** — tears down the proxy and (by default) terminates the worker            |
+| 5 devtools methods                | **Async only**: action log, devtools state, jump-to-index, undo, redo                   |
+| `getSourceDataRange(…)`           | **Async only**, and optional: one slice of the source data, with `total` and `revision` |
+| `getFilteredFieldValuesExcept(…)` | Returns `Float64Array`, not `readonly number[]`; `fieldKey` widens to `string`          |
+| `loadConfig(config)`              | **No options parameter** — so no custom `registry`; register inside the worker instead  |
+| `exportConfig()`                  | **No options parameter** — so no `label` or `metadata`                                  |
+| `subscribe(listener)`             | Returns `Promise<Unsubscribe>`; the facade wraps the listener in Comlink's `proxy()`    |
 
 That `loadConfig` row is the one with teeth: the per-tenant registry isolation described in
 [`json_config.md`](./json_config.md) is a main-thread facility. A worker-hosted engine resolves configs against the

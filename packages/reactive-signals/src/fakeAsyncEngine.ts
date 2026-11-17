@@ -261,3 +261,34 @@ export function makeFakeAsyncEngine<T>(
 		unsubscribe,
 	};
 }
+
+/**
+ * Give the fake the `getSourceDataRange` that `wrapInWorker`'s facade has, served from
+ * `state.sourceData`. The revision moves when `state.sourceData` is a different array, as the
+ * worker router's does.
+ *
+ * @typeParam T - The item type the fake engine holds
+ * @param fake - The fake to extend
+ * @returns The requests it receives, as `offset+count` strings, in order
+ */
+export function addSourceDataRange<T>(fake: FakeAsyncEngine<T>): string[] {
+	const requests: string[] = [];
+	let lastSource: undefined | readonly T[];
+	let revision = 0;
+
+	fake.engine.getSourceDataRange = async (offset: number, count: number) => {
+		requests.push(`${offset}+${count}`);
+		if (fake.state.sourceData !== lastSource) {
+			lastSource = fake.state.sourceData;
+			revision += 1;
+		}
+
+		return Promise.resolve({
+			items: fake.state.sourceData.slice(offset, offset + count),
+			revision,
+			total: fake.state.sourceData.length,
+		});
+	};
+
+	return requests;
+}

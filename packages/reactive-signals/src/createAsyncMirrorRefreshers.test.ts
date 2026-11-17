@@ -12,8 +12,6 @@
  * and continuation.
  */
 
-import type { WireActionLogEntry, WireDevtoolsState } from '@filter-enginez/worker-bridge';
-
 import {
 	and,
 	type CompositeRule,
@@ -24,6 +22,11 @@ import {
 	type RuleId,
 	value,
 } from '@filter-enginez/core';
+import {
+	createSourceDataPuller,
+	type WireActionLogEntry,
+	type WireDevtoolsState,
+} from '@filter-enginez/worker-bridge';
 import { signal } from '@preact/signals-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -79,6 +82,9 @@ function makeHarness<T>(seed: Partial<Parameters<typeof makeFakeAsyncEngine<T>>[
 		getIsDisposed: () => isDisposed,
 		groupsSignal: signal<readonly FilterGroup[]>([]),
 		modeSignal: signal<'expression' | 'flat-map'>('flat-map'),
+		// The real puller: over this fake (no `getSourceDataRange`) it reads `getSourceData()` at call
+		// time, so a test that swaps that method still drives the refreshers.
+		pullSourceData: createSourceDataPuller(fake.engine),
 		resultCountSignal: signal<number>(0),
 		resultsSignal: signal<readonly T[]>([]),
 		sourceDataSignal: signal<readonly T[]>([]),

@@ -406,6 +406,7 @@ export async function wrapInWorker<T>(options: WrapInWorkerOptions): Promise<Fil
 		getRule: async (ruleId) => proxy.getRule(ruleId),
 		getRules: async () => proxy.getRules(),
 		getSourceData: async () => proxy.getSourceData(),
+		getSourceDataRange: async (offset, count) => proxy.getSourceDataRange(offset, count),
 		jumpToDevtoolsIndex: async (index) => proxy.jumpToDevtoolsIndex(index),
 		// ─── JSON config ───────────────────────────────────────────────────
 		loadConfig: async (config) => proxy.loadConfig(config),

@@ -13,6 +13,7 @@
  *   - `exposeFilterEngineWorker(factories)` — worker-side factory registration
  *   - `shouldEngageWorker(length, policy)` — auto-engagement decision function
  *   - `unsupportedOnWorker(...)` — the `MODE_WORKER_UNSUPPORTED` error the async adapters' shims throw
+ *   - `createSourceDataPuller(engine, chunkSize?)` — copies the source data to the main thread in chunks
  *   - `FilterEngineAsync<T>` / `WorkerHostedEngine<T>` / `WorkerEngineFactory<T>` /
  *     `WorkerEngineFactories<ItemTypes>` — the types
  *
@@ -23,9 +24,13 @@
 
 export {
 	type FilterEngineAsync,
+	type SourceDataRange,
 	type WireActionLogEntry,
 	type WireDevtoolsState,
 } from './FilterEngineAsync.js';
+
+// The chunked main-thread copy of the source data, shared by both async reactive adapters.
+export { createSourceDataPuller, DEFAULT_SOURCE_DATA_CHUNK_SIZE } from './createSourceDataPuller.js';
 
 // The main-thread `engine.core.devtools` surface, shared by both async reactive adapters.
 // Lives here because `wireFormat.ts` already owns the outbound half of the same wire contract

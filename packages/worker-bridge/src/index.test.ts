@@ -16,5 +16,7 @@ describe('@filter-enginez/worker-bridge barrel', () => {
 		expect(typeof workerBridge.DEFAULT_AUTO_THRESHOLD).toBe('number');
 		expect(typeof workerBridge.proxy).toBe('function');
 		expect(typeof workerBridge.transfer).toBe('function');
+		expect(typeof workerBridge.createSourceDataPuller).toBe('function');
+		expect(workerBridge.DEFAULT_SOURCE_DATA_CHUNK_SIZE).toBe(7500);
 	});
 });

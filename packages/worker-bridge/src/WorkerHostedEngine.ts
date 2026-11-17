@@ -21,7 +21,7 @@
 
 import type { FilterEngine } from '@filter-enginez/core';
 
-import type { FilterEngineAsync } from './FilterEngineAsync.js';
+import type { FilterEngineAsync, SourceDataRange } from './FilterEngineAsync.js';
 
 /**
  * Configuration sent to the worker on `init` — names the factory to instantiate and any
@@ -44,11 +44,15 @@ export interface WorkerEngineInitConfig {
 }
 
 /**
- * The full interface the worker exposes — `FilterEngineAsync` plus the internal `init` step.
+ * The full interface the worker exposes — `FilterEngineAsync` plus the internal `init` step, with
+ * `getSourceDataRange` always present.
  *
  * @typeParam T - The item type the engine operates over
  */
 export interface WorkerHostedEngine<T> extends FilterEngineAsync<T> {
+	/** Optional on `FilterEngineAsync`; the worker always serves it. */
+	getSourceDataRange(offset: number, count: number): Promise<SourceDataRange<T>>;
+
 	/**
 	 * Construct the engine inside the worker using the named factory. Called exactly once by
 	 * the main-thread wrapper after the worker spawns; subsequent calls throw.

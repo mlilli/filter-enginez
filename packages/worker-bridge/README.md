@@ -5,6 +5,10 @@ facade (`FilterEngineAsync`) whose every method is one round trip, and typed-arr
 values, histograms) are transferred rather than cloned. `shouldEngageWorker(itemCount, policy)` advises whether to
 offload — by default at 50,000 items or more. Browser-only.
 
+The source data is the one large payload that is cloned: the reactive adapters keep a main-thread copy to join result
+indices against. `getSourceDataRange(offset, count)` reads it a slice at a time, and `createSourceDataPuller` assembles
+the slices, one message each, so the main thread never deserializes the whole corpus in a single task.
+
 ## Install
 
 ```bash

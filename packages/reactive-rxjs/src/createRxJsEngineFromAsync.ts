@@ -28,7 +28,7 @@ import type {
 	Unsubscribe,
 } from '@filter-enginez/core';
 
-import { proxy as comlinkProxy, type FilterEngineAsync } from '@filter-enginez/worker-bridge';
+import { proxy as comlinkProxy, createSourceDataPuller, type FilterEngineAsync } from '@filter-enginez/worker-bridge';
 import {
 	BehaviorSubject,
 	distinctUntilChanged,
@@ -61,6 +61,15 @@ export interface CreateRxJsEngineFromAsyncOptions {
 	 * rule on construction (and on every `rule:added` event). Default `false`.
 	 */
 	readonly eagerPerRuleStreams?: boolean;
+
+	/**
+	 * Records per message when the adapter copies the worker's source data to the main thread, at
+	 * boot and whenever the source data is replaced. Default `DEFAULT_SOURCE_DATA_CHUNK_SIZE`
+	 * (7,500). Each chunk is deserialized in its own main-thread task, so a smaller chunk keeps every
+	 * task shorter at the cost of more round trips; lower it for records much larger than a wine.
+	 * Ignored for an engine without `getSourceDataRange`, which is copied in one message.
+	 */
+	readonly sourceDataChunkSize?: number;
 
 	/**
 	 * @deprecated No-op. This adapter keeps no simulate cache — chip exclusion data arrives in
@@ -97,14 +106,17 @@ export async function createRxJsEngineFromAsync<T>(
 	const replayBufferSize = options.replayBufferSize ?? 1;
 
 	// ─── Initial state pull — sourceData ONCE, then derived state ──────────
-	// Same bandwidth contract as `createSignalsEngineFromAsync`: pull the ~130MB source corpus
-	// exactly once at boot, then subsequent rule/expression events ship indices (Uint32Array,
-	// postMessage-transferred zero-copy) and the main thread joins them against the bootstrapped
-	// source mirror to hydrate results. See sibling adapter's intro comment for the full design.
+	// Same bandwidth contract as `createSignalsEngineFromAsync`: copy the source corpus at boot, in
+	// chunks (`createSourceDataPuller`, so no single main-thread task deserializes all of it), then
+	// subsequent rule/expression events ship indices (Uint32Array, postMessage-transferred zero-copy)
+	// and the main thread joins them against the resident source mirror to hydrate results. The
+	// corpus is copied again only when the worker's source data is replaced. See the sibling
+	// adapter's intro comment for the full design.
 	// Boot pulls indices too, never `getResults()`: with no rules active the results are the whole
 	// corpus, so a second full transfer would double the boot's structuredClone for nothing. The
 	// count is `indices.length`, as in every refresh.
-	const initialSourceData = await asyncEngine.getSourceData();
+	const pullSourceData = createSourceDataPuller(asyncEngine, options.sourceDataChunkSize);
+	const initialSourceData = await pullSourceData();
 	const [
 		initialResultIndices,
 		initialActiveRulesSerialized,
@@ -268,7 +280,7 @@ export async function createRxJsEngineFromAsync<T>(
 	const refreshSourceAndDerived = async (): Promise<void> => {
 		// SourceData mutation — must re-pull the corpus.
 		const [s, indices] = await Promise.all([
-			asyncEngine.getSourceData(),
+			pullSourceData(),
 			asyncEngine.getResultIndices(),
 		]);
 
@@ -284,8 +296,10 @@ export async function createRxJsEngineFromAsync<T>(
 	};
 
 	const refreshEverything = async (): Promise<void> => {
+		// A reset or time-travel jump never replaces the source data, so the puller usually answers
+		// with the resident array after one small round trip.
 		const [s, indices, arSerialized, ari, ex, gs] = await Promise.all([
-			asyncEngine.getSourceData(),
+			pullSourceData(),
 			asyncEngine.getResultIndices(),
 			asyncEngine.getRules(),
 			asyncEngine.getActiveRuleIds(),

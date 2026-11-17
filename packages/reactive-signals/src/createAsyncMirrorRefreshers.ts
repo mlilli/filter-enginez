@@ -6,8 +6,9 @@
  * The adapter mirrors the worker engine's state into local `@preact/signals-core` signals so
  * React renders are synchronous. After every engine `ChangeEvent`, the adapter pulls only the
  * slice of state that event touched — a rule mutation refetches rules + results + count, an
- * expression change refetches expression + results + count, etc. `refreshEverything` is the only
- * path that re-pulls the full corpus (used by `reset` and time-travel).
+ * expression change refetches expression + results + count, etc. `refreshEverything` re-pulls
+ * everything (used by `reset` and time-travel); it copies the corpus again only when the worker's
+ * source data has been replaced.
  *
  * **The bandwidth contract.** Every post-boot refresh ships indices (`Uint32Array`,
  * postMessage-transferred zero-copy) rather than re-shipping the full filtered objects, then
@@ -50,6 +51,11 @@ export interface AsyncMirrorRefresherContext<T> {
 	readonly getIsDisposed: () => boolean;
 	readonly groupsSignal: Signal<readonly FilterGroup[]>;
 	readonly modeSignal: Signal<'expression' | 'flat-map'>;
+	/**
+	 * Copies the worker's source data to the main thread (`createSourceDataPuller`): in chunks, and
+	 * not at all when it has not changed since the last copy.
+	 */
+	readonly pullSourceData: () => Promise<readonly T[]>;
 	readonly resultCountSignal: Signal<number>;
 	readonly resultsSignal: Signal<readonly T[]>;
 	readonly sourceDataSignal: Signal<readonly T[]>;
@@ -96,6 +102,7 @@ export function createAsyncMirrorRefreshers<T>(
 		getIsDisposed,
 		groupsSignal,
 		modeSignal,
+		pullSourceData,
 		resultCountSignal,
 		resultsSignal,
 		sourceDataSignal,
@@ -214,7 +221,7 @@ export function createAsyncMirrorRefreshers<T>(
 		// new source is the authoritative truth for what indices reference. After re-pulling
 		// source, re-project results from indices against the fresh workingSet.
 		const [s, indices] = await Promise.all([
-			asyncEngine.getSourceData(),
+			pullSourceData(),
 			asyncEngine.getResultIndices(),
 		]);
 
@@ -259,10 +266,11 @@ export function createAsyncMirrorRefreshers<T>(
 		if (getIsDisposed()) {
 			return;
 		}
-		// Reset path — re-pull sourceData too. Cost is paid by the consumer's explicit reset,
-		// not by per-tick rule events.
+		// Reset path — re-pull sourceData too. A reset or time-travel jump never replaces the source
+		// data, so the puller's revision check usually answers with the resident array in one small
+		// round trip; a replaced source is copied in chunks.
 		const [s, indices, arSerialized, ari, ex, gs] = await Promise.all([
-			asyncEngine.getSourceData(),
+			pullSourceData(),
 			asyncEngine.getResultIndices(),
 			asyncEngine.getRules(),
 			asyncEngine.getActiveRuleIds(),

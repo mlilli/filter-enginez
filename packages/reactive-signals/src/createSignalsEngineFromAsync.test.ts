@@ -29,7 +29,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createSignalsEngineFromAsync } from './createSignalsEngineFromAsync.js';
-import { type FakeAsyncEngine, makeFakeAsyncEngine } from './fakeAsyncEngine.js';
+import { addSourceDataRange, type FakeAsyncEngine, makeFakeAsyncEngine } from './fakeAsyncEngine.js';
 
 interface Item {
 	readonly price: number;
@@ -469,6 +469,65 @@ describe('createSignalsEngineFromAsync', () => {
 			// Smoke: a sync getter on the shim reads through the mirror.
 			expect(engine.core.getResultCount()).toBe(3);
 			expect(engine.core.getSourceData()).toEqual(SOURCE);
+		});
+	});
+
+	describe('chunked source data', () => {
+		async function bootChunked(): Promise<{
+			engine: Awaited<ReturnType<typeof createSignalsEngineFromAsync<Item>>>;
+			fake: FakeAsyncEngine<Item>;
+			requests: string[];
+		}> {
+			const fake = makeFakeAsyncEngine<Item>({
+				devtoolsState: initialDevtoolsState,
+				resultIndices: Uint32Array.of(0, 1, 2),
+				sourceData: SOURCE,
+			});
+			const requests = addSourceDataRange(fake);
+			const engine = await createSignalsEngineFromAsync<Item>(fake.engine, { sourceDataChunkSize: 2 });
+
+			disposers.push(() => {
+				engine.dispose();
+			});
+
+			return { engine, fake, requests };
+		}
+
+		it('copies the source data at boot in chunks of sourceDataChunkSize', async () => {
+			const { engine, requests } = await bootChunked();
+
+			expect(requests).toEqual(['0+2', '2+2']);
+			expect(engine.sourceData.value).toEqual(SOURCE);
+			expect(engine.workingSet.value).toEqual(SOURCE);
+			expect(engine.results.value).toEqual(SOURCE);
+		});
+
+		it('keeps the resident source data on reset and copies a replaced one', async () => {
+			const { engine, fake, requests } = await bootChunked();
+			const booted = engine.sourceData.value;
+
+			requests.length = 0;
+			fake.emit({ type: 'reset' });
+			await flush();
+
+			expect(requests).toEqual(['0+0']);
+			expect(engine.sourceData.value).toBe(booted);
+
+			requests.length = 0;
+			fake.state.sourceData = [{ price: 40 }];
+			fake.state.resultIndices = Uint32Array.of(0);
+			fake.emit({ next: [], previous: [], type: 'sourceData' });
+			await flush();
+
+			expect(requests).toEqual(['0+0', '0+2']);
+			expect(engine.sourceData.value).toEqual([{ price: 40 }]);
+			expect(engine.results.value).toEqual([{ price: 40 }]);
+		});
+
+		it('rejects a sourceDataChunkSize that is not a positive integer', async () => {
+			const fake = makeFakeAsyncEngine<Item>({ sourceData: SOURCE });
+
+			await expect(createSignalsEngineFromAsync<Item>(fake.engine, { sourceDataChunkSize: 0 })).rejects.toThrow(RangeError);
 		});
 	});
 });

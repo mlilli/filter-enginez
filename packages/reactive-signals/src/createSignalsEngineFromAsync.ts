@@ -56,6 +56,7 @@ import type {
 
 import {
 	proxy as comlinkProxy,
+	createSourceDataPuller,
 	type FilterEngineAsync,
 	type WireActionLogEntry,
 	type WireDevtoolsState,
@@ -78,6 +79,15 @@ export interface CreateSignalsEngineFromAsyncOptions {
 	 * shape so consumers can swap factories without changing options.
 	 */
 	readonly eagerPerRuleSignals?: boolean;
+
+	/**
+	 * Records per message when the adapter copies the worker's source data to the main thread, at
+	 * boot and whenever the source data is replaced. Default `DEFAULT_SOURCE_DATA_CHUNK_SIZE`
+	 * (7,500). Each chunk is deserialized in its own main-thread task, so a smaller chunk keeps every
+	 * task shorter at the cost of more round trips; lower it for records much larger than a wine.
+	 * Ignored for an engine without `getSourceDataRange`, which is copied in one message.
+	 */
+	readonly sourceDataChunkSize?: number;
 
 	/**
 	 * Accepted for options-shape compatibility; the value is ignored.
@@ -117,18 +127,24 @@ export async function createSignalsEngineFromAsync<T>(
 	options: CreateSignalsEngineFromAsyncOptions = {},
 ): Promise<SignalsEngine<T>> {
 	// ─── Initial state pull — sourceData ONCE, then derived state ──────────
-	// **The bandwidth contract.** `getSourceData()` is the only call that ships the full
-	// corpus across the postMessage boundary — paid exactly once at boot (~130MB of
-	// structuredClone for a 150k-record dataset). Every subsequent rule/expression
-	// event refresh ships indices (Uint32Array, ≤600KB upper bound, postMessage-transferred
-	// zero-copy) rather than re-shipping the full filtered objects. The main thread joins
-	// indices against the bootstrapped `initialSourceData` to hydrate the results signal —
-	// a sub-millisecond projection over already-resident memory.
+	// **The bandwidth contract.** The source data is the only state that crosses the postMessage
+	// boundary as records — at boot, and again only when the worker's source data is replaced. Every
+	// rule/expression event refresh ships indices (Uint32Array, ≤600KB upper bound,
+	// postMessage-transferred zero-copy) rather than re-shipping the full filtered objects. The main
+	// thread joins indices against the resident source data to hydrate the results signal — a
+	// sub-millisecond projection over already-resident memory.
+	//
+	// **In chunks, not one message.** A 150k-record corpus is ~140MB of structured clone, and one
+	// message deserializes in one main-thread task (700+ ms on a mobile CPU). `createSourceDataPuller`
+	// requests `sourceDataChunkSize` records at a time, one after the other, so each chunk is its
+	// own short task and the page keeps handling input in between. Its revision check also lets a
+	// `reset` refresh skip the copy when the source data has not changed.
 	//
 	// Boot pulls indices too, never `getResults()`: with no rules active the results are the whole
 	// corpus, so a second full transfer would double the boot's structuredClone for nothing. The
 	// count is `indices.length`, as in every refresh.
-	const initialSourceData = await asyncEngine.getSourceData();
+	const pullSourceData = createSourceDataPuller(asyncEngine, options.sourceDataChunkSize);
+	const initialSourceData = await pullSourceData();
 	const [
 		initialResultIndices,
 		initialActiveRuleIds,
@@ -242,6 +258,7 @@ export async function createSignalsEngineFromAsync<T>(
 		getIsDisposed,
 		groupsSignal,
 		modeSignal,
+		pullSourceData,
 		resultCountSignal,
 		resultsSignal,
 		sourceDataSignal,
