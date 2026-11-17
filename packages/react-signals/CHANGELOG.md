@@ -1,5 +1,12 @@
 # @filter-enginez/react-signals
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [10c2188]
+  - @filter-enginez/reactive-signals@0.0.7
+
 ## 0.0.7
 
 ### Patch Changes
