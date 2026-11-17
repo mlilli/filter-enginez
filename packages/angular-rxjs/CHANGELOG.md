@@ -1,5 +1,12 @@
 # @filter-enginez/angular-rxjs
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [10c2188]
+  - @filter-enginez/reactive-rxjs@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes
