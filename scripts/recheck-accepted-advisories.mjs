@@ -15,8 +15,8 @@
  * hidden at all:
  *
  * 🔴 **Every justification is conditional on a dependency tree that moves, and nothing re-evaluates
- * the conditions.** The re-review triggers in `SECURITY.md` are prose ("re-review when eslint or
- * typedoc moves to minimatch 11"), and no gate evaluates prose. `pnpm audit` cannot tell you the premise expired —
+ * the conditions.** A re-review trigger written as prose ("re-review when eslint moves to
+ * minimatch 11") is one no gate evaluates. `pnpm audit` cannot tell you the premise expired —
  * suppression is exactly what stops it from mentioning the package at all. So without this script an
  * unfixable high in dev tooling would stay invisible on the day it became fixable, which is the moment
  * you most want to hear about it.
@@ -42,6 +42,34 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Compare two dot-separated numeric versions.
+ *
+ * @remarks
+ * Deliberately NOT a `semver` dependency. Every version this script compares is a plain `x.y.z`
+ * release (e.g. `10.2.6`), `semver` is not a root dependency, and adding one to a supply-chain script
+ * to parse three numbers would be its own small joke. Prereleases would need real semver — if one ever
+ * appears here, that is the moment to take the dependency rather than to extend this.
+ *
+ * @param {string} left - A version string.
+ * @param {string} right - A version string.
+ * @returns {number} Negative when `left` sorts first, positive when `right` does, zero when equal.
+ */
+function compareVersions(left, right) {
+	const l = left.split('.').map(Number);
+	const r = right.split('.').map(Number);
+
+	for (let i = 0; i < Math.max(l.length, r.length); i++) {
+		const diff = (l[i] ?? 0) - (r[i] ?? 0);
+
+		if (diff !== 0) {
+			return diff;
+		}
+	}
+
+	return 0;
+}
 
 /**
  * The subset of a registry manifest this script reads.
@@ -82,9 +110,10 @@ async function latestManifest(name) {
  * uses it to notice a new caller, whose options nobody has read yet.
  *
  * @param {string} name - The dependency to look for.
+ * @param {(version: string) => boolean} [accepts] - Keeps only dependents whose resolved version passes.
  * @returns {string[]} The dependents' package names.
  */
-function lockfileDependents(name) {
+function lockfileDependents(name, accepts = () => true) {
 	const lockfile = readFileSync(join(ROOT, 'pnpm-lock.yaml'), 'utf8');
 	const snapshots = lockfile.slice(lockfile.indexOf('\nsnapshots:\n'));
 	const dependents = new Set();
@@ -96,11 +125,73 @@ function lockfileDependents(name) {
 		if (entry?.groups !== undefined) {
 			current = entry.groups['key'] ?? '';
 		} else if (line.startsWith(`      ${name}: `) || line.startsWith(`      '${name}': `)) {
-			dependents.add(current);
+			const resolved = line.slice(line.indexOf(': ') + 2).replace(/^'|\(.*$|'$/gu, '');
+
+			if (accepts(resolved)) {
+				dependents.add(current);
+			}
 		}
 	}
 
 	return [...dependents].sort();
+}
+
+/**
+ * When a version was published, in milliseconds since the epoch.
+ *
+ * @remarks
+ * It reads the package's full registry document, whose `time` map the `latest` manifest lacks. Only a
+ * check that has found a fix calls it, so the larger documents are fetched rarely.
+ *
+ * @param {string} name - Package name, scoped names included.
+ * @param {string} version - The published version.
+ * @returns {Promise<number>} The publish time.
+ */
+async function publishedAt(name, version) {
+	const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}`);
+
+	if (!response.ok) {
+		throw new Error(`registry returned ${String(response.status)} for ${name}`);
+	}
+
+	/** @type {{ time?: Record<string, string> }} */
+	const document = await response.json();
+	const published = Date.parse(document.time?.[version] ?? '');
+
+	if (Number.isNaN(published)) {
+		throw new Error(`the registry gives no publish time for ${name}@${version}`);
+	}
+
+	return published;
+}
+
+/**
+ * pnpm's release-age quarantine, read from `pnpm-workspace.yaml`, in milliseconds.
+ *
+ * @remarks
+ * A fix inside the quarantine cannot be installed yet (`pnpm install` refuses it), so it does not
+ * expire an acceptance; it does on the day the quarantine ends.
+ *
+ * @returns {number} `minimumReleaseAge`, converted from minutes.
+ */
+function releaseAgeMs() {
+	const minutes = /^minimumReleaseAge:\s*(?<minutes>\d+)\s*$/mu.exec(readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8'));
+
+	if (minutes?.groups === undefined) {
+		throw new Error('pnpm-workspace.yaml sets no minimumReleaseAge');
+	}
+
+	return Number(minutes.groups['minutes']) * 60_000;
+}
+
+/**
+ * The major version a dependency range starts at: 11 for `^11.0.5` or `~11.0.4`.
+ *
+ * @param {string} range - A range as a manifest declares it.
+ * @returns {number} The first number in it, or `NaN` when there is none.
+ */
+function majorOf(range) {
+	return Number(/\d+/u.exec(range)?.[0] ?? Number.NaN);
 }
 
 /**
@@ -131,40 +222,76 @@ const ACCEPTED = [
 	},
 	{
 		async check() {
-			const eslint = await latestManifest('eslint');
-			const typedoc = await latestManifest('typedoc');
-			// Bracket access, not dotted: `noPropertyAccessFromIndexSignature` is on, and a dotted read of
-			// an index-signature key is the error TS4111 that `tsconfig.node.json` exists to catch.
-			const eslintRange = eslint.dependencies?.['minimatch'] ?? '(none)';
-			const typedocRange = typedoc.dependencies?.['minimatch'] ?? '(none)';
-			// Each of these was read for `optimizationLevel`; none sets it, so each runs at the default 1.
-			const known = [
-				'@eslint/config-array',
-				'@typescript-eslint/typescript-estree',
-				'eslint',
-				'eslint-plugin-jsx-a11y-x',
-				'typedoc',
-			];
-			const dependents = lockfileDependents('minimatch');
-			const unread = dependents.filter((dependent) => !known.includes(dependent));
-			const pinned = eslintRange.startsWith('^10') && typedocRange.startsWith('^10');
-			let action = `${unread.join(', ')} now depend(s) on minimatch — check whether it sets optimizationLevel >= 2`;
+			// Each was read for `optimizationLevel`; none sets it, so each runs at the default 1. Each moves
+			// to minimatch 11 with its own next release, which its parents' ranges admit (typescript-estree
+			// ships in lockstep with typescript-eslint).
+			/** @type {Record<string, { via?: string, from?: number }>} */
+			const moves = {
+				'@eslint/config-array': {},
+				'@typescript-eslint/typescript-estree': {},
+				eslint: {},
+				'eslint-plugin-jsx-a11y-x': {},
+				typedoc: {},
+			};
+			// Patched in 11.0.1. Only the dependents that resolve an older minimatch matter.
+			const vulnerable = lockfileDependents('minimatch', (version) => compareVersions(version, '11.0.1') < 0);
+			const unread = vulnerable.filter((dependent) => !Object.hasOwn(moves, dependent));
+			const quarantine = releaseAgeMs();
+			/** @type {string[]} */
+			const installable = [];
+			/** @type {string[]} */
+			const quarantined = [];
+			/** @type {string[]} */
+			const unfixed = [];
 
-			if (dependents.length === 0) {
-				action = 'nothing in the lockfile depends on minimatch any more — retire this acceptance';
-			} else if (!pinned) {
-				action = 'eslint or typedoc moved to another minimatch major — upgrade to a patched one and retire this acceptance';
+			for (const dependent of vulnerable) {
+				const move = moves[dependent];
+
+				if (move === undefined) {
+					continue;
+				}
+
+				const owner = move.via ?? dependent;
+				const latest = await latestManifest(owner);
+				const range = latest.dependencies?.[move.via === undefined ? 'minimatch' : dependent];
+				const label = move.via === undefined
+					? `${dependent}@${latest.version} (minimatch ${range ?? 'dropped'})`
+					: `${dependent} via ${owner}@${latest.version} (${dependent} ${range ?? 'dropped'})`;
+
+				if (range !== undefined && !(majorOf(range) >= (move.from ?? 11))) {
+					unfixed.push(label);
+					continue;
+				}
+
+				const clears = (await publishedAt(owner, latest.version)) + quarantine;
+
+				if (clears <= Date.now()) {
+					installable.push(label);
+				} else {
+					quarantined.push(`${label}, installable from ${new Date(clears).toISOString().slice(0, 16)}Z`);
+				}
+			}
+
+			let action = `${unread.join(', ')} now resolve(s) minimatch 10 — check whether it sets optimizationLevel >= 2`;
+
+			if (vulnerable.length === 0) {
+				action = 'nothing in the lockfile resolves minimatch < 11.0.1 any more — retire this acceptance';
+			} else if (installable.length > 0) {
+				action = `upgrade ${installable.join(', ')}: past the quarantine and on minimatch 11. `
+					+ 'Retire this acceptance once nothing resolves minimatch < 11.0.1';
 			}
 
 			return {
 				action,
-				detail: `eslint@${eslint.version} requires minimatch ${eslintRange}, typedoc@${typedoc.version} requires ${typedocRange}; `
-					+ `lockfile dependents: ${dependents.join(', ') || 'none'}`,
-				holds: pinned && dependents.length > 0 && unread.length === 0,
+				detail: `minimatch < 11.0.1 resolved for: ${vulnerable.join(', ') || 'none'}; `
+					+ `no fix yet: ${unfixed.join(', ') || 'none'}; `
+					+ `fixed, inside the quarantine: ${quarantined.join(', ') || 'none'}; `
+					+ `fixed and installable: ${installable.join(', ') || 'none'}`,
+				holds: vulnerable.length > 0 && unread.length === 0 && installable.length === 0,
 			};
 		},
 		ghsa: 'GHSA-g3hv-75wg-m249',
-		premise: 'eslint and typedoc still require minimatch 10, and no caller in the lockfile sets optimizationLevel >= 2',
+		premise: 'every package resolving minimatch 10 has no release on 11 past the quarantine, and no caller in the lockfile sets optimizationLevel >= 2',
 		severity: 'moderate',
 	},
 ];
