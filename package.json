@@ -59,7 +59,7 @@
     "@eslint/config-helpers": "^0.7.0",
     "@filter-enginez/eslint": "workspace:^",
     "@size-limit/preset-small-lib": "^14.3.0",
-    "@stylistic/eslint-plugin": "^5.10.0",
+    "@stylistic/eslint-plugin": "^6.0.1",
     "@types/node": "^24.19.2",
     "@types/react": "^19.2.15",
     "@vitest/coverage-v8": "^5.0.5",
