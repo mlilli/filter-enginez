@@ -238,10 +238,10 @@ overrides:
 #
 #   - GHSA-g3hv-75wg-m249 (minimatch, moderate) — ACCEPTED: NO IN-MAJOR FIX, the patched major breaks a caller, and no
 #     caller reaches the vulnerable code. Patched only in `>=11.0.1` against a resolved `10.2.6`. Its dependents are
-#     eslint, `@eslint/config-array`, `@typescript-eslint/typescript-estree`, `eslint-plugin-jsx-a11y-x` and typedoc.
-#     The first three have releases on minimatch 11 that are still inside the release-age quarantine; the last two
-#     have none. minimatch 11 removed `Minimatch#matchOne`, which typedoc's file discovery calls, so an override would
-#     break `pnpm docs:api`. The amplification runs only at `optimizationLevel` 2 or higher, and none of those five
+#     `@typescript-eslint/typescript-estree`, `eslint-plugin-jsx-a11y-x` and typedoc (eslint and
+#     `@eslint/config-array` are on minimatch 11). The first has a release on 11 that is still inside the release-age
+#     quarantine; the other two have none. minimatch 11 removed `Minimatch#matchOne`, which typedoc's file discovery calls, so an override would
+#     break `pnpm docs:api`. The amplification runs only at `optimizationLevel` 2 or higher, and none of those three
 #     sets the option (the default is 1). Every path is dev tooling, and every pattern comes from a committed config
 #     file. `scripts/recheck-accepted-advisories.mjs` fails once any dependent has a release on minimatch 11 past the
 #     quarantine, or a new package starts depending on it.
